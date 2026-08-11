@@ -67,6 +67,8 @@ git push                             # PR이 자동 갱신됨
 ## 폴더 구조
 
 - `docs/` — 기획서·회의록·발표자료
+- `docs/specs/` — 기능별 Spec 문서 (`_example.md` 형식 참고, AI 에이전트에게 구현을 시키기 전 여기에 먼저 작성)
+- `AGENTS.md` / `CLAUDE.md` — AI 에이전트(Claude Code·Codex 등) 공통 작업 지침
 - 소스 코드 구조는 조에서 자율 결정 (README에 실행 방법 필수 기재)
 
 ## 질문
