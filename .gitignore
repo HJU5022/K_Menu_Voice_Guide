@@ -27,3 +27,11 @@ build/
 
 # 로그
 *.log
+
+# data
+data/*
+!data/README.md
+
+# models
+models/*
+!models/README.md
