@@ -1,0 +1,16 @@
+# 버전은 실제 설치 후 `pip freeze`로 고정할 것 (지금은 목록만)
+
+# OCR
+opencv-python
+paddleocr
+paddleslim          # 3안: 모델 양자화
+rapidfuzz           # 음식명 유사도 매칭
+
+# TTS
+peft                # LoRA 파인튜닝
+
+# DB
+supabase
+
+# 배포 UI
+gradio
