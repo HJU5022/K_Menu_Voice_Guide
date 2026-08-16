@@ -12,9 +12,12 @@ from collections import Counter
 
 import cv2
 import numpy as np
+from dotenv import load_dotenv
 
-RAW_ROOT = "/Users/jeong-un/Downloads/222.관광 음식메뉴판 데이터/01-1.정식개방데이터"
-OUT_DIR = "/Users/jeong-un/Downloads/OCR_finetune_data"
+load_dotenv()
+    
+RAW_ROOT = os.environ["OCR_RAW_DATA_ROOT"]
+OUT_DIR = "data/processed"
 
 REGIONS = [
     ("01. 서울", "SL"), ("02. 부산", "BS"), ("03. 대구", "DG"), ("04. 인천", "IC"),
