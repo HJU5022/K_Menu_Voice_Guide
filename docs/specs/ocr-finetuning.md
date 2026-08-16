@@ -22,7 +22,7 @@
 **Happy Path**
 
 1. AI Hub 데이터 → `prepare_dataset.py`로 PaddleOCR 학습 포맷(`rec_gt_train.txt`) 변환
-2. 커스텀 딕셔너리 생성 (등록 음식명 30개 기준)
+2. 커스텀 딕셔너리 생성 (등록 음식명 50개 기준)
 3. `finetune.py`로 학습
 4. `infer.py`로 추론 → 한국어 글자 추출
 5. `match.py`로 등록 음식명과 유사도 매칭
