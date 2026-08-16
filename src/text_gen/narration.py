@@ -7,12 +7,15 @@
 from src.db.supabase_client import client
 
 
-def get_narration(food_id: int) -> str:
+def get_narration(food_id: int) -> dict[str, str]:
+    """Return the narration text and the TTS style for one food."""
     food_result = client.table("foods").select("spice_level").eq("id", food_id).execute()
     if not food_result.data:
         raise ValueError(f"food_id {food_id}에 대한 foods 데이터가 없습니다.")
 
     spice_level = food_result.data[0]["spice_level"]
+    if not isinstance(spice_level, int):
+        raise ValueError(f"food_id {food_id}의 spice_level이 숫자가 아닙니다.")
     style = "CAUTION" if spice_level >= 4 else "GUIDE"
 
     narration_result = (
@@ -25,4 +28,8 @@ def get_narration(food_id: int) -> str:
     if not narration_result.data:
         raise ValueError(f"food_id {food_id}, style {style}에 대한 narration이 없습니다.")
 
-    return narration_result.data[0]["narration_text"]
+    narration_text = narration_result.data[0]["narration_text"].strip()
+    if not narration_text:
+        raise ValueError(f"food_id {food_id}, style {style}의 narration_text가 비어 있습니다.")
+
+    return {"text": narration_text, "style": style}
