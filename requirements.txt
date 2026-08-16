@@ -11,6 +11,7 @@ peft                # LoRA 파인튜닝
 
 # DB
 supabase
+python-dotenv
 
 # 배포 UI
 gradio
