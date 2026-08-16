@@ -20,22 +20,20 @@ def mock_ocr(image_path: str) -> int:
     """진짜 OCR 대신 food_id를 고정값으로 반환한다."""
     return 25  # 매운탕
 
-
 def mock_text_gen(food_name: str) -> dict:
     """진짜 텍스트생성 대신 카테고리별 텍스트 + 내레이션 텍스트를 고정값으로 반환한다."""
     return {
         "detail_text": {
-            "pronunciation": "Tteok-bok-ki",
-            "spicy": "Level 3 out of 5",
-            "description": "Stir-fried rice cakes in spicy sauce",
-            "ingredient": "Rice cake, gochujang, fish cake",
-            "how_to_eat": "Eat hot, straight from the pan",
-            "allergy": "Contains gluten",
+            "PRONUNCIATION": "Tteok-bok-ki",
+            "SPICY": "Level 3 out of 5",
+            "DESCRIPTION": "Stir-fried rice cakes in spicy sauce",
+            "INGREDIENT": "Rice cake, gochujang, fish cake",
+            "HOW_TO_EAT": "Eat hot, straight from the pan",
+            "ALLERGY": "Contains gluten",
         },
         "narration_text": "Careful, this one's spicy! Tteokbokki is a chewy rice cake dish.",
         "style": "CAUTION",
     }
-
 
 def mock_tts(text: str, style: str) -> str:
     """진짜 TTS 대신 가짜 wav 경로를 반환한다."""
