@@ -12,7 +12,7 @@ OCR_MODEL_REPO_ID = ""
 
 # TODO: prepare_dataset.py가 만드는 커스텀 딕셔너리 파일 경로 — 지금은 개인 절대경로에
 # 하드코딩돼 있어서(백로그 3번), 그거 정리되면 이 경로도 맞춰서 고쳐야 한다.
-CUSTOM_DICT_PATH = ""
+CUSTOM_DICT_PATH = "data/processed/custom_dict.txt"
 
 _ocr_engine = None
 
