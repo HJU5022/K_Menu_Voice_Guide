@@ -72,3 +72,27 @@
 - GIVEN: 조명·각도 문제로 OCR이 텍스트를 전혀 추출하지 못함 (EC-04)
 - WHEN: 파이프라인이 빈 OCR 결과를 받음
 - THEN: "조명·거리·각도 안내" 메시지와 함께 재촬영을 요청한다
+
+## 구현 변경 이력 (2026-08-17)
+
+### export 기능 버그로 인한 아키텍처 변경
+
+**계획대로 안 된 부분**: `infer.py`는 원래 PaddleOCR의 "export"(체크포인트 → 배포용 정적 그래프 변환) 기능으로 변환한 파일을, `PaddleOCR()` 고수준 API로 불러오는 방식으로 구현할 계획이었음.
+
+**발견한 문제**: `korean_PP-OCRv5_mobile_rec`(PPLCNetV3 backbone + MultiHead) 모델 구조에서 export 기능이 근본적으로 작동하지 않음. 시도한 조합 전부 동일 증상(설정 파일만 생성되고 실제 가중치 파일은 안 만들어지거나, 타입 에러로 크래시):
+
+| Paddle 버전 | export 방식 | 결과 |
+|---|---|---|
+| 3.2.2 | PaddleX `main.py`, 기본(PIR) | `inference.yml`만 생성, 가중치 없음 |
+| 3.2.2 | PaddleOCR `tools/export_model.py`, 기본(PIR) | 동일 |
+| 3.2.2 | `export_with_pir=False`(legacy 강제) | `TypeError: multiply(): ... Value, but got Variable` 크래시 |
+| 3.3.0 | 기본(PIR) | `inference.yml`만 생성, 가중치 없음 |
+| 3.3.0 | `export_with_pir=False` | 동일 크래시 |
+
+**근거**: 원본 체크포인트(`.pdparams`)는 export 없이 PaddleOCR 저장소 내부 코드(`ppocr.modeling`, `ppocr.postprocess` 등, dynamic graph 방식)로 직접 불러오면 정상 작동함을 확인함 (검증 이미지 `SL_val_000000.jpg`, 정답 "생맥주", 99.99% 신뢰도로 정확히 인식).
+
+**결정**: export 경로를 포기하고, 위 방식(원본 체크포인트 직접 로딩)으로 배포 경로도 그대로 구현. PaddleOCR 저장소의 필요한 내부 코드(`ppocr/` 폴더, Apache-2.0)를 `src/ocr/vendor/ppocr/`로 가져와 사용. Detection은 기존 계획대로 파인튜닝 안 한 PaddleOCR 기본 모델(가벼운 mobile 버전, `PP-OCRv5_mobile_det`) 그대로 사용.
+
+**HF Hub 업로드물 변경**: 원래 계획한 "export된 배포용 파일" 대신, 원본 체크포인트(`best_accuracy.pdparams`) + 커스텀 딕셔너리(`dict.txt`) 두 파일만 그대로 업로드함 (`HJU5022/K_Bite_OCR`).
+
+**AC-01 재검증 필요**: detection 모델을 기본값(무거운 server 버전)에서 명시적으로 가벼운 mobile 버전으로 바꿨기 때문에, 이 변경이 `OCR_test_set_50` 기준 인식률(기존 97.22%)에 영향 없는지 재확인 필요.

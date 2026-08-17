@@ -186,6 +186,7 @@ proj1-c/
 ├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, PERSO_API_KEY 등
 ├── .gitignore
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, gradio, supabase, peft ...
+│                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
 ├── K_Menu_Talk.py                   # 배포 진입점 — Gradio 화면, src/pipeline.py만 호출
 │
 ├── .github/
@@ -214,8 +215,9 @@ proj1-c/
 │   │   ├── preprocess.py             #   OpenCV: 회전·대비·크기 보정
 │   │   ├── prepare_dataset.py        #   AI Hub 라벨 → PaddleOCR 학습 포맷 + 커스텀 딕셔너리 생성
 │   │   ├── finetune.py               #   1안 전체학습 / 2안 LoRA·QLoRA / 3안 mobile+양자화
-│   │   ├── infer.py                  #   추론 — 파인튜닝 모델로 한국어 글자 추출
-│   │   └── match.py                  #   RapidFuzz: 등록 음식명 50개와 유사도 매칭
+│   │   ├── infer.py                  #   추론 — 파인튜닝 모델로 한국어 글자 추출 (export 없이 원본 체크포인트 직접 로드, src/ocr/README.md 참고)
+│   │   ├── match.py                  #   RapidFuzz: 등록 음식명 50개와 유사도 매칭
+│   │   └── vendor/ppocr/             #   PaddleOCR 내부 코드 일부(Apache-2.0) — infer.py가 export 우회하는 데 필요
 │   │
 │   ├── text_gen/                     # 음식 ──▶ 상세 텍스트 6개 + 내레이션 텍스트 1개
 │   │   ├── README.md
