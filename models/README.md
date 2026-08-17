@@ -6,12 +6,12 @@
 
 | 용도 | HF Hub 모델 ID | 베이스 모델 | 비고 |
 |---|---|---|---|
-| OCR (파인튜닝) | | PaddleOCR | |
+| OCR (파인튜닝) | [`HJU5022/K_Bite_OCR`](https://huggingface.co/HJU5022/K_Bite_OCR) | korean_PP-OCRv5_mobile_rec | **export(배포용 정적 변환) 없이 원본 체크포인트(`best_accuracy.pdparams`) + `dict.txt` 그대로 업로드함 — 이유는 `docs/specs/ocr-finetuning.md`의 "구현 변경 이력" 참고** |
 | TTS (파인튜닝) | | | LoRA/PEFT |
 
 ## 불러오는 곳
 
-- OCR: `src/ocr/infer.py`
+- OCR: `src/ocr/infer.py` (원본 체크포인트를 `src/ocr/vendor/ppocr/`로 직접 로드 — 아래 참고)
 - TTS: `src/tts/infer.py`
 
 ## 기록할 때 같이 남길 것

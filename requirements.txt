@@ -5,6 +5,19 @@ opencv-python
 paddleocr
 paddleslim          # 3안: 모델 양자화
 rapidfuzz           # 음식명 유사도 매칭
+lmdb                # ppocr 데이터 로더 의존성
+shapely              # ppocr 내부 폴리곤 계산용
+scikit-image
+pyclipper
+tqdm
+opencv-contrib-python
+cython
+Pillow
+pyyaml
+requests
+albumentations
+albucore
+packaging
 
 # TTS
 peft                # LoRA 파인튜닝

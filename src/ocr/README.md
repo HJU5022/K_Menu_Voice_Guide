@@ -13,6 +13,7 @@
 | `finetune.py` | 학습 (1안 전체학습 / 2안 LoRA·QLoRA / 3안 mobile+양자화) |
 | `infer.py` | 추론 — 파인튜닝 모델로 한국어 글자 추출 |
 | `match.py` | RapidFuzz로 등록 음식명 50개와 유사도 매칭 |
+| `vendor/ppocr/` | PaddleOCR 저장소의 내부 코드 일부(Apache-2.0)를 그대로 가져온 것. `infer.py`가 recognition 모델을 export 없이 직접 불러오는 데 씀 — 이유는 아래 "왜 vendor 코드가 있나" 참고. 직접 수정하지 말 것(원본 유지, 딱 한 줄만 우리가 안 쓰는 기능 때문에 지웠음: `data/imaug/__init__.py`의 `CopyPaste` import) |
 
 ## 흐름
 
@@ -21,6 +22,10 @@
 ```
 
 `prepare_dataset.py`와 `finetune.py`는 **학습할 때만** 씁니다. 배포 경로에는 들어가지 않습니다.
+
+## 왜 vendor 코드가 있나
+
+`infer.py`는 원래 계획대로면 PaddleOCR의 "export"(학습 체크포인트 → 배포용 정적 그래프 변환) 기능으로 만든 파일을 `PaddleOCR()` 고수준 API로 불러오는 단순한 코드였을 것입니다. 근데 이 모델 구조(`korean_PP-OCRv5_mobile_rec`, PPLCNetV3+MultiHead)에서 export 기능 자체가 PaddleOCR/PaddleX 양쪽 다, Paddle 여러 버전에서 재현되는 버그가 있어서(설정 파일만 만들어지고 실제 가중치 파일이 안 만들어짐) 이 경로를 포기하고, 원본 학습 체크포인트를 PaddleOCR 저장소의 내부 코드로 직접 불러오는 방식으로 바꿨습니다. 자세한 경위와 시도했던 것들은 `docs/specs/ocr-finetuning.md`의 "구현 변경 이력" 참고.
 
 ## 관련 문서
 
