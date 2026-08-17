@@ -16,52 +16,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .iaa_augment import IaaAugment
-from .make_border_map import MakeBorderMap
-from .make_shrink_map import MakeShrinkMap
-from .random_crop_data import EastRandomCropData, RandomCrop, RandomCropImgMask
-from .make_pse_gt import MakePseGt
+# NOTE(vendor-trim): 원본은 det/e2e/kie/table/vqa/formula 등 우리가 안 쓰는 알고리즘의
+# 전처리 연산자까지 전부 이 파일에서 불러왔음. src/ocr/infer.py는 DecodeImage, RecResizeImg,
+# KeepKeys만 leaf import로 직접 가져다 쓰므로, 이 파일 자체는 그것들을 안 불러와도 동작함
+# (배경: src/ocr/README.md 참고).
 
-
-from .rec_img_aug import (
-    BaseDataAugmentation,
-    RecAug,
-    RecConAug,
-    RecResizeImg,
-    ClsResizeImg,
-    SRNRecResizeImg,
-    GrayRecResizeImg,
-    SARRecResizeImg,
-    PRENResizeImg,
-    ABINetRecResizeImg,
-    SVTRRecResizeImg,
-    ABINetRecAug,
-    VLRecResizeImg,
-    SPINRecResizeImg,
-    RobustScannerRecResizeImg,
-    RFLRecResizeImg,
-    SVTRRecAug,
-    ParseQRecAug,
-)
-from .ssl_img_aug import SSLRotateResize
-from .randaugment import RandAugment
-from .ColorJitter import ColorJitter
 from .operators import *
-from .label_ops import *
-
-from .east_process import *
-from .sast_process import *
-from .pg_process import *
-from .table_ops import *
-
-from .vqa import *
-
-from .fce_aug import *
-from .fce_targets import FCENetTargets
-from .ct_process import *
-from .drrg_targets import DRRGTargets
-from .latex_ocr_aug import *
-from .unimernet_aug import *
+from .rec_img_aug import RecResizeImg
 
 
 def transform(data, ops=None):

@@ -19,7 +19,8 @@ from paddle.jit import to_static
 from paddle.static import InputSpec
 
 from .base_model import BaseModel
-from .distillation_model import DistillationModel
+# NOTE(vendor-trim): DistillationModel(원본에서 여기 있었음)은 config에 "name" 키가
+# 있을 때만 쓰이는데, 우리 config엔 없어서(BaseModel 경로만 탐) 안 가져와도 됨.
 
 __all__ = ["build_model", "apply_to_static"]
 
