@@ -95,4 +95,5 @@
 
 **HF Hub 업로드물 변경**: 원래 계획한 "export된 배포용 파일" 대신, 원본 체크포인트(`best_accuracy.pdparams`) + 커스텀 딕셔너리(`dict.txt`) 두 파일만 그대로 업로드함 (`HJU5022/K_Bite_OCR`).
 
-**AC-01 재검증 필요**: detection 모델을 기본값(무거운 server 버전)에서 명시적으로 가벼운 mobile 버전으로 바꿨기 때문에, 이 변경이 `OCR_test_set_50` 기준 인식률(기존 97.22%)에 영향 없는지 재확인 필요.
+
+**AC-01 재검증 완료 (2026-08-17)**: detection 모델을 mobile 버전으로 바꾼 뒤 `OCR_test_set_50`(match_count>=1인 36장) 재측정 결과 35/36(97.22%) — 기존 수치와 동일, 영향 없음 확인됨.
