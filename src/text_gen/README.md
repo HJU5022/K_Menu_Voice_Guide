@@ -15,14 +15,14 @@
 
 ```
 음식 ┬→ detail.py    → 상세 텍스트 6개 (화면 표시용)
-     └→ narration.py → 내레이션 텍스트 1개 + style (TTS 입력용)
+     └→ narration.py → 내레이션 텍스트 1개(narration_text + PRONUNCIATION + ALLERGY 이어붙임) + style (TTS 입력용)
 ```
 
 `narration.py`가 정한 `style`은 `src/tts/`로 그대로 넘어가 목소리 톤을 결정합니다.
 
 ## 주의
 
-텍스트를 **생성(generate)하지 않습니다.** 이미 Supabase에 들어있는 문장을 조회해서 조합할 뿐입니다. 새 문장을 만들어내는 로직이 필요해지면 Spec부터 다시 씁니다.
+텍스트를 **생성(generate)하지 않습니다.** 이미 Supabase(`food_narration`, `food_details`)에 들어있는, 사람이 미리 써둔 문장들을 조회해서 이어붙일 뿐입니다. 새 문장을 만들어내는 로직(예: 빈칸 채우기 템플릿, LLM 생성)이 필요해지면 Spec부터 다시 씁니다.
 
 ## 관련 문서
 
