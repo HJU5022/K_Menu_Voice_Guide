@@ -28,7 +28,7 @@ from src.ocr.vendor.ppocr.modeling.architectures import build_model
 from src.ocr.vendor.ppocr.postprocess.rec_postprocess import CTCLabelDecode
 from src.ocr.vendor.ppocr.utils.save_load import load_model
 
-OCR_MODEL_REPO_ID = "HJU5022/K_Bite_OCR"
+OCR_MODEL_REPO_ID = "k-bite-team/K_Bite_OCR"
 
 # 학습 때 쓴 아키텍처 그대로 — docs/specs/ocr-finetuning.md 참고
 _ARCHITECTURE_CONFIG = {
