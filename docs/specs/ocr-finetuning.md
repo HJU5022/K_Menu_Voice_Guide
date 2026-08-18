@@ -47,6 +47,13 @@
 | 2안 | LoRA · QLoRA | PaddleOCR 인식 모델은 LoRA 적용 사례가 드물고, 이미 mobile 모델 자체가 경량이라 이득이 적음 → 미선택 |
 | 3안 | mobile + 양자화(paddleslim) | **선택.** `korean_PP-OCRv5_mobile_rec` 사전학습 가중치로 전체 파인튜닝(현재 `finetune.py` 구현 상태) → HF Spaces ZeroGPU 배포 환경(추론 시간·메모리 제약)에 적합. 양자화는 파인튜닝 완료 후 순서대로 진행: ① 파인튜닝만으로 90% 인식률 확보 확인 → ② paddleslim으로 양자화 → ③ 양자화 후 재측정, 90% 밑으로 떨어지면 양자화 없는 mobile 가중치로 롤백 |
 
+**학습 하이퍼파라미터 결정 경위**
+
+| 시도 | epoch | batch_size | 결과 |
+|---|---|---|---|
+| 1차 | 10 | 4 | 검증 정확도 90% 미만 → 목표(`OCR_test_set_50` 기준 90%) 미달로 제외 |
+| 2차(최종 채택) | 20 | 8 | 1차 대비 epoch·batch_size를 각각 2배로 늘려 재시도, 검증 정확도 90% 초과 달성 → 현재 임시로 사용 중인 모델. 실제 통합 테스트 때 한 번 더 재검증 예정 |
+
 - 학습 데이터 출처: AI Hub "관광 음식메뉴판 데이터" — 학습 39,000장(13개 지역 × 3,000), 검증 6,500장(13개 지역 × 500), 평가용 테스트 50장(`OCR_test_set_50`, 학습/검증과 별도 구성)
 - 커스텀 딕셔너리 파일 경로/형식: `OCR_finetune_data/custom_dict.txt` — 한 줄에 문자 1개, 총 1,118자. 학습·검증 데이터에 등장한 문자 + 등록 음식명 문자의 합집합(`prepare_dataset.py`의 `build_dictionary`)
 - 매칭 임계값 (RapidFuzz score): `match.py`의 `MATCH_THRESHOLD = 70` (`fuzz.partial_ratio` 기준)
