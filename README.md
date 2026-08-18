@@ -146,7 +146,7 @@ AI Hub '관광 음식메뉴판 데이터'(이미지 100,113장, 한식 28.1%)를
 외부 LLM API를 사용하지 않고, 팀이 미리 작성해 Supabase에 저장해 둔 텍스트를 조회하는 방식이다(자유 생성 아님).
 
 - 상세 텍스트(화면용): `food_details` 테이블에서 6개 카테고리 텍스트를 조회
-- 축약 내레이션(음성용): spice_level로 결정된 style(GUIDE/CAUTION)에 해당하는 `food_narration` 텍스트 1개를 조회
+- 축약 내레이션(음성용): spice_level로 결정된 style(GUIDE/CAUTION)에 해당하는 `food_narration` 텍스트에, `food_details`의 PRONUNCIATION·ALLERGY 문장을 이어붙여 만든다 — 셋 다 미리 작성된 문장이라 그대로 조회해서 이어붙일 뿐, 새로 생성하지 않는다 (`docs/specs/text-generation.md` 참고)
 
 ### 음식 DB (Supabase)
 
