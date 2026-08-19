@@ -7,7 +7,7 @@
 | 용도 | HF Hub 모델 ID | 베이스 모델 | 비고 |
 |---|---|---|---|
 | OCR (파인튜닝) | [`k-bite-team/K_Bite_OCR`](https://huggingface.co/k-bite-team/K_Bite_OCR) | korean_PP-OCRv5_mobile_rec | **export(배포용 정적 변환) 없이 원본 체크포인트(`best_accuracy.pdparams`) + `dict.txt` 그대로 업로드함 — 이유는 `docs/specs/ocr-finetuning.md`의 "구현 변경 이력" 참고** |
-| TTS (파인튜닝) | | | LoRA/PEFT |
+| TTS (파인튜닝) | [`k-bite-team/k-menu-qwen3-tts-lora`](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) | Qwen/Qwen3-TTS-12Hz-1.7B-Base | LoRA/PEFT (박민영님 학습, 40 epoch, lr=2e-6). `src/tts/infer.py`에서 실제 로딩 시도 중이나 GPU 없어 미검증 |
 
 ## 불러오는 곳
 

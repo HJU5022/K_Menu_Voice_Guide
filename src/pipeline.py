@@ -14,8 +14,8 @@ from src.text_gen.detail import get_details
 def create_tts_response(food_id: int) -> dict[str, object]:
     """Create the text-and-audio response for one already-matched food.
 
-    A real TTS model is not connected yet, so ``narration_audio_path`` is
-    currently ``None`` and ``tts_status`` is ``"not_ready"``.
+    ``synthesize()`` now calls the real TTS model (see src/tts/infer.py),
+    so ``narration_audio_path`` and ``tts_status`` reflect its actual result.
     """
     narration = get_narration(food_id)
     tts_result = synthesize(narration["text"], narration["style"])

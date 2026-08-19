@@ -21,6 +21,10 @@ TTFB(첫 소리가 나오기까지 걸리는 시간)가 목표를 넘으면 **Pl
 
 전환 기준(TTFB 목표값)은 [`docs/specs/tts-finetuning.md`](../../docs/specs/tts-finetuning.md)에서 정합니다.
 
+## `infer.py` 실제 모델 연결 (2026-08-18)
+
+`infer.py`가 실제 모델(Qwen3-TTS 1.7B Base + LoRA 어댑터 `k-bite-team/k-menu-qwen3-tts-lora`, 박민영님 학습)을 호출하도록 연결됨. 박민영님의 실제 학습 노트북에서 확인한 진짜 추론 코드(`generate_custom_voice` + 스피커 등록 방식)를 그대로 옮겨서 짰음 — 처음엔 다른 방식(`generate_voice_clone`)으로 추측해서 짰다가 노트북 확보 후 전면 재작성함. **다만 로컬에 GPU가 없어서 실제로 실행해서 검증은 못 했다.** 자세한 경위는 `infer.py` 파일 상단 docstring과 `docs/specs/tts-finetuning.md`의 "구현 변경 이력" 참고.
+
 ## 고유명사 발음 교정 (G2P 오버라이드)
 
 기존 edge-tts 학습 데이터로 파인튜닝한 결과, 불고기·냉면 같은 고유명사 발음이 약하게 나오는 문제가 있었습니다. 이를 아래 방식으로 교정합니다.
