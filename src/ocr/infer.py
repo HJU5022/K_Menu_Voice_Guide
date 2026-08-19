@@ -121,15 +121,41 @@ def _transform(data: dict) -> list:
     return data
 
 
-def _recognize_crop(image_bytes: bytes) -> str:
-    """이미 잘라낸 글자 영역 하나에서 글자를 읽는다."""
+def _recognize_crop_with_score(image_bytes: bytes) -> tuple[str, float]:
+    """이미 잘라낸 글자 영역 하나에서 글자와 신뢰도 점수를 읽는다."""
     _load_rec_engine()
     batch = _transform({"image": image_bytes})
     images = paddle.to_tensor(np.expand_dims(batch[0], axis=0))
     preds = _rec_model(images)
     result = _rec_post_process(preds)
-    text, _score = result[0]
+    text, score = result[0]
+    return text, score
+
+
+def _recognize_crop(image_bytes: bytes) -> str:
+    """이미 잘라낸 글자 영역 하나에서 글자를 읽는다."""
+    text, _score = _recognize_crop_with_score(image_bytes)
     return text
+
+
+# 이 값보다 세로/가로 비율이 크면(세로로 긴 조각) 글자가 90도 돌아간 세로 간판/배너로 보고
+# 회전을 시도한다 — 인식 모델(RecResizeImg)이 가로 48x320 모양을 가정하기 때문에, 세로로
+# 긴 조각을 그대로 넣으면 글자가 눌려서 뭉개진다.
+_VERTICAL_ASPECT_RATIO = 1.5
+
+
+def _recognize_vertical_crop(crop: np.ndarray) -> str:
+    """세로로 긴 조각은 90도 양쪽으로 돌려보고, 신뢰도 점수가 더 높은 쪽을 채택한다."""
+    best_text, best_score = "", -1.0
+    for rotation in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+        rotated = cv2.rotate(crop, rotation)
+        ok, buf = cv2.imencode(".jpg", rotated)
+        if not ok:
+            continue
+        text, score = _recognize_crop_with_score(buf.tobytes())
+        if score > best_score:
+            best_text, best_score = text, score
+    return best_text
 
 
 def recognize(image_path: str) -> str:
@@ -147,6 +173,11 @@ def recognize(image_path: str) -> str:
         points = np.array(poly, dtype=np.int32)
         x, y, bw, bh = cv2.boundingRect(points)
         crop = image[y : y + bh, x : x + bw]
+
+        if bh > bw * _VERTICAL_ASPECT_RATIO:
+            texts.append(_recognize_vertical_crop(crop))
+            continue
+
         ok, buf = cv2.imencode(".jpg", crop)
         if not ok:
             continue
