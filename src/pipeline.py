@@ -16,9 +16,16 @@ def create_tts_response(food_id: int) -> dict[str, object]:
 
     ``synthesize()`` now calls the real TTS model (see src/tts/infer.py),
     so ``narration_audio_path`` and ``tts_status`` reflect its actual result.
+
+    TTS 합성이 실패해도(GPU 없음, 모델 로딩 실패 등) 텍스트 응답까지 막지 않는다 —
+    narration_text/style은 그대로 반환하고 tts_status만 "not_ready"로 남긴다
+    (README 9절 "TTS 생성 실패 | 상세 텍스트 우선 출력" 참고).
     """
     narration = get_narration(food_id)
-    tts_result = synthesize(narration["text"], narration["style"])
+    try:
+        tts_result = synthesize(narration["text"], narration["style"])
+    except Exception:
+        tts_result = {"audio_path": None, "status": "not_ready", "latency_ms": 0.0}
 
     return {
         "narration_text": narration["text"],

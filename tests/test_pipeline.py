@@ -34,6 +34,31 @@ class PipelineTests(unittest.TestCase):
                 "tts_latency_ms": 1.25,
             },
         )
+
+    @patch("src.pipeline.synthesize")
+    @patch("src.pipeline.get_narration")
+    def test_create_tts_response_falls_back_when_synthesize_raises(
+        self, mock_get_narration, mock_synthesize
+    ):
+        mock_get_narration.return_value = {
+            "text": "This is Bibimbap.",
+            "style": "GUIDE",
+        }
+        mock_synthesize.side_effect = RuntimeError("GPU를 사용할 수 없습니다.")
+
+        result = pipeline.create_tts_response(1)
+
+        self.assertEqual(
+            result,
+            {
+                "narration_text": "This is Bibimbap.",
+                "style": "GUIDE",
+                "narration_audio_path": None,
+                "tts_status": "not_ready",
+                "tts_latency_ms": 0.0,
+            },
+        )
+
     @patch("src.pipeline.get_details")
     @patch("src.pipeline.create_tts_response")
     @patch("src.pipeline.match_food")
