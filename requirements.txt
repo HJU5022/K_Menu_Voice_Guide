@@ -29,5 +29,11 @@ torch               # qwen-tts·peft 실행에 필요
 supabase
 python-dotenv
 
-# 배포 UI
+# 배포 API — 프론트엔드가 별도 웹앱이라 Gradio 대신 FastAPI로 노출 (docs/specs/api-layer.md)
+fastapi
+uvicorn
+python-multipart      # UploadFile(이미지 업로드) 처리에 필요
+httpx                  # fastapi.testclient.TestClient 의존성
+
+# 배포 UI (미사용 — 팀 프론트엔드가 별도 React 웹앱으로 대체됨, 2026-08-19)
 gradio
