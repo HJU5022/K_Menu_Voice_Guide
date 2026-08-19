@@ -11,7 +11,7 @@ OCR이 글자를 조금 틀리게 읽어도 가장 비슷한 등록 음식으로
 
 from rapidfuzz import fuzz
 
-from src.db.supabase_client import client
+from src.db import cache
 
 MATCH_THRESHOLD = 70
 
@@ -24,23 +24,8 @@ SPICE_TIERS = {
     5: {"label_en": "Extreme", "emoji": "🌶️🌶️🌶️🌶️🌶️", "reference_pepper": "Carolina Reaper", "shu": 2200000},
 }
 
-_modifiers_cache: list[dict] | None = None
-
-
 def _normalize(text: str) -> str:
     return text.replace(" ", "")
-
-
-def _load_modifiers() -> list[dict]:
-    global _modifiers_cache
-    if _modifiers_cache is None:
-        _modifiers_cache = (
-            client.table("menu_modifiers")
-            .select("keyword, category, keyword_en, spice_tier")
-            .execute()
-            .data
-        )
-    return _modifiers_cache
 
 
 def _extract_modifiers(normalized_text: str, matched_name: str) -> tuple[list[dict], list[dict]]:
@@ -54,7 +39,7 @@ def _extract_modifiers(normalized_text: str, matched_name: str) -> tuple[list[di
     spice_hits = []
     ingredient_hits = []
 
-    modifiers = sorted(_load_modifiers(), key=lambda row: len(row["keyword"]), reverse=True)
+    modifiers = sorted(cache.get_modifiers(), key=lambda row: len(row["keyword"]), reverse=True)
 
     for row in modifiers:
         keyword = row["keyword"]
@@ -89,7 +74,7 @@ def _extract_modifiers(normalized_text: str, matched_name: str) -> tuple[list[di
 def match_food_candidates(text: str) -> list[dict]:
     """Return every supported food candidate, ordered by match score."""
     normalized_text = _normalize(text)
-    foods = client.table("foods").select("id, name_kr").execute().data
+    foods = cache.get_foods()
 
     candidates = []
     for food in foods:
