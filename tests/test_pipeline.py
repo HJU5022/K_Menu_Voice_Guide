@@ -77,3 +77,55 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result, {"matched_food": None})
         mock_create_tts_response.assert_not_called()
         mock_get_details.assert_not_called()
+
+    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.recognize")
+    def test_analyze_image_returns_ocr_empty_without_matching(self, mock_recognize, mock_match_candidates):
+        mock_recognize.return_value = "   "
+
+        result = pipeline.analyze_image("dummy.jpg")
+
+        self.assertEqual(
+            result,
+            {"status": "ocr_empty", "ocr_text": "", "candidates": []},
+        )
+        mock_match_candidates.assert_not_called()
+
+    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.recognize")
+    def test_analyze_image_returns_unsupported_food_with_ocr_text(
+        self, mock_recognize, mock_match_candidates
+    ):
+        mock_recognize.return_value = "미지원음식"
+        mock_match_candidates.return_value = []
+
+        result = pipeline.analyze_image("dummy.jpg")
+
+        self.assertEqual(
+            result,
+            {"status": "unsupported_food", "ocr_text": "미지원음식", "candidates": []},
+        )
+        mock_match_candidates.assert_called_once_with("미지원음식")
+
+    @patch("src.pipeline.synthesize")
+    @patch("src.pipeline.get_details")
+    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.recognize")
+    def test_analyze_image_returns_candidates_without_creating_response(
+        self, mock_recognize, mock_match_candidates, mock_get_details, mock_synthesize
+    ):
+        candidates = [
+            {"food_id": 2, "name_kr": "닭갈비", "score": 100, "modifiers": {}},
+            {"food_id": 1, "name_kr": "갈비", "score": 95, "modifiers": {}},
+        ]
+        mock_recognize.return_value = "닭갈비 갈비"
+        mock_match_candidates.return_value = candidates
+
+        result = pipeline.analyze_image("dummy.jpg")
+
+        self.assertEqual(
+            result,
+            {"status": "candidates_found", "ocr_text": "닭갈비 갈비", "candidates": candidates},
+        )
+        mock_get_details.assert_not_called()
+        mock_synthesize.assert_not_called()

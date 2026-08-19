@@ -86,33 +86,37 @@ def _extract_modifiers(normalized_text: str, matched_name: str) -> tuple[list[di
     return spice_hits, ingredient_hits
 
 
-def match_food(text: str) -> dict | None:
+def match_food_candidates(text: str) -> list[dict]:
+    """Return every supported food candidate, ordered by match score."""
     normalized_text = _normalize(text)
     foods = client.table("foods").select("id, name_kr").execute().data
 
-    best_food = None
-    best_score = 0
-    best_name_len = 0
+    candidates = []
     for food in foods:
         name = _normalize(food["name_kr"])
         if name not in normalized_text and normalized_text not in name:
             continue
         score = fuzz.partial_ratio(normalized_text, name)
-        # 점수가 같으면 더 길고 구체적인 이름을 우선한다 (예: "갈비"보다 "닭갈비")
-        if score > best_score or (score == best_score and len(name) > best_name_len):
-            best_score = score
-            best_food = food
-            best_name_len = len(name)
+        if score < MATCH_THRESHOLD:
+            continue
 
-    if best_food is None or best_score < MATCH_THRESHOLD:
-        return None
+        spice_hits, ingredient_hits = _extract_modifiers(normalized_text, name)
+        candidates.append(
+            {
+                "food_id": food["id"],
+                "name_kr": food["name_kr"],
+                "score": score,
+                "modifiers": {"spice": spice_hits, "ingredient": ingredient_hits},
+            }
+        )
 
-    matched_name = _normalize(best_food["name_kr"])
-    spice_hits, ingredient_hits = _extract_modifiers(normalized_text, matched_name)
+    return sorted(
+        candidates,
+        key=lambda candidate: (-candidate["score"], -len(candidate["name_kr"])),
+    )
 
-    return {
-        "food_id": best_food["id"],
-        "name_kr": best_food["name_kr"],
-        "score": best_score,
-        "modifiers": {"spice": spice_hits, "ingredient": ingredient_hits},
-    }
+
+def match_food(text: str) -> dict | None:
+    """Return the highest-ranked supported food candidate for existing callers."""
+    candidates = match_food_candidates(text)
+    return candidates[0] if candidates else None
