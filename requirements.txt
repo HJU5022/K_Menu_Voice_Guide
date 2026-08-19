@@ -21,6 +21,9 @@ packaging
 
 # TTS
 peft                # LoRA 파인튜닝
+qwen-tts            # Qwen3-TTS 베이스 모델 로딩·추론
+soundfile           # WAV 파일 쓰기
+torch               # qwen-tts·peft 실행에 필요
 
 # DB
 supabase
