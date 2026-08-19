@@ -27,6 +27,7 @@ from src.ocr.vendor.ppocr.data.imaug.rec_img_aug import RecResizeImg
 from src.ocr.vendor.ppocr.modeling.architectures import build_model
 from src.ocr.vendor.ppocr.postprocess.rec_postprocess import CTCLabelDecode
 from src.ocr.vendor.ppocr.utils.save_load import load_model
+from src.ocr.preprocess import preprocess_image
 
 OCR_MODEL_REPO_ID = "k-bite-team/K_Bite_OCR"
 
@@ -133,13 +134,8 @@ def _recognize_crop(image_bytes: bytes) -> str:
 
 def recognize(image_path: str) -> str:
     """이미지에서 한국어 글자를 추출해 반환한다."""
+    image = preprocess_image(image_path)
     det_engine = _load_det_engine()
-
-    image = cv2.imread(image_path)
-    h, w = image.shape[:2]
-    scale = min(1.0, 1280 / max(h, w))
-    if scale < 1.0:
-        image = cv2.resize(image, (int(w * scale), int(h * scale)))
 
     det_results = det_engine.predict(image)
     if not det_results:
