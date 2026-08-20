@@ -50,7 +50,10 @@ def _resize(image: np.ndarray, target_long_side: int = TARGET_LONG_SIDE) -> np.n
 
 
 def preprocess_image(image_path: str) -> np.ndarray:
-    image = cv2.imread(image_path)
+    # cv2.imread는 Windows에서 한글 등 비ASCII 경로를 못 읽는다(항상 None 반환).
+    # 파일을 바이트로 직접 읽어 메모리에서 디코딩하면 경로 인코딩과 무관해진다.
+    data = np.fromfile(image_path, dtype=np.uint8)
+    image = cv2.imdecode(data, cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError(f"이미지를 불러올 수 없습니다: {image_path}")
 

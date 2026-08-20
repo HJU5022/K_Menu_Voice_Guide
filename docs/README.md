@@ -4,10 +4,24 @@
 
 | 파일 | 내용 |
 |---|---|
-| `기획서.md` | 문제 정의·해결 방식·범위·성공 기준·일정 |
-| `pipeline_diagram.png` | 전체 파이프라인 흐름도 |
+| `기획서.md` | 문제 정의·해결 방식·범위·성공 기준·일정 (현재 뼈대 상태 — 백엔드 완료 후 프론트 내용과 합쳐 정리 예정) |
 | `specs/` | 기능별 Spec 문서 |
-| `specs/ux-ui-integration.md` | React/Vite 메뉴 분석 화면, FastAPI API 계약(`/api/analyze`, `/api/foods/{food_id}`), 오류·TTS 상태 기준 |
+
+> 전체 파이프라인 흐름도는 루트 [`README.md`](../README.md)의 "시스템 아키텍처" 절에 Mermaid 다이어그램으로 들어있습니다(별도 이미지 파일 없음 — 텍스트라 수정이 쉽고 GitHub에서 바로 그림으로 보입니다).
+
+## Spec 목록
+
+| 파일 | 내용 |
+|---|---|
+| `specs/_example.md` | Spec 작성 형식 예시 |
+| `specs/api-layer.md` | FastAPI 엔드포인트 계약 (`/api/analyze`, `/api/foods/{food_id}`) |
+| `specs/db-cache.md` | 서버 시작 시 전체 데이터 메모리 캐싱 |
+| `specs/ocr-candidate-results.md` | OCR 결과를 음식 후보 목록으로 돌려주는 계약 |
+| `specs/ocr-finetuning.md` | 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준 |
+| `specs/ocr-preprocess-runtime.md` | 추론 경로에 OpenCV 전처리 연결 |
+| `specs/text-generation.md` | 카테고리 6개 조합 + spice_level→style 결정 로직 |
+| `specs/tts-finetuning.md` | TTS 파인튜닝 방식·목표 (실제 실험 결과는 [`eval/TTS_MODULE.md`](../eval/TTS_MODULE.md)) |
+| `specs/ux-ui-integration.md` | React/Vite 메뉴 분석 화면, 오류·TTS 상태 기준 |
 
 ## Spec 작성 규칙
 

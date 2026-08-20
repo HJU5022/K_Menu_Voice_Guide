@@ -9,7 +9,7 @@ LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora
     학습 스크립트(dataset.py/sft_12hz_lora.py)를 고쳐서 instruct 임베딩을 시퀀스 앞에
     이어붙이는 방식으로 실제 학습에도 반영함 — 학습/추론 조건이 일치하도록 함.
   - 하이퍼파라미터 자체(LR=5e-6, rank=16)는 기존 5개 조합 비교에서 채택된 값 그대로 재사용.
-    상세 실험 기록: tts/TTS_MODULE.md 3절, tts/training_log.csv (구 체크포인트 기준)
+    상세 실험 기록: eval/TTS_MODULE.md 3절, eval/training_log.csv (구 체크포인트 기준)
 
 이 파일의 로직은 박민영님이 실제 학습에 쓴 노트북에서 확인한, 커뮤니티 패치
 (instavar/qwen3-tts-lora-finetuning, patches/0001-qwen3-tts-lora.patch가 공식
@@ -26,7 +26,7 @@ Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 �
 - LoRA scale은 peft.tuners.lora.LoraLayer의 set_scale()으로 적용한다 (1.0이면 생략).
 
 발음 개선(리스펠링)과 톤 구분(instruct)은 2026-08-19 최종 업데이트로 synthesize()에
-추가됨 — 상세 근거는 tts/TTS_MODULE.md 4·5절 참고.
+추가됨 — 상세 근거는 eval/TTS_MODULE.md 4·5절 참고.
 
 2026-08-20 정정: 위 TTS_MODULE.md 5절은 "instruct는 LoRA 학습 조건이 아니라 베이스 모델
 추론 시점 기능"이라고 설명하는데, 이건 **epoch-39(구) 체크포인트에만 해당**하던 얘기였음.
@@ -61,7 +61,7 @@ LORA_SCALE = 0.3  # 0.2/0.3/0.35/0.5 청취 비교 후 확정. 1.0은 거의 항
 SEED = 42  # 청크 간 음색 흔들림 방지용 고정 시드 (원본 스크립트 기본값)
 MAX_NEW_TOKENS = 4096
 
-# --- 발음 개선: 음식명 리스펠링 (tts/TTS_MODULE.md 4절) ---------------------
+# --- 발음 개선: 음식명 리스펠링 (eval/TTS_MODULE.md 4절) ---------------------
 # 청취 테스트로 확정. 화면 표시용 narration_text는 원본 로마자 표기를 그대로 쓰고,
 # TTS 입력 시에만 이 표로 치환한다. 8차 최종 재학습부터는 이 치환된 텍스트를
 # 학습 데이터 라벨에도 반영해, 모델이 리스펠링 표기 자체를 학습하도록 했다.
@@ -91,7 +91,7 @@ RESPELL_MAP = {
 # 긴 이름부터 먼저 치환해야 부분 문자열 충돌(예: Tteokguk vs Tteokgalbi) 방지
 _SORTED_RESPELL_NAMES = sorted(RESPELL_MAP, key=len, reverse=True)
 
-# --- 톤 구분: instruct (tts/TTS_MODULE.md 5절) ------------------------------
+# --- 톤 구분: instruct (eval/TTS_MODULE.md 5절) ------------------------------
 # 강도 단계별(약함~극단) + 언어(영어 vs 중국어) 비교 청취로 확정.
 # 재학습 없이 추론 시점에서 즉시 적용되는 방식 — CAUTION 학습 데이터 부족(8%) 문제를
 # 우회하는 해법. 톤 구분용이며, 발화 초반 무음 문제와는 무관함(아래 _trim_silence 참고).

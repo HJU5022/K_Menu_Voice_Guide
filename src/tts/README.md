@@ -10,6 +10,7 @@
 |---|---|---|
 | `finetune.py` | LoRA/PEFT 파인튜닝 | ✗ 학습 시에만 |
 | `infer.py` | 추론 — **기본 경로(라이브 생성)** | ✓ |
+| `worker.py` | `infer.py`를 별도 프로세스에서 실행하는 진입점 | ✓ |
 | `pregenerate.py` | Plan B — 조합 30~60개 사전 생성·캐싱 | △ 조건부 |
 | `perso_client.py` | Perso.ai API 호출 — 비교 평가용 | ✗ 평가 시에만 |
 
@@ -23,7 +24,15 @@ TTFB(첫 소리가 나오기까지 걸리는 시간)가 목표를 넘으면 **Pl
 
 ## `infer.py` 실제 모델 연결 (2026-08-18)
 
-`infer.py`가 실제 모델(Qwen3-TTS 1.7B Base + LoRA 어댑터 `k-bite-team/k-menu-qwen3-tts-lora`, 박민영님 학습)을 호출하도록 연결됨. 박민영님의 실제 학습 노트북에서 확인한 진짜 추론 코드(`generate_custom_voice` + 스피커 등록 방식)를 그대로 옮겨서 짰음 — 처음엔 다른 방식(`generate_voice_clone`)으로 추측해서 짰다가 노트북 확보 후 전면 재작성함. **다만 로컬에 GPU가 없어서 실제로 실행해서 검증은 못 했다.** 자세한 경위는 `infer.py` 파일 상단 docstring과 `docs/specs/tts-finetuning.md`의 "구현 변경 이력" 참고.
+`infer.py`가 실제 모델(Qwen3-TTS 1.7B Base + LoRA 어댑터 `k-bite-team/k-menu-qwen3-tts-lora`)을 호출하도록 연결됨. TTS 파트의 실제 학습 노트북에서 확인한 추론 코드(`generate_custom_voice` + 스피커 등록 방식)를 그대로 옮겨서 짰음 — 처음엔 다른 방식(`generate_voice_clone`)으로 추측해서 짰다가 노트북 확보 후 전면 재작성함. 자세한 경위는 `infer.py` 파일 상단 docstring과 `docs/specs/tts-finetuning.md`의 "구현 변경 이력" 참고.
+
+**GPU 검증 완료 (2026-08-20)**: 원격 데스크톱(RTX 3080 Ti)에서 실제로 실행해 WAV 생성까지 확인됨. 다만 요청마다 별도 프로세스를 새로 띄워 모델을 처음부터 로딩하기 때문에 **요청당 90~160초**가 걸린다 — 상주 프로세스로 바꾸는 것은 후속 작업으로 남아있다(GPU 성능 문제가 아니므로 장비 업그레이드로는 해결되지 않음).
+
+## 왜 별도 프로세스(`worker.py`)로 실행하나
+
+이 서비스는 같은 프로세스에서 PaddleOCR(paddle)도 로드한다. `paddleocr → paddlex → modelscope` 임포트 체인이 내부적으로 torch를 끌어오는데, paddle이 먼저 네이티브 DLL을 잡아둔 상태에서 torch를 로드하면 Windows에서 `shm.dll` 로딩이 깨진다(`OSError: [WinError 127]`).
+
+그래서 `src/pipeline.py`는 TTS 추론을 `python -m src.tts.worker`라는 **완전히 별도인 자식 프로세스**에서 실행한다. 그 프로세스는 paddle을 전혀 임포트하지 않으므로 torch가 깨끗하게 로드된다. 텍스트·스타일을 stdin으로 넘기고 결과 JSON 한 줄을 stdout으로 받는 구조다.
 
 ## 고유명사 발음 교정 (G2P 오버라이드)
 
@@ -45,4 +54,5 @@ TTFB(첫 소리가 나오기까지 걸리는 시간)가 목표를 넘으면 **Pl
 ## 관련 문서
 
 - Spec: [`docs/specs/tts-finetuning.md`](../../docs/specs/tts-finetuning.md)
+- **실험 기록 상세**: [`eval/TTS_MODULE.md`](../../eval/TTS_MODULE.md) — 하이퍼파라미터 8차 실험, 리스펠링 21개 목록, instruct 문구, UTMOS 평가
 - 평가 결과: [`eval/model_comparison.md`](../../eval/model_comparison.md)
