@@ -1,3 +1,15 @@
+"""파이프라인 테스트 — src/pipeline.py가 블록들(OCR·텍스트·TTS)을 올바른 순서로 잇는지 확인한다.
+
+여기서 검사하는 건 "각 블록이 잘 동작하나"가 아니라 **연결 방식**이다.
+- 어떤 함수를 어떤 인자로 부르는가 (예: 매칭된 food_id를 TTS에 그대로 넘기는가)
+- 앞 단계가 실패하면 뒷 단계를 건너뛰는가 (예: 음식 못 찾으면 TTS를 아예 안 부름)
+- 실패해도 서비스가 죽지 않고 fallback 값을 주는가
+
+그래서 OCR·TTS 실제 함수는 전부 patch로 가짜로 바꾼다. GPU도 DB도 필요 없다.
+
+실행: python -m pytest tests/test_pipeline.py
+"""
+
 import json
 import subprocess
 import unittest
@@ -8,11 +20,14 @@ from src import pipeline
 
 
 class PipelineTests(unittest.TestCase):
+    """create_tts_response() — 음식 하나에 대해 내레이션 텍스트 + 음성을 만들어 합치는 함수."""
+
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_narration")
     def test_create_tts_response_combines_text_and_tts_results(
         self, mock_get_narration, mock_synthesize
     ):
+        """텍스트 생성 결과와 TTS 결과가 하나의 응답으로 합쳐지는지 (필드명 포함)."""
         mock_get_narration.return_value = {
             "text": "This is Bibimbap.",
             "style": "GUIDE",
@@ -26,7 +41,9 @@ class PipelineTests(unittest.TestCase):
         result = pipeline.create_tts_response(1)
 
         mock_get_narration.assert_called_once_with(1)
+        # 텍스트 생성이 정한 style이 TTS로 그대로 넘어가야 톤(GUIDE/CAUTION)이 맞는다
         mock_synthesize.assert_called_once_with("This is Bibimbap.", "GUIDE")
+        # 내부 이름(audio_path/status/latency_ms)이 API용 이름(narration_audio_path 등)으로 바뀐다
         self.assertEqual(
             result,
             {
@@ -43,6 +60,7 @@ class PipelineTests(unittest.TestCase):
     def test_create_tts_response_falls_back_when_subprocess_reports_not_ready(
         self, mock_get_narration, mock_synthesize
     ):
+        """TTS가 실패해도(not_ready) 텍스트는 살아서 나가야 한다 — 음성 없이도 화면은 보여야 하므로."""
         mock_get_narration.return_value = {
             "text": "This is Bibimbap.",
             "style": "GUIDE",
@@ -70,10 +88,14 @@ class PipelineTests(unittest.TestCase):
 class SynthesizeViaSubprocessTests(unittest.TestCase):
     """_synthesize_via_subprocess()는 자식 프로세스(src/tts/worker.py) 경계를 감싼다 —
     paddle(OCR)과 torch(TTS)를 같은 프로세스에 못 올리는 문제(WinError 127) 때문에
-    도입됨. 여기서는 subprocess.run() 자체를 mock해서 그 경계만 검증한다."""
+    도입됨. 여기서는 subprocess.run() 자체를 mock해서 그 경계만 검증한다.
+
+    자식 프로세스는 결과를 stdout에 JSON 한 줄로 찍는다. 그래서 이 함수의 일은
+    "그 한 줄을 안전하게 파싱하고, 뭔가 잘못되면 서비스를 죽이지 않는 것"이다."""
 
     @patch("src.pipeline.subprocess.run")
     def test_returns_parsed_result_on_success(self, mock_run):
+        """정상일 때 — stdout의 JSON을 그대로 파싱해서 돌려준다."""
         mock_run.return_value = SimpleNamespace(
             stdout=json.dumps({"audio_path": "answer.wav", "status": "ok", "latency_ms": 42.0})
         )
@@ -84,12 +106,14 @@ class SynthesizeViaSubprocessTests(unittest.TestCase):
 
     @patch("src.pipeline.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="worker", timeout=300))
     def test_falls_back_when_subprocess_times_out(self, mock_run):
+        """자식 프로세스가 시간 안에 안 끝나도 예외를 터뜨리지 말고 not_ready로 넘어가야 한다."""
         result = pipeline._synthesize_via_subprocess("text", "GUIDE")
 
         self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
 
     @patch("src.pipeline.subprocess.run")
     def test_falls_back_on_malformed_output(self, mock_run):
+        """stdout이 JSON이 아니어도 마찬가지 — TTS 라이브러리가 경고문을 찍는 경우가 실제로 있다."""
         mock_run.return_value = SimpleNamespace(stdout="not json")
 
         result = pipeline._synthesize_via_subprocess("text", "GUIDE")
@@ -98,6 +122,12 @@ class SynthesizeViaSubprocessTests(unittest.TestCase):
 
 
 class PipelineRunAndAnalyzeTests(unittest.TestCase):
+    """run()과 analyze_image() — 이미지 한 장을 받아 처리하는 두 진입 함수.
+
+    run(): 이미지 → 음식 1개 확정까지 한 번에 (초기 버전)
+    analyze_image(): 이미지 → 후보 목록까지만 (사용자가 고르는 흐름, 지금 API가 쓰는 쪽)
+    """
+
     @patch("src.pipeline.get_details")
     @patch("src.pipeline.create_tts_response")
     @patch("src.pipeline.match_food")
@@ -105,6 +135,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
     def test_run_returns_full_response_when_matched(
         self, mock_recognize, mock_match_food, mock_create_tts_response, mock_get_details
     ):
+        """음식을 찾았을 때 — OCR 결과가 매칭으로, 매칭된 id가 상세·TTS로 이어지는 사슬 검사."""
         mock_recognize.return_value = "비빔밥 8000원"
         mock_match_food.return_value = {"food_id": 1, "name_kr": "비빔밥", "score": 100.0}
         mock_create_tts_response.return_value = {
@@ -118,6 +149,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
 
         result = pipeline.run("dummy.jpg")
 
+        # 각 단계의 출력이 다음 단계의 입력으로 정확히 전달됐는지 하나씩 확인
         mock_recognize.assert_called_once_with("dummy.jpg")
         mock_match_food.assert_called_once_with("비빔밥 8000원")
         mock_create_tts_response.assert_called_once_with(1)
@@ -133,19 +165,22 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
     def test_run_returns_none_matched_food_when_no_match(
         self, mock_recognize, mock_match_food, mock_create_tts_response, mock_get_details
     ):
+        """못 찾았으면 거기서 멈춘다 — 없는 음식에 GPU를 쓰면 시간·비용 낭비."""
         mock_recognize.return_value = "알수없는글자"
         mock_match_food.return_value = None
 
         result = pipeline.run("dummy.jpg")
 
         self.assertEqual(result, {"matched_food": None})
+        # assert_not_called = "이 함수는 아예 불리면 안 된다"
         mock_create_tts_response.assert_not_called()
         mock_get_details.assert_not_called()
 
     @patch("src.pipeline.match_food_candidates")
     @patch("src.pipeline.recognize")
     def test_analyze_image_returns_ocr_empty_without_matching(self, mock_recognize, mock_match_candidates):
-        mock_recognize.return_value = "   "
+        """글자를 하나도 못 읽었으면(공백뿐) 매칭도 시도하지 않고 ocr_empty로 끝낸다."""
+        mock_recognize.return_value = "   "  # 공백만 있는 결과
 
         result = pipeline.analyze_image("dummy.jpg")
 
@@ -160,6 +195,11 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
     def test_analyze_image_returns_unsupported_food_with_ocr_text(
         self, mock_recognize, mock_match_candidates
     ):
+        """글자는 읽었는데 등록 음식이 없으면 unsupported_food.
+
+        ocr_empty와 구분해야 한다 — 프론트가 "다시 찍어주세요"와 "미지원 음식입니다"
+        중 어떤 안내를 띄울지 이 status로 결정하기 때문이다.
+        """
         mock_recognize.return_value = "미지원음식"
         mock_match_candidates.return_value = []
 
@@ -178,6 +218,11 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
     def test_analyze_image_returns_candidates_without_creating_response(
         self, mock_recognize, mock_match_candidates, mock_get_details, mock_synthesize
     ):
+        """후보를 찾아도 여기서 상세·음성까지 만들지는 않는다.
+
+        사용자가 후보 중 하나를 고른 뒤에야 그 음식만 TTS를 돌려야 한다.
+        미리 다 만들면 안 고른 음식까지 GPU를 쓰게 된다(요청당 90초 이상 걸리는 작업).
+        """
         candidates = [
             {"food_id": 2, "name_kr": "닭갈비", "score": 100, "modifiers": {}},
             {"food_id": 1, "name_kr": "갈비", "score": 95, "modifiers": {}},

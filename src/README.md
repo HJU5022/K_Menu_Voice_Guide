@@ -15,10 +15,16 @@
 
 블록끼리는 이 계약으로만 연결됩니다. 각 블록은 **자기 입출력만 지키면** 내부 구현을 자유롭게 바꿔도 됩니다.
 
-```
-입력:  { image_path, selected_food }
-출력:  { detail_text(6개), narration_text, narration_audio_path, latency_ms }
-```
+사용자가 후보 중 하나를 고르는 흐름이라, 함수가 두 개로 나뉘어 있습니다. 사진을 받는 시점에는 어떤 음식인지 아직 모르기 때문에, 후보만 먼저 돌려주고 **선택된 뒤에야** 무거운 TTS를 돌립니다.
+
+| 함수 | 입력 | 출력 |
+|---|---|---|
+| `analyze_image(image_path)` | 메뉴판 이미지 경로 | `{ status, ocr_text, candidates[] }` |
+| `create_tts_response(food_id)` | 선택된 음식 id | `{ narration_text, style, narration_audio_path, tts_status, tts_latency_ms }` |
+
+`status`는 `candidates_found` / `ocr_empty`(글자 못 읽음) / `unsupported_food`(등록 안 된 음식) 중 하나이고, 프론트가 이 값으로 어떤 화면을 보여줄지 정합니다.
+
+> `run(image_path)`도 남아있습니다 — 사용자 선택 없이 1등 후보로 바로 끝까지 가는 초기 버전이며, 현재 API 경로에서는 쓰지 않습니다.
 
 ## 작업 원칙
 
