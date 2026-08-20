@@ -18,13 +18,19 @@ Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 �
   위치의 core_model.talker.model.codec_embedding.weight에 직접 덮어쓴다.
 - LoRA scale은 peft.tuners.lora.LoraLayer의 set_scale()으로 적용한다 (1.0이면 생략).
 
-**아직 실제로 실행은 못 해봤다 (로컬에 GPU가 없음).** 로직은 실제 코드를 그대로 옮긴
-것이라 신뢰도가 높지만, speaker_name="speaker"/lora_scale=0.3이 팀이 실제로 최종
-채택한 값인지는 확인 필요 (노트북에서 0.2/0.3/0.35/0.5를 다 뽑아서 귀로 비교하던 중이었음).
+2026-08-20: 서버에 연결해서 첫 실제 GPU 실행 중 발화 초반(0.2~0.4초)이 무음으로 끊기는
+증상 발견 — TTS팀 정식 스크립트(inference.py)와 대조해보니 이 파일이 instruct 파라미터를
+아예 안 넘기고 있었음(리스펠링도 누락). LoRA가 instruct 조건으로 학습됐는데 그걸 안 주니
+생성 초반이 불안정해진 것으로 보임 — apply_respelling()/INSTRUCT_MAP을 정식 스크립트와
+동일하게 포팅해서 수정함. speaker_name="speaker"/lora_scale=0.3은 여전히 팀 최종
+채택값과 대조 확인 필요.
 """
 
+import re
 import tempfile
 from time import perf_counter
+
+import numpy as np
 
 VALID_STYLES = frozenset({"GUIDE", "CAUTION"})
 
@@ -32,10 +38,56 @@ TTS_BASE_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 TTS_ADAPTER_REPO_ID = "k-bite-team/k-menu-qwen3-tts-lora"
 TTS_SPEAKER_NAME = "speaker"  # 학습·추론 노트북에서 커스텀 이름을 안 줘서 계속 기본값 사용됨
 LORA_SCALE = 0.3  # 1.0은 거의 항상 깨진 결과가 나온다는 커뮤니티 가이드, 0.2~0.5 권장값 중간값. 팀 최종 확정값 확인 필요
+# 0.2/0.3/0.4/0.5 비교 실험 결과: 0.2·0.4는 발화 시작부에 최대 0.8초 무음, 0.5는 327초짜리
+# 폭주 생성(정상은 ~25~30초) — scale을 낮추거나 높여서 없어지는 문제가 아니라 커스텀
+# 보이스클로닝(generate_custom_voice) 자체의 특성으로 보임. scale 튜닝 대신 아래
+# _trim_silence()로 후처리한다.
 SEED = 42  # 청크 간 음색 흔들림 방지용 고정 시드 (원본 스크립트 기본값)
 MAX_NEW_TOKENS = 4096
 
+# TTS팀 정식 스크립트(inference.py)와 동일한 표 — 음식명 발음 보정용 리스펠링.
+RESPELL_MAP = {
+    "Tteokbokki": "Duck-bok-kee",
+    "Bibimbap": "Bee-bim-bahp",
+    "Nakji Bokkeum": "Nahk-jee Boh-kum",
+    "Agujjim": "Ah-goo-jim",
+    "Maeuntang": "May-oon-tang",
+    "Bibim Naengmyeon": "Bee-bim Nang-myun",
+    "Cheonggukjang": "Chung-gook-jang",
+    "Doenjang Jjigae": "Dwen-jang Jee-geh",
+    "Dongtae Jjigae": "Dong-teh Jee-geh",
+    "Dubu Kimchi": "Doo-boo Kim-chee",
+    "Jeyuk Bokkeum": "Jeh-yook Bok-kum",
+    "Kimchi Bokkeumbap": "Kim-chee Bok-kum-bap",
+    "Kimchi Jjigae": "Kim-chee Jee-geh",
+    "Kongguksu": "Kong-gook-soo",
+    "Mulhoe": "Mul-hweh",
+    "Ojingeo Bokkeum": "Oh-jing-uh Bok-kum",
+    "Sundae": "Soon-deh",
+    "Sundubu Jjigae": "Soon-doo-boo Jee-geh",
+    "Tteokgalbi": "Duck-gal-bee",
+    "Tteokguk": "Duck-gook",
+    "Yukhoe": "Yook-hweh",
+}
+# 긴 이름부터 먼저 치환해야 부분 문자열 충돌(예: Tteokguk vs Tteokgalbi) 방지
+_SORTED_RESPELL_NAMES = sorted(RESPELL_MAP, key=len, reverse=True)
+
+# 스타일별 instruct 문구 (톤 제어) — LoRA가 이 조건으로 학습됐으므로 반드시 같이 넘겨야 함.
+# instruct 없이 호출하면 학습 때 본 적 없는 입력이 되어 생성 초반이 불안정해진다
+# (관찰된 증상: 발화 시작 0.2~0.4초 구간이 무음으로 끊김).
+INSTRUCT_MAP = {
+    "GUIDE": "Speak in a calm, informative tone, like a knowledgeable guide explaining something interesting. Keep a natural, steady pace, not slow.",
+    "CAUTION": "Say it in an urgent, warning tone, as if cautioning someone.",
+}
+
 _model = None
+
+
+def apply_respelling(text: str) -> str:
+    """음식명 부분만 리스펠링 표기로 치환. 단어 경계 기준으로 정확히 매칭."""
+    for name in _SORTED_RESPELL_NAMES:
+        text = re.sub(rf"\b{re.escape(name)}\b", RESPELL_MAP[name], text)
+    return text
 
 
 def _resolve_core_model(model):
@@ -148,6 +200,78 @@ def _load_model():
     return _model
 
 
+def _trim_silence(
+    wav: np.ndarray,
+    sample_rate: int,
+    silence_threshold: float = 0.02,
+    min_gap_ms: int = 200,
+    keep_gap_ms: int = 100,
+    edge_pad_ms: int = 40,
+) -> np.ndarray:
+    """generate_custom_voice() 출력에서 비정상적인 무음 구간을 잘라낸다.
+
+    실측(0.2/0.3/0.4/0.5 LoRA scale 비교, instruct 파라미터 추가 후에도 재현):
+    발화 시작부에 최대 0.8초짜리 무음이 붙거나, 문장 중간에 200~600ms짜리 부자연스러운
+    끊김이 생긴다 — scale이나 instruct로는 없어지지 않는, 이 방식(codec embedding을
+    직접 덮어쓰는 커스텀 보이스클로닝) 자체의 워밍업 특성으로 보임. 그래서 생성 후
+    무음 구간을 감지해서 잘라낸다 — 앞/뒤는 완전히, 중간은 자연스러운 쉼표 길이로 압축한다
+    (완전히 이어붙이면 부자연스럽게 뚝 끊긴 느낌이 나서, 짧게는 남겨둔다).
+    """
+    win = max(int(sample_rate * 0.02), 1)  # 20ms 창
+    n_win = int(np.ceil(len(wav) / win))
+    rms = np.array(
+        [
+            np.sqrt(np.mean(wav[i * win : (i + 1) * win].astype(np.float64) ** 2))
+            for i in range(n_win)
+        ]
+    )
+    voiced = rms > silence_threshold
+
+    if not voiced.any():
+        return wav  # 전부 무음이면 (드문 실패 케이스) 손대지 않고 호출자가 판단하게 둔다
+
+    edge_pad = max(int(sample_rate * edge_pad_ms / 1000), 0)
+
+    # 1) 앞/뒤 무음 트리밍 — 발화의 자연스러운 어택/디케이가 잘리지 않도록 약간 여유를 둔다
+    first = int(np.argmax(voiced))
+    last = len(voiced) - 1 - int(np.argmax(voiced[::-1]))
+    start = max(first * win - edge_pad, 0)
+    end = min((last + 1) * win + edge_pad, len(wav))
+    wav = wav[start:end]
+
+    # 2) 문장 중간의 비정상적으로 긴 무음을 자연스러운 쉼표 길이로 압축
+    n_win = int(np.ceil(len(wav) / win))
+    rms = np.array(
+        [
+            np.sqrt(np.mean(wav[i * win : (i + 1) * win].astype(np.float64) ** 2))
+            for i in range(n_win)
+        ]
+    )
+    voiced = rms > silence_threshold
+    min_gap_windows = max(int(min_gap_ms / 20), 1)
+    keep_gap_samples = int(sample_rate * keep_gap_ms / 1000)
+
+    segments = []
+    pos = 0
+    i = 0
+    while i < len(voiced):
+        if voiced[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(voiced) and not voiced[j]:
+            j += 1
+        if j - i >= min_gap_windows:
+            segments.append(wav[pos : i * win])
+            gap_start = i * win
+            segments.append(wav[gap_start : gap_start + keep_gap_samples])
+            pos = j * win
+        i = j
+
+    segments.append(wav[pos:])
+    return np.concatenate(segments) if len(segments) > 1 else wav
+
+
 def synthesize(text: str, style: str) -> dict[str, object]:
     """Validate a narration request, generate speech, and return the TTS result."""
     if not isinstance(text, str) or not text.strip():
@@ -159,16 +283,22 @@ def synthesize(text: str, style: str) -> dict[str, object]:
 
     started_at = perf_counter()
 
+    tts_text = apply_respelling(text)
+    instruct = INSTRUCT_MAP[style]
+
     model = _load_model()
     wavs, sample_rate = model.generate_custom_voice(
-        text=text,
+        text=tts_text,
         speaker=TTS_SPEAKER_NAME,
         language="auto",
         max_new_tokens=MAX_NEW_TOKENS,
+        instruct=instruct,
     )
 
+    trimmed = _trim_silence(wavs[0], sample_rate)
+
     output_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    sf.write(output_file.name, wavs[0], sample_rate)
+    sf.write(output_file.name, trimmed, sample_rate)
 
     return {
         "audio_path": output_file.name,
