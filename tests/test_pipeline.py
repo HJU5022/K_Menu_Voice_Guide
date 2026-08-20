@@ -1,11 +1,14 @@
+import json
+import subprocess
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from src import pipeline
 
 
 class PipelineTests(unittest.TestCase):
-    @patch("src.pipeline.synthesize")
+    @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_narration")
     def test_create_tts_response_combines_text_and_tts_results(
         self, mock_get_narration, mock_synthesize
@@ -35,16 +38,20 @@ class PipelineTests(unittest.TestCase):
             },
         )
 
-    @patch("src.pipeline.synthesize")
+    @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_narration")
-    def test_create_tts_response_falls_back_when_synthesize_raises(
+    def test_create_tts_response_falls_back_when_subprocess_reports_not_ready(
         self, mock_get_narration, mock_synthesize
     ):
         mock_get_narration.return_value = {
             "text": "This is Bibimbap.",
             "style": "GUIDE",
         }
-        mock_synthesize.side_effect = RuntimeError("GPU를 사용할 수 없습니다.")
+        mock_synthesize.return_value = {
+            "audio_path": None,
+            "status": "not_ready",
+            "latency_ms": 0.0,
+        }
 
         result = pipeline.create_tts_response(1)
 
@@ -59,6 +66,38 @@ class PipelineTests(unittest.TestCase):
             },
         )
 
+
+class SynthesizeViaSubprocessTests(unittest.TestCase):
+    """_synthesize_via_subprocess()는 자식 프로세스(src/tts/worker.py) 경계를 감싼다 —
+    paddle(OCR)과 torch(TTS)를 같은 프로세스에 못 올리는 문제(WinError 127) 때문에
+    도입됨. 여기서는 subprocess.run() 자체를 mock해서 그 경계만 검증한다."""
+
+    @patch("src.pipeline.subprocess.run")
+    def test_returns_parsed_result_on_success(self, mock_run):
+        mock_run.return_value = SimpleNamespace(
+            stdout=json.dumps({"audio_path": "answer.wav", "status": "ok", "latency_ms": 42.0})
+        )
+
+        result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+
+        self.assertEqual(result, {"audio_path": "answer.wav", "status": "ok", "latency_ms": 42.0})
+
+    @patch("src.pipeline.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="worker", timeout=300))
+    def test_falls_back_when_subprocess_times_out(self, mock_run):
+        result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+
+        self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
+
+    @patch("src.pipeline.subprocess.run")
+    def test_falls_back_on_malformed_output(self, mock_run):
+        mock_run.return_value = SimpleNamespace(stdout="not json")
+
+        result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+
+        self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
+
+
+class PipelineRunAndAnalyzeTests(unittest.TestCase):
     @patch("src.pipeline.get_details")
     @patch("src.pipeline.create_tts_response")
     @patch("src.pipeline.match_food")
@@ -132,7 +171,7 @@ class PipelineTests(unittest.TestCase):
         )
         mock_match_candidates.assert_called_once_with("미지원음식")
 
-    @patch("src.pipeline.synthesize")
+    @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
     @patch("src.pipeline.match_food_candidates")
     @patch("src.pipeline.recognize")

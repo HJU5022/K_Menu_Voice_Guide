@@ -42,7 +42,11 @@ def _enhance_contrast(image: np.ndarray) -> np.ndarray:
 def _resize(image: np.ndarray, target_long_side: int = TARGET_LONG_SIDE) -> np.ndarray:
     h, w = image.shape[:2]
     scale = target_long_side / max(h, w)
-    return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    # INTER_AREA는 축소(decimation)에만 적합하다 — 원본이 target_long_side보다 작아 확대해야
+    # 할 때 INTER_AREA를 쓰면 가는 글자 획이 뭉개져서 detection이 깨진다(실측: 확대 시
+    # 검출 박스가 엉뚱한 곳에 잡히고 인식 신뢰도가 0에 가까워짐). 확대는 INTER_CUBIC을 쓴다.
+    interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_CUBIC
+    return cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=interpolation)
 
 
 def preprocess_image(image_path: str) -> np.ndarray:
