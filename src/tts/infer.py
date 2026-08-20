@@ -1,13 +1,16 @@
 """TTS 추론 — Qwen3-TTS 1.7B Base + LoRA 어댑터로 실제 음성을 생성한다.
 
 베이스 모델: Qwen/Qwen3-TTS-12Hz-1.7B-Base
-LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora (박민영님 학습, 40 epoch, lr=2e-6)
+LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora
+  - 최종 체크포인트: checkpoint-epoch-39 (8차 실험 `final_respelled_lr5e-6_ep40`,
+    lr=5e-6, rank=16, alpha=32, 40 epoch, batch=4)
+  - 하이퍼파라미터 5개 조합(LR 5e-6/1e-5/2e-5 x rank 16/32) 비교 후 채택된 값.
+    상세 실험 기록: tts/TTS_MODULE.md 3절, tts/training_log.csv
 
 이 파일의 로직은 박민영님이 실제 학습에 쓴 노트북에서 확인한, 커뮤니티 패치
 (instavar/qwen3-tts-lora-finetuning, patches/0001-qwen3-tts-lora.patch가 공식
 Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 그대로 옮긴
-것이다 — 처음엔 이 패치 파일을 못 찾아서 추측(generate_voice_clone 기반)으로 짰었는데,
-실제 코드를 확인하고 나서 완전히 다시 짰다:
+것이다.
 
 - LoRA는 PeftModel로 감싼 뒤 기본적으로 merge_and_unload()로 베이스 모델에 합쳐진다
   (--no_merge_lora 플래그가 없으면).
@@ -18,11 +21,11 @@ Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 �
   위치의 core_model.talker.model.codec_embedding.weight에 직접 덮어쓴다.
 - LoRA scale은 peft.tuners.lora.LoraLayer의 set_scale()으로 적용한다 (1.0이면 생략).
 
-**아직 실제로 실행은 못 해봤다 (로컬에 GPU가 없음).** 로직은 실제 코드를 그대로 옮긴
-것이라 신뢰도가 높지만, speaker_name="speaker"/lora_scale=0.3이 팀이 실제로 최종
-채택한 값인지는 확인 필요 (노트북에서 0.2/0.3/0.35/0.5를 다 뽑아서 귀로 비교하던 중이었음).
+발음 개선(리스펠링)과 톤 구분(instruct)은 2026-08-19 최종 업데이트로 synthesize()에
+추가됨 — 상세 근거는 tts/TTS_MODULE.md 4·5절 참고.
 """
 
+import re
 import tempfile
 from time import perf_counter
 
@@ -31,11 +34,60 @@ VALID_STYLES = frozenset({"GUIDE", "CAUTION"})
 TTS_BASE_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 TTS_ADAPTER_REPO_ID = "k-bite-team/k-menu-qwen3-tts-lora"
 TTS_SPEAKER_NAME = "speaker"  # 학습·추론 노트북에서 커스텀 이름을 안 줘서 계속 기본값 사용됨
-LORA_SCALE = 0.3  # 1.0은 거의 항상 깨진 결과가 나온다는 커뮤니티 가이드, 0.2~0.5 권장값 중간값. 팀 최종 확정값 확인 필요
+LORA_SCALE = 0.3  # 0.2/0.3/0.35/0.5 청취 비교 후 확정. 1.0은 거의 항상 깨진 결과가 나옴(커뮤니티 가이드)
 SEED = 42  # 청크 간 음색 흔들림 방지용 고정 시드 (원본 스크립트 기본값)
 MAX_NEW_TOKENS = 4096
 
+# --- 발음 개선: 음식명 리스펠링 (tts/TTS_MODULE.md 4절) ---------------------
+# 청취 테스트로 확정. 화면 표시용 narration_text는 원본 로마자 표기를 그대로 쓰고,
+# TTS 입력 시에만 이 표로 치환한다. 8차 최종 재학습부터는 이 치환된 텍스트를
+# 학습 데이터 라벨에도 반영해, 모델이 리스펠링 표기 자체를 학습하도록 했다.
+RESPELL_MAP = {
+    "Tteokbokki": "Duck-bok-kee",
+    "Bibimbap": "Bee-bim-bahp",
+    "Nakji Bokkeum": "Nahk-jee Boh-kum",
+    "Agujjim": "Ah-goo-jim",
+    "Maeuntang": "May-oon-tang",
+    "Bibim Naengmyeon": "Bee-bim Nang-myun",
+    "Cheonggukjang": "Chung-gook-jang",
+    "Doenjang Jjigae": "Dwen-jang Jee-geh",
+    "Dongtae Jjigae": "Dong-teh Jee-geh",
+    "Dubu Kimchi": "Doo-boo Kim-chee",
+    "Jeyuk Bokkeum": "Jeh-yook Bok-kum",
+    "Kimchi Bokkeumbap": "Kim-chee Bok-kum-bap",
+    "Kimchi Jjigae": "Kim-chee Jee-geh",
+    "Kongguksu": "Kong-gook-soo",
+    "Mulhoe": "Mul-hweh",
+    "Ojingeo Bokkeum": "Oh-jing-uh Bok-kum",
+    "Sundae": "Soon-deh",
+    "Sundubu Jjigae": "Soon-doo-boo Jee-geh",
+    "Tteokgalbi": "Duck-gal-bee",
+    "Tteokguk": "Duck-gook",
+    "Yukhoe": "Yook-hweh",
+}
+# 긴 이름부터 먼저 치환해야 부분 문자열 충돌(예: Tteokguk vs Tteokgalbi) 방지
+_SORTED_RESPELL_NAMES = sorted(RESPELL_MAP, key=len, reverse=True)
+
+# --- 톤 구분: instruct (tts/TTS_MODULE.md 5절) ------------------------------
+# 강도 단계별(약함~극단) + 언어(영어 vs 중국어) 비교 청취로 확정.
+# 재학습 없이 추론 시점에서 즉시 적용되는 방식 — CAUTION 학습 데이터 부족(8%) 문제를
+# 우회하는 해법.
+INSTRUCT_MAP = {
+    "GUIDE": (
+        "Speak in a calm, informative tone, like a knowledgeable guide "
+        "explaining something interesting. Keep a natural, steady pace, not slow."
+    ),
+    "CAUTION": "Say it in an urgent, warning tone, as if cautioning someone.",
+}
+
 _model = None
+
+
+def apply_respelling(text: str) -> str:
+    """음식명 부분만 리스펠링 표기로 치환. 단어 경계 기준으로 정확히 매칭."""
+    for name in _SORTED_RESPELL_NAMES:
+        text = re.sub(rf"\b{re.escape(name)}\b", RESPELL_MAP[name], text)
+    return text
 
 
 def _resolve_core_model(model):
@@ -149,7 +201,11 @@ def _load_model():
 
 
 def synthesize(text: str, style: str) -> dict[str, object]:
-    """Validate a narration request, generate speech, and return the TTS result."""
+    """Validate a narration request, generate speech, and return the TTS result.
+
+    음식명 리스펠링(발음 개선)과 style별 instruct(톤 구분)를 자동 적용한다.
+    narration_text(화면 표시용 원문)는 그대로 두고, 여기서만 변환해서 모델에 넘긴다.
+    """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("TTS text는 비어 있지 않은 문자열이어야 합니다.")
     if style not in VALID_STYLES:
@@ -159,12 +215,16 @@ def synthesize(text: str, style: str) -> dict[str, object]:
 
     started_at = perf_counter()
 
+    tts_text = apply_respelling(text)
+    instruct = INSTRUCT_MAP[style]
+
     model = _load_model()
     wavs, sample_rate = model.generate_custom_voice(
-        text=text,
+        text=tts_text,
         speaker=TTS_SPEAKER_NAME,
         language="auto",
         max_new_tokens=MAX_NEW_TOKENS,
+        instruct=instruct,
     )
 
     output_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
