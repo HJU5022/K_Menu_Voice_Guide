@@ -11,7 +11,9 @@
 """
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from src import pipeline
@@ -19,6 +21,54 @@ from src import pipeline
 
 class PipelineTests(unittest.TestCase):
     """create_tts_response() — 음식 하나에 대해 내레이션 텍스트 + 음성을 만들어 합치는 함수."""
+
+    @patch("src.pipeline._synthesize_via_subprocess")
+    @patch("src.pipeline.get_narration")
+    def test_create_tts_response_uses_pregenerated_cache_without_live_synthesis(
+        self, mock_get_narration, mock_synthesize
+    ):
+        """사전 생성 캐시(Plan B)가 있으면 라이브 합성을 아예 부르지 않아야 한다.
+
+        캐시 원본이 아니라 **복사본** 경로를 돌려줘야 한다 — K_Menu_Talk.py의
+        _publish_audio()가 받은 파일을 move하므로, 원본을 주면 첫 요청이 캐시를 지운다.
+        """
+        mock_get_narration.return_value = {"text": "This is Bibimbap.", "style": "GUIDE"}
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir)
+            cached_file = cache_dir / "food_1_GUIDE.wav"
+            cached_file.write_bytes(b"RIFF-fake-wav")
+
+            with patch.object(pipeline, "_TTS_CACHE_DIR", cache_dir):
+                result = pipeline.create_tts_response(1)
+
+            mock_synthesize.assert_not_called()
+            self.assertEqual(result["tts_status"], "ok")
+            returned = Path(result["narration_audio_path"])
+            self.assertNotEqual(returned, cached_file)      # 복사본이어야 함
+            self.assertTrue(cached_file.exists())            # 원본은 그대로 남아야 함
+            self.assertEqual(returned.read_bytes(), b"RIFF-fake-wav")
+            returned.unlink()  # 테스트가 만든 임시 복사본 정리
+
+    @patch("src.pipeline._synthesize_via_subprocess")
+    @patch("src.pipeline.get_narration")
+    def test_create_tts_response_falls_back_to_live_synthesis_on_cache_miss(
+        self, mock_get_narration, mock_synthesize
+    ):
+        """캐시에 해당 조합 파일이 없으면 기존처럼 라이브 합성으로 넘어가야 한다."""
+        mock_get_narration.return_value = {"text": "This is Bibimbap.", "style": "GUIDE"}
+        mock_synthesize.return_value = {
+            "audio_path": "/tmp/live.wav",
+            "status": "ok",
+            "latency_ms": 33000.0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(pipeline, "_TTS_CACHE_DIR", Path(tmp_dir)):
+                result = pipeline.create_tts_response(1)
+
+        mock_synthesize.assert_called_once_with("This is Bibimbap.", "GUIDE")
+        self.assertEqual(result["narration_audio_path"], "/tmp/live.wav")
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_narration")
