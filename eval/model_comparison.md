@@ -41,5 +41,5 @@
 | Plan B(사전 생성) 전환 여부 | **전환** — 목표 대비 구조적 미달 |
 
 - 구현: `src/tts/pregenerate.py`(배치 사전 생성 + RTF 로그) + `src/pipeline.py` 캐시 조회. 캐시 히트 시 1초 미만
-- RTF: 사전 생성 배치에서 50개 표본으로 실측 → `eval/tts_pregen_log.csv` (배치 실행 후 기록)
+- RTF 실측(2026-08-21 배치, n=50): **평균 1.47** (범위 1.35~1.62) — 1.0 초과 = 실시간 생성 불가, Plan B 근거. 원본: `eval/tts_pregen_log.csv`(원격 PC). 배치 결과: 50/50 성공 · 실패 0 · 캐시 50개 생성
 - 기준·경위: `docs/specs/tts-finetuning.md` "구현 변경 이력 (2026-08-21)" 참고
