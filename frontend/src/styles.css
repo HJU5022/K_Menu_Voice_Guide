@@ -156,7 +156,9 @@ h1 {
   position: absolute;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 0 7px;
   border: 2px solid #087f7b;
   border-radius: 6px;
   background: #dff5f1a8;
@@ -166,6 +168,25 @@ h1 {
   line-height: 1;
   transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
+
+/* The number is shared with the candidate card below. It lets a traveller
+   compare a small Korean label with its exact place in the menu photo. */
+.ocr-index {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  margin-left: -18px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #167d77;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.ocr-box.active .ocr-index { background: #e76543; }
 
 .ocr-box:not(.active) { opacity: 0.38; }
 .ocr-box.active { border-color: #e76543; background: #fff0eacc; color: #8b3825; transform: scale(1.03); }
@@ -196,6 +217,7 @@ h1 {
 }
 
 .candidate-copy { flex: 1; }
+.candidate-thumbnail { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 14px; object-fit: cover; background: #dcefed; }
 .chevron { color: #087f7b; font-size: 2rem; font-weight: 300; }
 
 .candidate-card strong, .candidate-card span, .candidate-card small { display: block; }
@@ -308,6 +330,16 @@ h1 {
 
 .text-button { padding: 0; color: #087f7b; background: none; border: 0; cursor: pointer; }
 
+/* Navigation uses the same short label everywhere. The outline separates Back
+   from the main action without taking as much attention as the primary button. */
+.back-button { min-height: 34px; padding: 7px 13px; border: 1px solid #9bbfba; border-radius: 999px; color: #176c66; background: #fffdf9; font-size: 0.76rem; font-weight: 800; cursor: pointer; }
+.back-button:hover, .back-button:focus-visible { border-color: #167d77; background: #edf8f5; outline: none; }
+
+/* Unlike a text link, Cancel stops an in-progress upload. An outlined button
+   makes that action easy to find while keeping it less prominent than photo input. */
+.cancel-button { min-height: 34px; padding: 7px 14px; border: 1px solid #9bbfba; border-radius: 999px; color: #176c66; background: #fffdf9; font-size: 0.76rem; font-weight: 800; cursor: pointer; }
+.cancel-button:hover, .cancel-button:focus-visible { border-color: #167d77; background: #edf8f5; outline: none; }
+
 .spinner {
   width: 44px;
   height: 44px;
@@ -340,6 +372,7 @@ h1 {
   background: #f8f0e1;
 }
 
+.camera-header, .flow-header { position: sticky; z-index: 8; top: 0; padding: 8px 0; background: #f8f0e1; }
 .camera-header { gap: 10px; }
 .camera-brand {
   width: 36px;
@@ -353,6 +386,11 @@ h1 {
 .brand-copy strong { color: #153e3d; font-family: Georgia, serif; font-size: 1.35rem; }
 .brand-copy p { margin: 4px 0 0; color: #8c523a; font-size: 0.5rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
 .language-badge { margin-left: auto; padding: 9px 12px; border: 1px solid #e0d3bf; border-radius: 99px; color: #745e4c; background: #fffdf8; font-size: 0.61rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.language-selector-wrapper { position: relative; }
+.language-selector-wrapper::after { position: absolute; top: 50%; right: 11px; color: #6c766e; content: "⌄"; font-size: 0.72rem; pointer-events: none; transform: translateY(-55%); }
+.language-dropdown-pill { min-width: 136px; height: 36px; padding: 0 29px 0 13px; appearance: none; border: 1px solid #9cbfba; border-radius: 999px; color: #586b66; background: #fffdf9; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.12em; cursor: pointer; }
+.language-dropdown-pill:hover, .language-dropdown-pill:focus-visible { border-color: #167d77; background: #f4fbfa; outline: 2px solid #dcefed; outline-offset: 2px; }
+.language-dropdown-pill option { color: #315d58; background: #fffdf9; font-size: 0.78rem; font-weight: 700; }
 
 .camera-intro { margin-top: 50px; }
 .camera-kicker { display: inline-block; margin: 0 0 20px; padding: 7px 12px; border-radius: 99px; color: #247d78; background: #dcefed; font-size: 0.66rem; font-weight: 900; letter-spacing: 0.13em; }
@@ -430,13 +468,32 @@ h1 {
 .flow-screen { min-height: 100vh; padding: 25px 20px 48px; color: #173f3a; background: #f8f0e1; }
 .flow-header { display: flex; align-items: center; gap: 10px; }
 .flow-header .camera-brand { margin: 0; }
-.flow-header > span { margin-left: auto; padding: 8px 11px; border: 1px solid #e0d3bf; border-radius: 99px; color: #746d63; background: #fffdf8; font-size: 0.63rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.flow-header-actions { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+.flow-header-actions > span { padding: 8px 11px; border: 1px solid #e0d3bf; border-radius: 99px; color: #746d63; background: #fffdf8; font-size: 0.63rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .flow-screen .screen-back { display: inline-block; margin: 31px 0 0; color: #51736d; font-size: 0.78rem; }
 .flow-intro { margin-top: 29px; }
 .flow-intro h1, .processing-panel h1, .result-hero h1, .error-card h1 { color: #173f3a; font-family: Georgia, serif; line-height: 0.95; letter-spacing: 0; }
 .flow-intro > p:last-child, .processing-panel > p { max-width: 340px; margin: 18px 0 0; color: #746d63; font-size: 0.9rem; line-height: 1.65; }
 
 .processing-screen { display: block; text-align: left; }
+.analysis-widget { position: relative; min-height: 390px; margin-top: 28px; overflow: hidden; border: 12px solid #fffdf9; border-radius: 28px; background: #1f514b; box-shadow: 0 14px 30px #67513918; }
+.analysis-widget > img, .analysis-photo-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.analysis-photo-placeholder { background: linear-gradient(135deg, #2f6961, #163f3b); }
+.analysis-overlay { position: relative; z-index: 1; min-height: 390px; padding: 24px 21px; color: #ffffff; background: linear-gradient(180deg, #123f3cd9, #123f3cf2); }
+.analysis-kicker { display: inline-block; margin: 0; padding: 7px 11px; border-radius: 99px; color: #d7f7f0; background: #ffffff20; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.13em; }
+.analysis-loader { width: 39px; height: 39px; margin: 20px 0 14px; border: 3px solid #a8e9dc66; border-top-color: #7be3d2; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.analysis-overlay h1 { margin: 0; color: #ffffff; font-family: Georgia, serif; font-size: clamp(2rem, 9vw, 2.7rem); line-height: 0.96; }
+.analysis-overlay > p:not(.analysis-kicker) { margin: 9px 0 18px; color: #d2e9e4; font-size: 0.84rem; line-height: 1.45; }
+.analysis-progress { height: 6px; overflow: hidden; border-radius: 99px; background: #c4ebe344; }
+.analysis-progress span { display: block; height: 100%; border-radius: inherit; background: #72e2d0; transition: width 0.45s ease; }
+.analysis-steps { display: grid; gap: 13px; margin: 20px 0 0; padding: 0; list-style: none; }
+.analysis-steps li { display: flex; align-items: center; gap: 10px; opacity: 0.46; transition: opacity 0.25s ease; }
+.analysis-steps li.active, .analysis-steps li.done { opacity: 1; }
+.analysis-steps li > span { display: grid; width: 23px; height: 23px; flex: 0 0 23px; place-items: center; border: 1px solid #b9eee4; border-radius: 50%; color: #b9eee4; font-size: 0.66rem; font-weight: 900; }
+.analysis-steps li.done > span { color: #174a44; background: #72e2d0; }
+.analysis-steps strong, .analysis-steps small { display: block; }
+.analysis-steps strong { color: #ffffff; font-size: 0.77rem; }
+.analysis-steps small { margin-top: 2px; color: #c6e1dc; font-size: 0.64rem; }
 .processing-panel { margin-top: 18vh; text-align: center; }
 .processing-panel .camera-kicker { margin-bottom: 28px; }
 .processing-panel .spinner { width: 52px; height: 52px; margin: 0 auto 25px; border-width: 5px; border-color: #d9e9e3; border-top-color: #167d77; }
@@ -469,9 +526,15 @@ h1 {
 .result-hero .badge { margin: 18px 0 0; color: #8d4828; background: #fae1d2; font-size: 0.76rem; font-weight: 800; }
 .result-screen .audio-status { margin: 13px 0 0; border-radius: 10px; color: #16665f; background: #dcefed; font-size: 0.82rem; }
 .result-screen .audio-status.unavailable { color: #8b5b2c; background: #f7ead2; }
+.audio-player { display: grid; gap: 10px; margin-top: 15px; }
+.audio-player .primary-button { width: 100%; margin: 0; border-radius: 10px; background: #167d77; }
+.audio-player audio { width: 100%; height: 38px; }
 .guide-grid { display: grid; gap: 10px; margin-top: 16px; }
 .result-screen .info-card { display: block; margin: 0; padding: 16px; border: 1px solid #e1d5c3; border-left: 3px solid #62a89a; border-radius: 12px; background: #fffdf9; box-shadow: none; }
 .result-screen .info-card h2 { color: #1d5b55; font-size: 0.88rem; }
+.info-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.detail-audio-button { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid #a3ccc4; border-radius: 50%; color: #176c66; background: #effaf7; font-size: 0.9rem; cursor: pointer; }
+.detail-audio-button:hover, .detail-audio-button:focus-visible, .detail-audio-button.is-playing { border-color: #167d77; color: #ffffff; background: #167d77; outline: none; }
 .result-screen .info-card p { margin: 7px 0 0; color: #606d65; font-size: 0.86rem; line-height: 1.55; }
 .result-screen .info-card.warning { border-color: #e8b990; border-left-color: #c96a35; background: #fff7ed; }
 .result-screen .info-card.warning h2 { color: #9a4d20; }
