@@ -210,8 +210,20 @@ proj1-c/
 │       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
-│       ├── tts-finetuning.md
-│       └── ux-ui-integration.md      # 프론트엔드(React) 화면·API 계약
+│       └── tts-finetuning.md
+│
+├── frontend/                         # React + TypeScript 사용자 화면
+│   ├── README.md                      # 프론트 설치·실행·빌드·환경변수
+│   ├── docs/
+│   │   ├── README.md                  # 프론트 문서 목차
+│   │   ├── ux-ui-integration.md       # 화면 상태·API 경계·응답 변환 기준
+│   │   ├── ui-flow.md                 # 사용자 화면 흐름
+│   │   ├── screen-spec.md             # 화면별 요소·예외 처리
+│   │   ├── api-client.md              # API 호출 규칙
+│   │   ├── content-style.md           # 영어 문구·용어 통일 기준
+│   │   └── deployment.md              # 프론트 배포 방법
+│   └── src/
+│       └── README.md                  # 프론트 소스 파일 역할·주석 원칙
 │
 ├── data/
 │   └── README.md                     # AI Hub 신청 링크 + OCR 학습라벨(rec_gt_train.txt) 변환법
