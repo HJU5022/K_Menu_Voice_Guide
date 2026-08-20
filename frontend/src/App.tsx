@@ -1,45 +1,114 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import LanguageSelector from "./components/LanguageSelector";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 type Screen = "camera" | "processing" | "candidates" | "result" | "error";
 type ErrorKind = "ocr" | "unsupported" | "service";
 type Box = { left: number; top: number; width: number; height: number };
-type FoodCandidate = { foodId: number; foodKo: string; foodEn: string; matchScore: number; bbox?: Box };
-type FoodGuide = { foodId: number; foodKo: string; foodEn: string; pronunciation: string; spicy: string; description: string; ingredient: string; howToEat: string; allergy: string; narrationText: string; audioUrl: string | null };
+type DetailCategory = "DESCRIPTION" | "HOW_TO_EAT" | "INGREDIENT" | "ALLERGY" | "PRONUNCIATION" | "SPICY";
 
-const SUPPORTED_DISHES = [
-  ["비빔밥", "Bibimbap"], ["불고기", "Bulgogi"], ["김치찌개", "Kimchi jjigae"], ["떡볶이", "Tteokbokki"], ["잡채", "Japchae"], ["순두부찌개", "Sundubu jjigae"], ["삼겹살", "Samgyeopsal"], ["갈비", "Galbi"], ["김밥", "Gimbap"], ["라면", "Ramyun"], ["냉면", "Naengmyeon"], ["비빔냉면", "Bibim naengmyeon"], ["칼국수", "Kalguksu"], ["수제비", "Sujebi"], ["파전", "Pajeon"], ["김치전", "Kimchi jeon"], ["된장찌개", "Doenjang jjigae"], ["갈비탕", "Galbitang"], ["설렁탕", "Seolleongtang"], ["삼계탕", "Samgyetang"], ["곱창전골", "Gopchang jeongol"], ["부대찌개", "Budae jjigae"], ["닭갈비", "Dakgalbi"], ["찜닭", "Jjimdak"], ["제육볶음", "Jeyuk bokkeum"], ["오징어볶음", "Ojingeo bokkeum"], ["두부김치", "Dubukimchi"], ["감자탕", "Gamjatang"], ["해장국", "Haejangguk"], ["육개장", "Yukgaejang"], ["김치", "Kimchi"], ["후라이드치킨", "Korean Fried Chicken"], ["양념치킨", "Yangnyeom Chicken"], ["짜장면", "Jajangmyeon"], ["만두", "Mandu"], ["어묵", "Eomuk"], ["순대", "Sundae"], ["닭강정", "Dakgangjeong"], ["호떡", "Hotteok"], ["붕어빵", "Bungeoppang"], ["한국식 핫도그", "Korean Corn Dog"], ["보쌈", "Bossam"], ["족발", "Jokbal"], ["갈비찜", "Galbijjim"], ["계란찜", "Gyeran-jjim"], ["김치볶음밥", "Kimchi Bokkeumbap"], ["떡국", "Tteokguk"], ["잔치국수", "Janchi-guksu"], ["콩국수", "Kongguksu"], ["빙수", "Bingsu"],
-] as const;
+type ApiCandidate = {
+  food_id: number;
+  name_kr: string;
+  score: number;
+  modifiers: Record<string, unknown>;
+};
 
-// 백엔드(K_Menu_Talk.py, docs/specs/api-layer.md) 응답 스키마 — snake_case, details는 카테고리별 dict.
-type BackendCandidate = { food_id: number; name_kr: string; name_en: string; score: number; modifiers: unknown };
-type AnalyzeApiResponse = { status: "ocr_empty" | "unsupported_food" | "candidates_found"; ocr_text: string; candidates: BackendCandidate[] };
-type FoodDetailApiResponse = { food_id: number; name_kr: string; name_en: string; details: Record<string, string>; narration_text: string; style: string; tts_status: string; narration_audio_path: string | null; tts_latency_ms: number };
+type AnalyzeResponse = {
+  status: "ocr_empty" | "unsupported_food" | "candidates_found";
+  ocr_text: string;
+  candidates: ApiCandidate[];
+};
 
-class AnalyzeStatusError extends Error { status: AnalyzeApiResponse["status"]; constructor(status: AnalyzeApiResponse["status"]) { super(status); this.status = status; } }
+type ApiFoodGuide = {
+  details: Partial<Record<DetailCategory, string>>;
+  narration_text: string;
+  style: "GUIDE" | "CAUTION";
+  tts_status: "ok" | "not_ready";
+  narration_audio_path: string | null;
+  tts_latency_ms: number;
+};
 
-async function analyzeMenu(image: File): Promise<FoodCandidate[]> {
-  const form = new FormData(); form.append("image", image);
-  const res = await fetch(`${API_BASE_URL}/api/analyze`, { method: "POST", body: form });
-  if (!res.ok) throw new Error("analysis failed");
-  const data: AnalyzeApiResponse = await res.json();
-  if (data.status !== "candidates_found") throw new AnalyzeStatusError(data.status);
-  return data.candidates.map((food) => ({ foodId: food.food_id, foodKo: food.name_kr, foodEn: food.name_en, matchScore: food.score }));
-}
-async function fetchFoodGuide(foodId: number): Promise<FoodGuide> {
-  const res = await fetch(`${API_BASE_URL}/api/foods/${foodId}`);
-  if (!res.ok) throw new Error("guide failed");
-  const data: FoodDetailApiResponse = await res.json();
+type FoodCandidate = {
+  foodId: number;
+  nameKr: string;
+  matchScore: number;
+  bbox?: Box;
+};
+
+type FoodGuide = {
+  foodId: number;
+  nameKr: string;
+  details: Partial<Record<DetailCategory, string>>;
+  narrationText: string;
+  style: "GUIDE" | "CAUTION";
+  ttsStatus: "ok" | "not_ready";
+  narrationAudioPath: string | null;
+  audioUrl: string | null;
+  ttsLatencyMs: number;
+};
+
+const DETAIL_CARDS: Array<[DetailCategory, string, boolean]> = [
+  ["DESCRIPTION", "Description", false],
+  ["HOW_TO_EAT", "How to eat", false],
+  ["INGREDIENT", "Ingredients", false],
+  ["ALLERGY", "Allergy notice", true],
+  ["PRONUNCIATION", "Pronunciation", false],
+  ["SPICY", "Spice level", false],
+];
+
+function toFoodCandidate(candidate: ApiCandidate): FoodCandidate {
   return {
-    foodId: data.food_id, foodKo: data.name_kr, foodEn: data.name_en,
-    pronunciation: data.details.PRONUNCIATION ?? "", spicy: data.details.SPICY ?? "",
-    description: data.details.DESCRIPTION ?? "", ingredient: data.details.INGREDIENT ?? "",
-    howToEat: data.details.HOW_TO_EAT ?? "", allergy: data.details.ALLERGY ?? "",
-    narrationText: data.narration_text,
-    audioUrl: data.narration_audio_path ? `${API_BASE_URL}${data.narration_audio_path}` : null,
+    foodId: candidate.food_id,
+    nameKr: candidate.name_kr,
+    matchScore: candidate.score,
   };
+}
+
+function toFoodGuide(payload: ApiFoodGuide, candidate: FoodCandidate): FoodGuide {
+  return {
+    foodId: candidate.foodId,
+    nameKr: candidate.nameKr,
+    details: payload.details,
+    narrationText: payload.narration_text,
+    style: payload.style,
+    ttsStatus: payload.tts_status,
+    narrationAudioPath: payload.narration_audio_path,
+    audioUrl: payload.narration_audio_path ? `${API_BASE_URL}${payload.narration_audio_path}` : null,
+    ttsLatencyMs: payload.tts_latency_ms,
+  };
+}
+
+function detailValue(details: FoodGuide["details"], category: DetailCategory) {
+  return details[category] ?? "Information is not available for this item.";
+}
+
+async function analyzeMenu(image: File): Promise<AnalyzeResponse> {
+  const form = new FormData();
+  form.append("image", image);
+
+  const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new Error("analysis failed");
+  }
+
+  return response.json() as Promise<AnalyzeResponse>;
+}
+
+async function fetchFoodGuide(candidate: FoodCandidate): Promise<FoodGuide> {
+  const response = await fetch(`${API_BASE_URL}/api/foods/${candidate.foodId}`);
+
+  if (!response.ok) {
+    throw new Error("guide failed");
+  }
+
+  const payload = (await response.json()) as ApiFoodGuide;
+  return toFoodGuide(payload, candidate);
 }
 
 function App() {
@@ -67,39 +136,124 @@ function App() {
     }
   }, [cameraReady]);
 
-  function stopCamera() { streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; setCameraReady(false); }
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraReady(false);
+  }
+
   async function startCamera() {
     setCameraError("");
     if (!imageProcessingConsent) {
       setCameraError("Please enable Camera & Image Processing consent before using the camera.");
       return;
     }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
       streamRef.current = stream;
       setCameraReady(true);
-    } catch { setCameraError("Camera access is unavailable. Upload a menu photo instead."); }
+    } catch {
+      setCameraError("Camera access is unavailable. Upload a menu photo instead.");
+    }
   }
+
   async function processImage(image: File) {
     try {
-      setScreen("processing"); setPhotoUrl(URL.createObjectURL(image));
-      const boxes: Box[] = [{ left: 12, top: 20, width: 45, height: 12 }, { left: 42, top: 43, width: 40, height: 12 }, { left: 18, top: 66, width: 48, height: 12 }];
-      const next = (await analyzeMenu(image)).map((food, index) => ({ ...food, bbox: boxes[index] }));
-      setCandidates(next); setHighlightedFoodId(next[0]?.foodId ?? null); setScreen("candidates");
-    } catch (err) {
-      setErrorKind(err instanceof AnalyzeStatusError && err.status === "unsupported_food" ? "unsupported" : "ocr");
+      setScreen("processing");
+      setPhotoUrl(URL.createObjectURL(image));
+
+      const analysis = await analyzeMenu(image);
+      if (analysis.status === "ocr_empty") {
+        setErrorKind("ocr");
+        setScreen("error");
+        return;
+      }
+
+      if (analysis.status === "unsupported_food" || analysis.candidates.length === 0) {
+        setErrorKind("unsupported");
+        setScreen("error");
+        return;
+      }
+
+      const boxes: Box[] = [
+        { left: 12, top: 20, width: 45, height: 12 },
+        { left: 42, top: 43, width: 40, height: 12 },
+        { left: 18, top: 66, width: 48, height: 12 },
+      ];
+      const next = analysis.candidates.map((candidate, index) => ({
+        ...toFoodCandidate(candidate),
+        bbox: boxes[index],
+      }));
+
+      setCandidates(next);
+      setHighlightedFoodId(next[0]?.foodId ?? null);
+      setScreen("candidates");
+    } catch {
+      setErrorKind("service");
       setScreen("error");
     }
   }
+
   function capturePhoto() {
-    const video = videoRef.current; if (!video || !video.videoWidth) return;
-    const canvas = document.createElement("canvas"); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) {
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0);
-    canvas.toBlob((blob) => { if (!blob) return; stopCamera(); void processImage(new File([blob], "menu-camera.jpg", { type: "image/jpeg" })); }, "image/jpeg", 0.92);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          return;
+        }
+        stopCamera();
+        void processImage(new File([blob], "menu-camera.jpg", { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      0.92,
+    );
   }
-  function handleUpload(event: ChangeEvent<HTMLInputElement>) { const image = event.target.files?.[0]; if (!image) return; if (!imageProcessingConsent) { setCameraError("Please enable Camera & Image Processing consent before uploading a photo."); event.target.value = ""; return; } stopCamera(); void processImage(image); }
-  function acceptConsent() { localStorage.setItem("kmenu-consent", JSON.stringify({ essentialCookies, imageProcessingConsent, acceptedAt: new Date().toISOString() })); setConsentClosing(true); window.setTimeout(() => setConsentVisible(false), 260); }
-  async function chooseFood(id: number) { try { setScreen("processing"); setGuide(await fetchFoodGuide(id)); setScreen("result"); } catch { setErrorKind("service"); setScreen("error"); } }
+
+  function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const image = event.target.files?.[0];
+    if (!image) {
+      return;
+    }
+    if (!imageProcessingConsent) {
+      setCameraError("Please enable Camera & Image Processing consent before uploading a photo.");
+      event.target.value = "";
+      return;
+    }
+    stopCamera();
+    void processImage(image);
+  }
+
+  function acceptConsent() {
+    localStorage.setItem(
+      "kmenu-consent",
+      JSON.stringify({ essentialCookies, imageProcessingConsent, acceptedAt: new Date().toISOString() }),
+    );
+    setConsentClosing(true);
+    window.setTimeout(() => setConsentVisible(false), 260);
+  }
+
+  async function chooseFood(candidate: FoodCandidate) {
+    try {
+      setScreen("processing");
+      setGuide(await fetchFoodGuide(candidate));
+      setScreen("result");
+    } catch {
+      setErrorKind("service");
+      setScreen("error");
+    }
+  }
 
   if (screen === "processing") return <Processing onCancel={() => setScreen("camera")} />;
   if (screen === "candidates") return <Candidates candidates={candidates} photoUrl={photoUrl} highlightedFoodId={highlightedFoodId} onBack={() => setScreen("camera")} onHighlight={setHighlightedFoodId} onChoose={chooseFood} />;
@@ -153,10 +307,10 @@ function FlowHeader({ label }: { label: string }) { return <header className="fl
 
 function Processing({ onCancel }: { onCancel: () => void }) { return <main className="screen flow-screen processing-screen"><FlowHeader label="Reading menu" /><button className="text-button screen-back" onClick={onCancel}>← Cancel analysis</button><section className="processing-panel"><p className="camera-kicker">✧ MENU, MADE CLEAR</p><div className="spinner" /><h1>Reading your<br />menu.</h1><p>Finding Korean dish names and matching them with our food guide.</p><div className="progress-list"><p>✓ Photo received</p><p>✓ Reading Korean text</p><p className="current-step">◌ Matching dishes</p></div></section></main>; }
 
-function Candidates({ candidates, photoUrl, highlightedFoodId, onBack, onHighlight, onChoose }: { candidates: FoodCandidate[]; photoUrl: string | null; highlightedFoodId: number | null; onBack: () => void; onHighlight: (id: number) => void; onChoose: (id: number) => void }) { return <main className="screen flow-screen candidates-screen"><FlowHeader label="Step 2 of 3" /><button className="text-button screen-back" onClick={onBack}>← Scan another menu</button><section className="flow-intro"><p className="camera-kicker">✧ MENU MATCHES</p><h1>Which dish would<br />you like to know?</h1><p>Compare the highlighted text with your original menu photo.</p></section>{photoUrl && <section className="ocr-evidence"><p className="evidence-title">Your original menu photo</p><div className="menu-photo-frame"><img src={photoUrl} alt="Original uploaded Korean menu" />{candidates.map((food) => food.bbox && <span className={highlightedFoodId === food.foodId ? "ocr-box active" : "ocr-box"} key={food.foodId} style={{ left: `${food.bbox.left}%`, top: `${food.bbox.top}%`, width: `${food.bbox.width}%`, height: `${food.bbox.height}%` }}>{food.foodKo}</span>)}</div><p className="evidence-help">Outlined labels are demonstration boxes. Real OCR will return exact locations.</p></section>}<section className="candidate-list">{candidates.map((food, index) => <button className="candidate-card" key={food.foodId} onClick={() => void onChoose(food.foodId)} onMouseEnter={() => onHighlight(food.foodId)} onFocus={() => onHighlight(food.foodId)}><span className="food-index">{String(index + 1).padStart(2, "0")}</span><span className="candidate-copy"><strong>{food.foodKo}</strong><span>{food.foodEn}</span><small>{food.matchScore}% match</small></span><span className="chevron">›</span></button>)}</section></main>; }
+function Candidates({ candidates, photoUrl, highlightedFoodId, onBack, onHighlight, onChoose }: { candidates: FoodCandidate[]; photoUrl: string | null; highlightedFoodId: number | null; onBack: () => void; onHighlight: (id: number) => void; onChoose: (candidate: FoodCandidate) => void }) { return <main className="screen flow-screen candidates-screen"><FlowHeader label="Step 2 of 3" /><button className="text-button screen-back" onClick={onBack}>← Scan another menu</button><section className="flow-intro"><p className="camera-kicker">✧ MENU MATCHES</p><h1>Which dish would<br />you like to know?</h1><p>Compare the highlighted text with your original menu photo.</p></section>{photoUrl && <section className="ocr-evidence"><p className="evidence-title">Your original menu photo</p><div className="menu-photo-frame"><img src={photoUrl} alt="Original uploaded Korean menu" />{candidates.map((food) => food.bbox && <span className={highlightedFoodId === food.foodId ? "ocr-box active" : "ocr-box"} key={food.foodId} style={{ left: `${food.bbox.left}%`, top: `${food.bbox.top}%`, width: `${food.bbox.width}%`, height: `${food.bbox.height}%` }}>{food.nameKr}</span>)}</div><p className="evidence-help">Outlined labels are demonstration boxes. Real OCR will return exact locations.</p></section>}<section className="candidate-list">{candidates.map((food, index) => <button className="candidate-card" key={food.foodId} onClick={() => void onChoose(food)} onMouseEnter={() => onHighlight(food.foodId)} onFocus={() => onHighlight(food.foodId)}><span className="food-index">{String(index + 1).padStart(2, "0")}</span><span className="candidate-copy"><strong>{food.nameKr}</strong><small>{food.matchScore}% match</small></span><span className="chevron">›</span></button>)}</section></main>; }
 
-function Result({ guide, onBack }: { guide: FoodGuide; onBack: () => void }) { const cards = [["Description", guide.description], ["How to eat", guide.howToEat], ["Ingredients", guide.ingredient], ["Allergy notice", guide.allergy], ["Pronunciation", guide.pronunciation], ["Spice level", guide.spicy]]; return <main className="screen flow-screen result-screen"><FlowHeader label="Your guide" /><button className="text-button screen-back" onClick={onBack}>← Back to dishes</button><section className="result-hero"><p className="camera-kicker">✧ YOUR FOOD GUIDE</p><h1>{guide.foodEn}</h1><p>{guide.foodKo} · {guide.pronunciation}</p><p className="badge">{guide.spicy}</p></section><p className={guide.audioUrl ? "audio-status" : "audio-status unavailable"}>{guide.audioUrl ? "Voice guide is ready to play." : "Text guide is ready to read."}</p><section className="guide-grid">{cards.map(([title, text]) => <section className={title === "Allergy notice" ? "info-card warning" : "info-card"} key={title}><div><h2>{title}</h2><p>{text}</p></div></section>)}</section>{guide.audioUrl ? <audio src={guide.audioUrl} autoPlay controls /> : <section className="tts-error-card"><strong>Voice guide is unavailable right now.</strong><p>Your food details are still ready to read.</p><button onClick={() => alert("In the real app, this requests TTS again.")}>Try voice guide again</button></section>}</main>; }
+function Result({ guide, onBack }: { guide: FoodGuide; onBack: () => void }) { return <main className="screen flow-screen result-screen"><FlowHeader label="Your guide" /><button className="text-button screen-back" onClick={onBack}>← Back to dishes</button><section className="result-hero"><p className="camera-kicker">✧ YOUR FOOD GUIDE</p><h1>{guide.nameKr}</h1><p>{detailValue(guide.details, "PRONUNCIATION")}</p><p className="badge">{detailValue(guide.details, "SPICY")}</p></section><p className={guide.audioUrl ? "audio-status" : "audio-status unavailable"}>{guide.audioUrl ? "Voice guide is ready to play." : "Text guide is ready to read."}</p><section className="guide-grid">{DETAIL_CARDS.map(([category, title, warning]) => <section className={warning ? "info-card warning" : "info-card"} key={category}><div><h2>{title}</h2><p>{detailValue(guide.details, category)}</p></div></section>)}</section>{guide.audioUrl ? <audio src={guide.audioUrl} autoPlay controls /> : <section className="tts-error-card"><strong>Voice guide is unavailable right now.</strong><p>{guide.narrationText}</p><button onClick={() => alert("In the real app, this requests TTS again.")}>Try voice guide again</button></section>}</main>; }
 
-function ErrorPanel({ kind, onHome }: { kind: ErrorKind; onHome: () => void }) { const content = { ocr: ["We couldn't read the menu", "Try brighter lighting, hold the menu straight, and move closer to the text.", "Take another photo"], unsupported: ["This dish is not supported yet", "We currently support 50 popular Korean dishes. Please choose another item.", "Scan another menu"], service: ["We couldn't prepare your food guide", "Please check your connection and try again.", "Try again"] }[kind]; return <main className="screen flow-screen error-screen"><FlowHeader label="K-menu" /><section className="error-card"><p className="camera-kicker">✧ LET'S TRY AGAIN</p><span className="error-symbol">!</span><h1>{content[0]}</h1><p>{content[1]}</p>{kind === "unsupported" && <><details className="support-details"><summary>Supported dishes (50)</summary><ul className="dish-list">{SUPPORTED_DISHES.map(([ko, en]) => <li key={en}><strong>{ko}</strong><span>{en}</span></li>)}</ul></details><section className="guide-info"><h2>What can I learn?</h2><ul><li>Pronunciation</li><li>Spice level: five flames and SHU reference</li><li>Description and ingredients</li><li>How to eat</li><li>Allergies and vegetarian information</li></ul></section></>}<button className="primary-button" onClick={onHome}>{content[2]}</button></section></main>; }
+function ErrorPanel({ kind, onHome }: { kind: ErrorKind; onHome: () => void }) { const content = { ocr: ["We couldn't read the menu", "Try brighter lighting, hold the menu straight, and move closer to the text.", "Take another photo"], unsupported: ["We couldn't match this menu item", "This item is not currently in the server's supported-food database. Please scan another item or ask restaurant staff.", "Scan another menu"], service: ["We couldn't prepare your food guide", "Please check your connection and try again.", "Try again"] }[kind]; return <main className="screen flow-screen error-screen"><FlowHeader label="K-menu" /><section className="error-card"><p className="camera-kicker">✧ LET'S TRY AGAIN</p><span className="error-symbol">!</span><h1>{content[0]}</h1><p>{content[1]}</p>{kind === "unsupported" && <section className="guide-info"><h2>What can I learn?</h2><ul><li>Pronunciation</li><li>Spice level</li><li>Description and ingredients</li><li>How to eat</li><li>Allergies and dietary information</li></ul></section>}<button className="primary-button" onClick={onHome}>{content[2]}</button></section></main>; }
 
 export default App;
