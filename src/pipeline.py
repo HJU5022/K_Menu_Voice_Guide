@@ -34,7 +34,7 @@ def _synthesize_via_subprocess(text: str, style: str) -> dict[str, object]:
             capture_output=True,
             text=True,
             cwd=_PROJECT_ROOT,
-            timeout=300,
+            timeout=600,
         )
         return json.loads(completed.stdout)
     except Exception:
