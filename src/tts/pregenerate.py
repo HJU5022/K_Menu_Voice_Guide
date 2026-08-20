@@ -23,12 +23,39 @@ _load_cached_tts()가 같은 이름 규칙으로 조회한다. 실제 합성은 
 import torch  # noqa: F401
 
 import argparse
+import csv
 import shutil
 import sys
+from pathlib import Path
 
 from src import pipeline
 from src.db import cache
 from src.text_gen.narration import get_narration
+
+
+# 배치가 곧 RTF 측정이기도 하다: RTF = 생성 시간 ÷ 생성된 음성 길이 (1.0 미만이면 실시간).
+# 결과를 eval/ 아래 CSV로 남겨 모델 비교표의 근거 데이터로 쓴다.
+LOG_PATH = Path(__file__).resolve().parent.parent.parent / "eval" / "tts_pregen_log.csv"
+
+
+def _wav_duration_sec(path: Path) -> float | None:
+    """wav 길이(초). soundfile이 있으면 그걸, 없으면 표준 wave 모듈을 쓴다.
+
+    (soundfile은 float 포맷 wav도 읽지만 TTS venv에만 있을 수 있고, 표준 wave는
+    어디서나 되지만 PCM만 읽는다 — 둘 다 실패하면 RTF 없이 진행한다.)
+    """
+    try:
+        import soundfile as sf
+        info = sf.info(str(path))
+        return info.frames / info.samplerate
+    except Exception:
+        pass
+    try:
+        import wave
+        with wave.open(str(path), "rb") as w:
+            return w.getnframes() / w.getframerate()
+    except Exception:
+        return None
 
 
 def main() -> None:
@@ -39,6 +66,7 @@ def main() -> None:
     pipeline._TTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     foods = cache.get_foods()
     done = skipped = failed = 0
+    log_rows: list[dict] = []
 
     for i, food in enumerate(foods, 1):
         try:
@@ -66,8 +94,33 @@ def main() -> None:
 
         # synthesize()가 시스템 임시 폴더에 쓴 wav를 캐시 위치로 옮긴다.
         shutil.move(result["audio_path"], target)
-        print(f"{label} — 생성 {result['latency_ms'] / 1000:.1f}초")
+
+        latency_sec = result["latency_ms"] / 1000
+        duration = _wav_duration_sec(target)
+        rtf = (latency_sec / duration) if duration else None
+        log_rows.append({
+            "food_id": food["id"],
+            "name_kr": food["name_kr"],
+            "style": narration["style"],
+            "latency_sec": round(latency_sec, 2),
+            "audio_sec": round(duration, 2) if duration else "",
+            "rtf": round(rtf, 3) if rtf else "",
+        })
+
+        rtf_note = f" · 음성 {duration:.1f}초 · RTF {rtf:.2f}" if rtf else ""
+        print(f"{label} — 생성 {latency_sec:.1f}초{rtf_note}")
         done += 1
+
+    if log_rows:
+        write_header = not LOG_PATH.exists()
+        with open(LOG_PATH, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(log_rows[0].keys()))
+            if write_header:
+                writer.writeheader()
+            writer.writerows(log_rows)
+        rtfs = [r["rtf"] for r in log_rows if r["rtf"] != ""]
+        if rtfs:
+            print(f"\n평균 RTF {sum(rtfs) / len(rtfs):.2f} (n={len(rtfs)}) → {LOG_PATH}")
 
     print(f"\n완료 {done} · 건너뜀 {skipped} · 실패 {failed} → {pipeline._TTS_CACHE_DIR}")
     if failed:
