@@ -1,13 +1,16 @@
 """TTS 추론 — Qwen3-TTS 1.7B Base + LoRA 어댑터로 실제 음성을 생성한다.
 
 베이스 모델: Qwen/Qwen3-TTS-12Hz-1.7B-Base
-LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora (박민영님 학습, 40 epoch, lr=2e-6)
+LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora
+  - 최종 체크포인트: checkpoint-epoch-39 (8차 실험 `final_respelled_lr5e-6_ep40`,
+    lr=5e-6, rank=16, alpha=32, 40 epoch, batch=4)
+  - 하이퍼파라미터 5개 조합(LR 5e-6/1e-5/2e-5 x rank 16/32) 비교 후 채택된 값.
+    상세 실험 기록: tts/TTS_MODULE.md 3절, tts/training_log.csv
 
 이 파일의 로직은 박민영님이 실제 학습에 쓴 노트북에서 확인한, 커뮤니티 패치
 (instavar/qwen3-tts-lora-finetuning, patches/0001-qwen3-tts-lora.patch가 공식
 Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 그대로 옮긴
-것이다 — 처음엔 이 패치 파일을 못 찾아서 추측(generate_voice_clone 기반)으로 짰었는데,
-실제 코드를 확인하고 나서 완전히 다시 짰다:
+것이다.
 
 - LoRA는 PeftModel로 감싼 뒤 기본적으로 merge_and_unload()로 베이스 모델에 합쳐진다
   (--no_merge_lora 플래그가 없으면).
@@ -18,12 +21,16 @@ Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 �
   위치의 core_model.talker.model.codec_embedding.weight에 직접 덮어쓴다.
 - LoRA scale은 peft.tuners.lora.LoraLayer의 set_scale()으로 적용한다 (1.0이면 생략).
 
-2026-08-20: 서버에 연결해서 첫 실제 GPU 실행 중 발화 초반(0.2~0.4초)이 무음으로 끊기는
-증상 발견 — TTS팀 정식 스크립트(inference.py)와 대조해보니 이 파일이 instruct 파라미터를
-아예 안 넘기고 있었음(리스펠링도 누락). LoRA가 instruct 조건으로 학습됐는데 그걸 안 주니
-생성 초반이 불안정해진 것으로 보임 — apply_respelling()/INSTRUCT_MAP을 정식 스크립트와
-동일하게 포팅해서 수정함. speaker_name="speaker"/lora_scale=0.3은 여전히 팀 최종
-채택값과 대조 확인 필요.
+발음 개선(리스펠링)과 톤 구분(instruct)은 2026-08-19 최종 업데이트로 synthesize()에
+추가됨 — 상세 근거는 tts/TTS_MODULE.md 4·5절 참고. instruct는 LoRA 학습 조건이 아니라
+Qwen3-TTS 베이스 모델의 추론 시점 기능이다(재학습 없이 기존 체크포인트에 바로 적용됨,
+TTS_MODULE.md 5절 참고) — GUIDE/CAUTION 톤 구분용이며, 아래 발화 안정성 문제와는 무관하다.
+
+2026-08-20: 실제 GPU로 처음 돌려보니 발화 시작부에 최대 0.8초 무음이 붙거나 문장 중간에
+200~600ms 끊김이 생기는 증상 확인 — LoRA scale(0.2/0.3/0.4/0.5)이나 instruct 유무와
+무관하게 재현됨(0.5는 327초짜리 폭주 생성까지 발생, 정상은 ~25~30초). scale 튜닝으로
+없어지는 문제가 아니라 generate_custom_voice 자체의 워밍업 특성으로 보고, 아래
+_trim_silence()로 생성 후 후처리한다.
 """
 
 import re
@@ -37,15 +44,17 @@ VALID_STYLES = frozenset({"GUIDE", "CAUTION"})
 TTS_BASE_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 TTS_ADAPTER_REPO_ID = "k-bite-team/k-menu-qwen3-tts-lora"
 TTS_SPEAKER_NAME = "speaker"  # 학습·추론 노트북에서 커스텀 이름을 안 줘서 계속 기본값 사용됨
-LORA_SCALE = 0.3  # 1.0은 거의 항상 깨진 결과가 나온다는 커뮤니티 가이드, 0.2~0.5 권장값 중간값. 팀 최종 확정값 확인 필요
-# 0.2/0.3/0.4/0.5 비교 실험 결과: 0.2·0.4는 발화 시작부에 최대 0.8초 무음, 0.5는 327초짜리
-# 폭주 생성(정상은 ~25~30초) — scale을 낮추거나 높여서 없어지는 문제가 아니라 커스텀
-# 보이스클로닝(generate_custom_voice) 자체의 특성으로 보임. scale 튜닝 대신 아래
-# _trim_silence()로 후처리한다.
+LORA_SCALE = 0.3  # 0.2/0.3/0.35/0.5 청취 비교 후 확정. 1.0은 거의 항상 깨진 결과가 나옴(커뮤니티 가이드)
+# 참고: 0.2/0.3/0.4/0.5 재비교 시 발화 시작부/중간 무음이 scale과 무관하게 나타났고
+# (0.5는 327초짜리 폭주 생성까지 발생) — 그래서 scale 튜닝 대신 아래 _trim_silence()로
+# 생성 후 후처리한다.
 SEED = 42  # 청크 간 음색 흔들림 방지용 고정 시드 (원본 스크립트 기본값)
 MAX_NEW_TOKENS = 4096
 
-# TTS팀 정식 스크립트(inference.py)와 동일한 표 — 음식명 발음 보정용 리스펠링.
+# --- 발음 개선: 음식명 리스펠링 (tts/TTS_MODULE.md 4절) ---------------------
+# 청취 테스트로 확정. 화면 표시용 narration_text는 원본 로마자 표기를 그대로 쓰고,
+# TTS 입력 시에만 이 표로 치환한다. 8차 최종 재학습부터는 이 치환된 텍스트를
+# 학습 데이터 라벨에도 반영해, 모델이 리스펠링 표기 자체를 학습하도록 했다.
 RESPELL_MAP = {
     "Tteokbokki": "Duck-bok-kee",
     "Bibimbap": "Bee-bim-bahp",
@@ -72,11 +81,15 @@ RESPELL_MAP = {
 # 긴 이름부터 먼저 치환해야 부분 문자열 충돌(예: Tteokguk vs Tteokgalbi) 방지
 _SORTED_RESPELL_NAMES = sorted(RESPELL_MAP, key=len, reverse=True)
 
-# 스타일별 instruct 문구 (톤 제어) — LoRA가 이 조건으로 학습됐으므로 반드시 같이 넘겨야 함.
-# instruct 없이 호출하면 학습 때 본 적 없는 입력이 되어 생성 초반이 불안정해진다
-# (관찰된 증상: 발화 시작 0.2~0.4초 구간이 무음으로 끊김).
+# --- 톤 구분: instruct (tts/TTS_MODULE.md 5절) ------------------------------
+# 강도 단계별(약함~극단) + 언어(영어 vs 중국어) 비교 청취로 확정.
+# 재학습 없이 추론 시점에서 즉시 적용되는 방식 — CAUTION 학습 데이터 부족(8%) 문제를
+# 우회하는 해법. 톤 구분용이며, 발화 초반 무음 문제와는 무관함(아래 _trim_silence 참고).
 INSTRUCT_MAP = {
-    "GUIDE": "Speak in a calm, informative tone, like a knowledgeable guide explaining something interesting. Keep a natural, steady pace, not slow.",
+    "GUIDE": (
+        "Speak in a calm, informative tone, like a knowledgeable guide "
+        "explaining something interesting. Keep a natural, steady pace, not slow."
+    ),
     "CAUTION": "Say it in an urgent, warning tone, as if cautioning someone.",
 }
 
@@ -273,7 +286,11 @@ def _trim_silence(
 
 
 def synthesize(text: str, style: str) -> dict[str, object]:
-    """Validate a narration request, generate speech, and return the TTS result."""
+    """Validate a narration request, generate speech, and return the TTS result.
+
+    음식명 리스펠링(발음 개선)과 style별 instruct(톤 구분)를 자동 적용한다.
+    narration_text(화면 표시용 원문)는 그대로 두고, 여기서만 변환해서 모델에 넘긴다.
+    """
     if not isinstance(text, str) or not text.strip():
         raise ValueError("TTS text는 비어 있지 않은 문자열이어야 합니다.")
     if style not in VALID_STYLES:
