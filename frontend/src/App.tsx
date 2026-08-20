@@ -11,7 +11,11 @@ type DetailCategory = "DESCRIPTION" | "HOW_TO_EAT" | "INGREDIENT" | "ALLERGY" | 
 type ApiCandidate = {
   food_id: number;
   name_kr: string;
+  name_en: string;
   score: number;
+  // This name matches Supabase foods.thumbnail_url. It stays optional because
+  // a dish can still be matched even when its image has not been registered.
+  thumbnail_url?: string | null;
   modifiers: Record<string, unknown>;
 };
 
@@ -33,7 +37,9 @@ type ApiFoodGuide = {
 type FoodCandidate = {
   foodId: number;
   nameKr: string;
+  nameEn: string;
   matchScore: number;
+  imageUrl?: string | null;
   bbox?: Box;
 };
 
@@ -49,11 +55,14 @@ type FoodGuide = {
   ttsLatencyMs: number;
 };
 
+// The uppercase category keys are internal API values. The labels beside them are
+// the short English names travellers see on the result screen. The boolean keeps
+// allergy information visually distinct because it needs extra attention.
 const DETAIL_CARDS: Array<[DetailCategory, string, boolean]> = [
   ["DESCRIPTION", "Description", false],
   ["HOW_TO_EAT", "How to eat", false],
   ["INGREDIENT", "Ingredients", false],
-  ["ALLERGY", "Allergy notice", true],
+  ["ALLERGY", "Allergies & dietary needs", true],
   ["PRONUNCIATION", "Pronunciation", false],
   ["SPICY", "Spice level", false],
 ];
@@ -62,7 +71,9 @@ function toFoodCandidate(candidate: ApiCandidate): FoodCandidate {
   return {
     foodId: candidate.food_id,
     nameKr: candidate.name_kr,
+    nameEn: candidate.name_en,
     matchScore: candidate.score,
+    imageUrl: candidate.thumbnail_url,
   };
 }
 
@@ -163,6 +174,8 @@ function App() {
 
   async function processImage(image: File) {
     try {
+      // The waiting screen appears before the upload begins so a traveller knows
+      // the menu photo was accepted and does not submit the same photo twice.
       setScreen("processing");
       setPhotoUrl(URL.createObjectURL(image));
 
@@ -255,10 +268,12 @@ function App() {
     }
   }
 
-  if (screen === "processing") return <Processing onCancel={() => setScreen("camera")} />;
-  if (screen === "candidates") return <Candidates candidates={candidates} photoUrl={photoUrl} highlightedFoodId={highlightedFoodId} onBack={() => setScreen("camera")} onHighlight={setHighlightedFoodId} onChoose={chooseFood} />;
-  if (screen === "result" && guide) return <Result guide={guide} onBack={() => setScreen("candidates")} />;
-  if (screen === "error") return <ErrorPanel kind={errorKind} onHome={() => setScreen("camera")} />;
+  // One state controls one full-page screen. This keeps the user journey easy to
+  // follow: photo input → waiting → matches → guide, or a recoverable error.
+  if (screen === "processing") return <Processing currentLang={currentLang} photoUrl={photoUrl} onCancel={() => setScreen("camera")} onSelectLang={setCurrentLang} />;
+  if (screen === "candidates") return <Candidates candidates={candidates} currentLang={currentLang} photoUrl={photoUrl} highlightedFoodId={highlightedFoodId} onBack={() => setScreen("camera")} onHighlight={setHighlightedFoodId} onChoose={chooseFood} onSelectLang={setCurrentLang} />;
+  if (screen === "result" && guide) return <Result currentLang={currentLang} guide={guide} onBack={() => setScreen("candidates")} onSelectLang={setCurrentLang} />;
+  if (screen === "error") return <ErrorPanel currentLang={currentLang} kind={errorKind} onHome={() => setScreen("camera")} onSelectLang={setCurrentLang} />;
 
   return <>
     <main className="screen camera-screen">
@@ -269,22 +284,24 @@ function App() {
       </header>
       <section className="camera-intro">
         <p className="camera-kicker">✧ MENU, MADE CLEAR</p>
-        <h1>Point your<br />camera at the<br />menu.</h1>
-        <p>Take a photo of the Korean item you want to understand. We only show dishes we can identify with confidence.</p>
+        <h1>Scan a Korean<br />menu.</h1>
+        <p>Take a clear photo to find dishes we can guide.</p>
       </section>
       <section className="camera-card">
         <button className={cameraReady ? "camera-viewer is-ready" : "camera-viewer"} aria-label={cameraReady ? "Camera preview" : "Enable camera"} onClick={() => { if (!cameraReady) void startCamera(); }} type="button">
-          {cameraReady ? <video ref={videoRef} autoPlay muted playsInline /> : <div className="camera-placeholder"><span aria-hidden="true">▣</span><p>Tap this frame to enable your camera</p></div>}
+          {cameraReady ? <video ref={videoRef} autoPlay muted playsInline /> : <div className="camera-placeholder"><span aria-hidden="true">▣</span><p>Enable camera</p></div>}
           <span className="camera-prompt">{cameraReady ? "Camera ready" : "Point at the menu"}</span>
           <span className="scan-corner top-left" aria-hidden="true" /><span className="scan-corner top-right" aria-hidden="true" /><span className="scan-corner bottom-left" aria-hidden="true" /><span className="scan-corner bottom-right" aria-hidden="true" />
         </button>
         <div className="camera-actions">
           <button className="capture-button" disabled={!cameraReady} onClick={capturePhoto}><span aria-hidden="true">▣</span> Take photo</button>
-          <label className="secondary-button upload-button"><span aria-hidden="true" className="upload-icon" />Upload<input accept="image/*" onChange={handleUpload} type="file" /></label>
+          <label className="secondary-button upload-button"><span aria-hidden="true" className="upload-icon" />Upload a menu photo<input accept="image/*" onChange={handleUpload} type="file" /></label>
         </div>
       </section>
       {cameraError && <p className="camera-error">{cameraError}</p>}
       <p className="camera-helper">Your photo is used only to identify the menu text. Read the Korean original before ordering.</p>
+      {/* Development-only controls for checking error layouts. They are not part of
+          the traveller-facing flow and should be removed or hidden before release. */}
       <details className="practice-tools"><summary>Preview error states</summary><button onClick={() => { setErrorKind("ocr"); setScreen("error"); }}>OCR failed</button><button onClick={() => { setErrorKind("unsupported"); setScreen("error"); }}>Unsupported dish</button><button onClick={() => { setErrorKind("service"); setScreen("error"); }}>GPU / DB failed</button></details>
     </main>
     <footer className={consentVisible ? "camera-footer is-obscured" : "camera-footer"}>
@@ -303,14 +320,68 @@ function TermsModal({ onClose }: { onClose: () => void }) { return <div classNam
 
 function ConsentBanner({ closing, essentialCookies, imageProcessingConsent, onAccept, onEssentialCookiesChange, onImageProcessingChange, onPrivacy }: { closing: boolean; essentialCookies: boolean; imageProcessingConsent: boolean; onAccept: () => void; onEssentialCookiesChange: (value: boolean) => void; onImageProcessingChange: (value: boolean) => void; onPrivacy: () => void }) { return <aside aria-label="Privacy choices" className={closing ? "consent-banner is-closing" : "consent-banner"}><div className="consent-copy"><p className="consent-title">Your privacy choices</p><p>Choose how K-Menu Voice Guide may process your session and menu photos.</p></div><div className="consent-options"><label><input checked={essentialCookies} onChange={(event) => onEssentialCookiesChange(event.target.checked)} type="checkbox" /><span><strong>Essential Cookies &amp; Analytics</strong><small>Allows session continuity and basic performance measurement.</small></span></label><label><input checked={imageProcessingConsent} onChange={(event) => onImageProcessingChange(event.target.checked)} type="checkbox" /><span><strong>Camera &amp; Image Processing</strong><small>Allows menu images to be processed in memory for OCR. Images are not permanently stored.</small></span></label></div><div className="consent-actions"><button className="consent-privacy" onClick={onPrivacy}>Privacy Policy</button><button className="consent-accept" onClick={onAccept}>Accept &amp; Continue</button></div></aside>; }
 
-function FlowHeader({ label }: { label: string }) { return <header className="flow-header"><div className="brand-mark camera-brand">K</div><div className="brand-copy"><strong>K-menu</strong><p>A thoughtful guide</p></div><span>{label}</span></header>; }
+function FlowHeader({ label, currentLang, onSelectLang }: { label: string; currentLang: string; onSelectLang: (lang: string) => void }) { return <header className="flow-header"><div className="brand-mark camera-brand">K</div><div className="brand-copy"><strong>K-menu</strong><p>A thoughtful guide</p></div><div className="flow-header-actions"><span>{label}</span><LanguageSelector currentLang={currentLang} onSelectLang={onSelectLang} /></div></header>; }
 
-function Processing({ onCancel }: { onCancel: () => void }) { return <main className="screen flow-screen processing-screen"><FlowHeader label="Reading menu" /><button className="text-button screen-back" onClick={onCancel}>← Cancel analysis</button><section className="processing-panel"><p className="camera-kicker">✧ MENU, MADE CLEAR</p><div className="spinner" /><h1>Reading your<br />menu.</h1><p>Finding Korean dish names and matching them with our food guide.</p><div className="progress-list"><p>✓ Photo received</p><p>✓ Reading Korean text</p><p className="current-step">◌ Matching dishes</p></div></section></main>; }
+function Processing({ currentLang, photoUrl, onCancel, onSelectLang }: { currentLang: string; photoUrl: string | null; onCancel: () => void; onSelectLang: (lang: string) => void }) {
+  const [activeStep, setActiveStep] = useState(0);
+  const steps = [
+    ["Image received", "Preparing your menu photo"],
+    ["Reading Korean text", "Extracting visible menu text"],
+    ["Matching dishes", "Finding dishes in our guide"],
+  ];
 
-function Candidates({ candidates, photoUrl, highlightedFoodId, onBack, onHighlight, onChoose }: { candidates: FoodCandidate[]; photoUrl: string | null; highlightedFoodId: number | null; onBack: () => void; onHighlight: (id: number) => void; onChoose: (candidate: FoodCandidate) => void }) { return <main className="screen flow-screen candidates-screen"><FlowHeader label="Step 2 of 3" /><button className="text-button screen-back" onClick={onBack}>← Scan another menu</button><section className="flow-intro"><p className="camera-kicker">✧ MENU MATCHES</p><h1>Which dish would<br />you like to know?</h1><p>Compare the highlighted text with your original menu photo.</p></section>{photoUrl && <section className="ocr-evidence"><p className="evidence-title">Your original menu photo</p><div className="menu-photo-frame"><img src={photoUrl} alt="Original uploaded Korean menu" />{candidates.map((food) => food.bbox && <span className={highlightedFoodId === food.foodId ? "ocr-box active" : "ocr-box"} key={food.foodId} style={{ left: `${food.bbox.left}%`, top: `${food.bbox.top}%`, width: `${food.bbox.width}%`, height: `${food.bbox.height}%` }}>{food.nameKr}</span>)}</div><p className="evidence-help">Outlined labels are demonstration boxes. Real OCR will return exact locations.</p></section>}<section className="candidate-list">{candidates.map((food, index) => <button className="candidate-card" key={food.foodId} onClick={() => void onChoose(food)} onMouseEnter={() => onHighlight(food.foodId)} onFocus={() => onHighlight(food.foodId)}><span className="food-index">{String(index + 1).padStart(2, "0")}</span><span className="candidate-copy"><strong>{food.nameKr}</strong><small>{food.matchScore}% match</small></span><span className="chevron">›</span></button>)}</section></main>; }
+  useEffect(() => {
+    // The API reports one final result, not three live server events. These
+    // timed states make the wait understandable and stop as soon as the API
+    // response changes the screen to matches or an error screen.
+    const secondStep = window.setTimeout(() => setActiveStep(1), 650);
+    const thirdStep = window.setTimeout(() => setActiveStep(2), 1350);
+    return () => { window.clearTimeout(secondStep); window.clearTimeout(thirdStep); };
+  }, []);
 
-function Result({ guide, onBack }: { guide: FoodGuide; onBack: () => void }) { return <main className="screen flow-screen result-screen"><FlowHeader label="Your guide" /><button className="text-button screen-back" onClick={onBack}>← Back to dishes</button><section className="result-hero"><p className="camera-kicker">✧ YOUR FOOD GUIDE</p><h1>{guide.nameKr}</h1><p>{detailValue(guide.details, "PRONUNCIATION")}</p><p className="badge">{detailValue(guide.details, "SPICY")}</p></section><p className={guide.audioUrl ? "audio-status" : "audio-status unavailable"}>{guide.audioUrl ? "Voice guide is ready to play." : "Text guide is ready to read."}</p><section className="guide-grid">{DETAIL_CARDS.map(([category, title, warning]) => <section className={warning ? "info-card warning" : "info-card"} key={category}><div><h2>{title}</h2><p>{detailValue(guide.details, category)}</p></div></section>)}</section>{guide.audioUrl ? <audio src={guide.audioUrl} autoPlay controls /> : <section className="tts-error-card"><strong>Voice guide is unavailable right now.</strong><p>{guide.narrationText}</p><button onClick={() => alert("In the real app, this requests TTS again.")}>Try voice guide again</button></section>}</main>; }
+  return <main className="screen flow-screen processing-screen"><FlowHeader currentLang={currentLang} label="Reading your menu" onSelectLang={onSelectLang} /><button className="cancel-button screen-back" onClick={onCancel}>Cancel</button><section className="analysis-widget">{photoUrl ? <img alt="Menu being analyzed" src={photoUrl} /> : <div className="analysis-photo-placeholder" />}<div className="analysis-overlay"><p className="analysis-kicker">LIVE MENU ANALYSIS</p><div className="analysis-loader" /><h1>Reading your menu.</h1><p>We&apos;re finding dishes in your menu photo.</p><div className="analysis-progress" aria-hidden="true"><span style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }} /></div><ol className="analysis-steps">{steps.map(([title, description], index) => <li className={index < activeStep ? "done" : index === activeStep ? "active" : ""} key={title}><span>{index < activeStep ? "✓" : String(index + 1)}</span><div><strong>{title}</strong><small>{description}</small></div></li>)}</ol></div></section></main>;
+}
 
-function ErrorPanel({ kind, onHome }: { kind: ErrorKind; onHome: () => void }) { const content = { ocr: ["We couldn't read the menu", "Try brighter lighting, hold the menu straight, and move closer to the text.", "Take another photo"], unsupported: ["We couldn't match this menu item", "This item is not currently in the server's supported-food database. Please scan another item or ask restaurant staff.", "Scan another menu"], service: ["We couldn't prepare your food guide", "Please check your connection and try again.", "Try again"] }[kind]; return <main className="screen flow-screen error-screen"><FlowHeader label="K-menu" /><section className="error-card"><p className="camera-kicker">✧ LET'S TRY AGAIN</p><span className="error-symbol">!</span><h1>{content[0]}</h1><p>{content[1]}</p>{kind === "unsupported" && <section className="guide-info"><h2>What can I learn?</h2><ul><li>Pronunciation</li><li>Spice level</li><li>Description and ingredients</li><li>How to eat</li><li>Allergies and dietary information</li></ul></section>}<button className="primary-button" onClick={onHome}>{content[2]}</button></section></main>; }
+function Candidates({ candidates, currentLang, photoUrl, highlightedFoodId, onBack, onHighlight, onChoose, onSelectLang }: { candidates: FoodCandidate[]; currentLang: string; photoUrl: string | null; highlightedFoodId: number | null; onBack: () => void; onHighlight: (id: number) => void; onChoose: (candidate: FoodCandidate) => void; onSelectLang: (lang: string) => void }) { return <main className="screen flow-screen candidates-screen"><FlowHeader currentLang={currentLang} label="2 of 3" onSelectLang={onSelectLang} /><button className="back-button screen-back" onClick={onBack}>← Back</button><section className="flow-intro"><p className="camera-kicker">✧ MENU MATCHES</p><h1>Choose a dish.</h1><p>Check the highlighted text against your menu photo.</p></section>{photoUrl && <section className="ocr-evidence"><p className="evidence-title">Your menu photo</p><div className="menu-photo-frame"><img src={photoUrl} alt="Uploaded Korean menu" />{candidates.map((food, index) => food.bbox && <span className={highlightedFoodId === food.foodId ? "ocr-box active" : "ocr-box"} key={food.foodId} style={{ left: `${food.bbox.left}%`, top: `${food.bbox.top}%`, width: `${food.bbox.width}%`, height: `${food.bbox.height}%` }}><span className="ocr-index">{String(index + 1).padStart(2, "0")}</span><span>{food.nameKr}</span></span>)}</div><p className="evidence-help">Numbered boxes match the dishes below.</p></section>}<section className="candidate-list">{candidates.map((food, index) => <button className="candidate-card" key={food.foodId} onClick={() => void onChoose(food)} onMouseEnter={() => onHighlight(food.foodId)} onFocus={() => onHighlight(food.foodId)}>{food.imageUrl ? <img className="candidate-thumbnail" src={food.imageUrl} alt="" /> : <span className="food-index">{String(index + 1).padStart(2, "0")}</span>}<span className="candidate-copy"><strong>{food.nameEn}</strong><span>{food.nameKr}</span><small>Possible match: {food.matchScore}%</small></span><span className="chevron">›</span></button>)}</section></main>; }
+
+function Result({ guide, currentLang, onBack, onSelectLang }: { guide: FoodGuide; currentLang: string; onBack: () => void; onSelectLang: (lang: string) => void }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speakingCategory, setSpeakingCategory] = useState<DetailCategory | null>(null);
+
+  async function toggleAudio() {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // Browsers allow sound after this explicit user click. We intentionally do
+    // not use autoplay: the traveller decides whether to hear the guide.
+    if (audio.paused) {
+      await audio.play();
+      setIsPlaying(true);
+    } else {
+      audio.pause();
+      setIsPlaying(false);
+    }
+  }
+
+  function playDetail(category: DetailCategory) {
+    // The current API supplies one full-guide audio file, not six separate
+    // category files. Web Speech gives every visible card a working manual
+    // playback control until category-specific TTS URLs are provided.
+    if (!("speechSynthesis" in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(detailValue(guide.details, category));
+    utterance.lang = "en-US";
+    utterance.onend = () => setSpeakingCategory(null);
+    utterance.onerror = () => setSpeakingCategory(null);
+    setSpeakingCategory(category);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  return <main className="screen flow-screen result-screen"><FlowHeader currentLang={currentLang} label="Your guide" onSelectLang={onSelectLang} /><button className="back-button screen-back" onClick={onBack}>← Back</button><section className="result-hero"><p className="camera-kicker">✧ ABOUT THIS DISH</p><h1>{guide.nameKr}</h1><p>{detailValue(guide.details, "PRONUNCIATION")}</p><p className="badge">{detailValue(guide.details, "SPICY")}</p></section><p className={guide.audioUrl ? "audio-status" : "audio-status unavailable"}>{guide.audioUrl ? "Your audio guide is ready." : "Your guide is ready to read."}</p><section className="guide-grid">{DETAIL_CARDS.map(([category, title, warning]) => <section className={warning ? "info-card warning" : "info-card"} key={category}><div className="info-card-heading"><h2>{title}</h2><button aria-label={`Play ${title}`} aria-pressed={speakingCategory === category} className={speakingCategory === category ? "detail-audio-button is-playing" : "detail-audio-button"} onClick={() => playDetail(category)} type="button">🔊</button></div><p>{detailValue(guide.details, category)}</p></section>)}</section>{guide.audioUrl ? <section className="audio-player"><button className="primary-button" onClick={() => void toggleAudio()}>{isPlaying ? "Pause audio guide" : "Play audio guide"}</button><audio controls onEnded={() => setIsPlaying(false)} onPause={() => setIsPlaying(false)} onPlay={() => setIsPlaying(true)} ref={audioRef} src={guide.audioUrl} /></section> : <section className="tts-error-card"><strong>Audio guide is unavailable right now.</strong><p>{guide.narrationText}</p><button onClick={() => alert("In the real app, this requests TTS again.")}>Try audio again</button></section>}</main>;
+}
+
+function ErrorPanel({ kind, currentLang, onHome, onSelectLang }: { kind: ErrorKind; currentLang: string; onHome: () => void; onSelectLang: (lang: string) => void }) { const content = { ocr: ["We couldn't read this photo", "Try brighter lighting, hold the menu straight, and move closer to the text.", "Take a new photo"], unsupported: ["Not in our guide yet", "Try a different menu item or ask the restaurant staff.", "Take a new photo"], service: ["We couldn't load your guide", "Please check your connection and try again.", "Try again"] }[kind]; return <main className="screen flow-screen error-screen"><FlowHeader currentLang={currentLang} label="K-menu" onSelectLang={onSelectLang} /><section className="error-card"><p className="camera-kicker">✧ LET'S TRY AGAIN</p><span className="error-symbol">!</span><h1>{content[0]}</h1><p>{content[1]}</p>{kind === "unsupported" && <section className="guide-info"><h2>What this guide includes</h2><ul><li>Pronunciation</li><li>Spice level</li><li>Description and ingredients</li><li>How to eat</li><li>Allergies and dietary needs</li></ul></section>}<button className="primary-button" onClick={onHome}>{content[2]}</button></section></main>; }
 
 export default App;

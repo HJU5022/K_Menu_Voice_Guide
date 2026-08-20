@@ -31,7 +31,8 @@ _TTS_PYTHON = os.environ.get("TTS_VENV_PYTHON") or str(_PROJECT_ROOT / ".venv-tt
 _TTS_LOG_PATH = _PROJECT_ROOT / "logs" / "tts_worker.log"
 
 # 응답 대기 상한. 첫 요청은 모델을 GPU에 올리는 시간(실측 90~160초)이 포함되므로 넉넉히 준다.
-_TTS_TIMEOUT_SEC = 300
+# main에서 자식 프로세스 타임아웃을 300초 -> 600초로 늘린 것과 같은 값으로 맞춘다.
+_TTS_TIMEOUT_SEC = 600
 
 _TTS_FAILED: dict[str, object] = {"audio_path": None, "status": "not_ready", "latency_ms": 0.0}
 
