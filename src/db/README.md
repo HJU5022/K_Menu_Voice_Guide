@@ -15,9 +15,10 @@ DB에 직접 접근하는 코드는 전부 여기에만 둡니다. 다른 폴더
 
 | 테이블 | 내용 |
 |---|---|
-| `foods` | 음식 기본 정보 (음식명, spice_level) |
+| `foods` | 음식 기본 정보 (음식명, spice_level, 대표사진 URL·출처) |
 | `food_details` | 카테고리 6개 상세 설명 (PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY) |
 | `food_narration` | style별 내레이션 문장 |
+| `menu_modifiers` | 메뉴에 붙는 수식어 (예: "매운") — 매칭 후 따로 뽑아내는 데 씀 |
 
 ## 보안
 

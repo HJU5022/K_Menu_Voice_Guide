@@ -102,11 +102,21 @@
 
 ### 파이프라인
 
-```
-메뉴 이미지 → OpenCV 전처리 → 한국어 OCR(파인튜닝 PaddleOCR)
-→ 문자열 유사도 매칭(RapidFuzz) → 음식 선택
-→ 텍스트생성(카테고리별 상세 + 축약 내레이션, spice_level 기준 GUIDE/CAUTION 결정)
-→ 파인튜닝 TTS → 텍스트 + 음성 출력
+```mermaid
+flowchart TD
+    A[메뉴 이미지] --> B[OpenCV 전처리<br/>회전·대비·크기 보정]
+    B --> C[한국어 OCR<br/>파인튜닝 PaddleOCR]
+    C --> D[문자열 유사도 매칭<br/>RapidFuzz]
+    D --> E{등록된 음식인가?}
+    E -->|아니오| X[미지원 안내]
+    E -->|예| F[음식 선택<br/>후보 여러 개면 사용자가 선택]
+    F --> G[텍스트 생성<br/>카테고리 6개 상세 + 축약 내레이션]
+    G --> H{spice_level 4 이상?}
+    H -->|예| I1[style = CAUTION]
+    H -->|아니오| I2[style = GUIDE]
+    I1 --> J[파인튜닝 TTS<br/>Qwen3-TTS + LoRA]
+    I2 --> J
+    J --> K[텍스트 + 음성 출력]
 ```
 
 ### 정상 흐름
@@ -190,13 +200,18 @@ proj1-c/
 │   └── workflows/secret-scan.yml
 │
 ├── docs/
-│   ├── 기획서.md
-│   ├── pipeline_diagram.png
+│   ├── README.md
+│   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 프론트 내용과 합쳐 정리 예정
 │   └── specs/
 │       ├── _example.md
+│       ├── api-layer.md              # FastAPI 엔드포인트 계약
+│       ├── db-cache.md               # 메모리 캐싱
+│       ├── ocr-candidate-results.md  # 음식 후보 결과 계약
 │       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
+│       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
-│       └── tts-finetuning.md
+│       ├── tts-finetuning.md
+│       └── ux-ui-integration.md      # 프론트엔드(React) 화면·API 계약
 │
 ├── data/
 │   └── README.md                     # AI Hub 신청 링크 + OCR 학습라벨(rec_gt_train.txt) 변환법
@@ -206,6 +221,7 @@ proj1-c/
 │   └── README.md                     # HF Hub 모델 ID만 기록: 파인튜닝 OCR 체크포인트, 파인튜닝 TTS 체크포인트
 │
 ├── src/
+│   ├── README.md                     # 블록 구성·입출력 계약·작업 원칙
 │   ├── ocr/                          # 이미지 ──▶ 음식 후보 목록
 │   │   ├── README.md
 │   │   ├── preprocess.py             #   OpenCV: 회전·대비·크기 보정
@@ -229,6 +245,8 @@ proj1-c/
 │   │   ├── README.md
 │   │   ├── finetune.py               #   LoRA/PEFT 파인튜닝 — 학습 시에만 사용
 │   │   ├── infer.py                  #   추론 — 배포에서 실제로 쓰이는 쪽 (기본: 라이브 생성)
+│   │   ├── worker.py                 #   infer.py를 별도 프로세스에서 실행하는 진입점
+│   │   │                             #   (paddle과 torch를 한 프로세스에 못 올려서 분리, 아래 참고)
 │   │   ├── pregenerate.py            #   Plan B: TTFB 목표 초과 시 30~60개 조합 사전 생성·캐싱
 │   │   └── perso_client.py           #   Perso.ai API 호출 — 동일 내레이션 텍스트 비교용 음성 생성
 │   │
@@ -236,14 +254,19 @@ proj1-c/
 │                                      #   {image_path, selected_food} ──▶ {detail_text(6개), narration_text, narration_audio_path, latency_ms}
 │
 ├── tests/
+│   ├── README.md                     # 테스트 파일 목록·실행법·작성 규칙
 │   └── test_*.py
 │
-└── eval/                             # 모델 성능 측정·기록 — "이 모델을 왜 골랐는지"의 근거
-    ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (하이퍼파라미터 8차, 리스펠링, instruct)
-    ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그
-    ├── qwen3_tts_lora_final.ipynb    # 실제 학습에 쓴 Colab 노트북
-    ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과
-    └── model_comparison.md           # OCR 2개(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교
+├── eval/                             # 모델 성능 측정·기록 — "이 모델을 왜 골랐는지"의 근거
+│   ├── README.md
+│   ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (하이퍼파라미터 8차, 리스펠링, instruct)
+│   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그
+│   ├── qwen3_tts_lora_final.ipynb    # 실제 학습에 쓴 Colab 노트북
+│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과
+│   └── model_comparison.md           # OCR 2개(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교
+│
+└── reorganize_dataset.py             # OCR 학습데이터 폴더 구조 정리용 1회성 스크립트
+                                      #   (배포 경로 아님 — data/README.md의 데이터 준비 단계에서만 사용)
 ```
 
 ---
