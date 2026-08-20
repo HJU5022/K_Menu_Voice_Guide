@@ -7,7 +7,7 @@
 | `기획서.md` | 문제 정의·해결 방식·범위·성공 기준·일정 |
 | `pipeline_diagram.png` | 전체 파이프라인 흐름도 |
 | `specs/` | 기능별 Spec 문서 |
-| `specs/ux-ui-integration.md` | React/Vite 메뉴 분석 화면, API 연동 전제, 오류·음성 안내 상태 기준 |
+| `specs/ux-ui-integration.md` | React/Vite 메뉴 분석 화면, FastAPI API 계약(`/api/analyze`, `/api/foods/{food_id}`), 오류·TTS 상태 기준 |
 
 ## Spec 작성 규칙
 
