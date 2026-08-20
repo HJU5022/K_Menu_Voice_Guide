@@ -8,12 +8,23 @@ HTTP API 계약이 필요하기 때문이다(docs/specs/api-layer.md 참고). �
 import tempfile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from src.pipeline import analyze_image, create_tts_response
 from src.text_gen.detail import get_details
 
 app = FastAPI(title="K-Menu Voice Guide API")
+
+# 프론트엔드가 별도 포트(예: Vite 개발 서버 :5173)에서 이 API(:8000)를 호출하므로
+# CORS 허용이 필요하다. 지금은 쿠키/인증 헤더를 안 쓰는 구조라 "*"로 열어두되,
+# 나중에 인증이 붙으면 allow_origins를 실제 프론트 배포 주소로 좁혀야 한다.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class Candidate(BaseModel):
