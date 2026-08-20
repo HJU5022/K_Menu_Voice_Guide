@@ -65,7 +65,7 @@
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: 웹앱 (Flutter 포팅은 향후 확장 검토 대상)
+- 배포 형태: Flutter 앱 (최종 목표). 기능 동결(8/23) 전까지는 React 웹앱으로 체크포인트 데모 진행 중
 
 ### 카테고리 구성
 
@@ -167,15 +167,11 @@ AI Hub '관광 음식메뉴판 데이터'(이미지 100,113장, 한식 28.1%)를
 
 ### TTS 모델
 
-XTTS-v2·F5-TTS를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜닝 중이며, Kokoro-82M을 추가 후보로 검토하고 있다. TTS는 음식 지식을 학습하지 않고 발음·톤만 담당한다(지식은 DB로 관리, 환각 방지).
+Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜닝했다(어댑터: `k-bite-team/k-menu-qwen3-tts-lora`). TTS는 음식 지식을 학습하지 않고 발음·톤만 담당한다(지식은 DB로 관리, 환각 방지).
 
 ### 배포 전략
 
-| 우선순위 | 방식 | 설명 |
-|---|---|---|
-| 1안 | Hugging Face Spaces (ZeroGPU) | 무료 GPU 추론, 상시 서비스 유지 |
-| 2안 | 순수 로직 + Gradio 래퍼 | 파이프라인은 Gradio 비의존으로 개발하고 배포 시점에만 Gradio로 감싸 ZeroGPU 활용 |
-| 3안 | 원격 서버 (백업) | 위 방식이 안 될 경우의 최종 백업 |
+`K_Menu_Talk.py`가 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출한다(Gradio 아님 — 프론트엔드가 별도 웹앱이라 API 계약이 필요해서 전환됨). 현재는 원격 데스크톱(RTX 3080 Ti)에서 백엔드·프론트를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 체크포인트 데모를 진행 중이며, Hugging Face Spaces(ZeroGPU) 배포는 아직 미착수 상태다.
 
 ### 디렉토리 구조
 
@@ -242,7 +238,10 @@ proj1-c/
 ├── tests/
 │   └── test_*.py
 │
-└── eval/
+└── eval/                             # 모델 성능 측정·기록 — "이 모델을 왜 골랐는지"의 근거
+    ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (하이퍼파라미터 8차, 리스펠링, instruct)
+    ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그
+    ├── qwen3_tts_lora_final.ipynb    # 실제 학습에 쓴 Colab 노트북
     ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과
     └── model_comparison.md           # OCR 2개(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교
 ```

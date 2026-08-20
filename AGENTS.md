@@ -11,9 +11,10 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 - **언어**: Python
 - **OCR**: PaddleOCR, OpenCV
 - **음식명 유사도 매칭**: RapidFuzz
-- **TTS**: OpenAI 모델 후보를 대상으로 파인튜닝 테스트 후 기본 모델 선정 예정, PEFT(LoRA)
+- **TTS**: Qwen3-TTS-12Hz-1.7B-Base + PEFT(LoRA) 파인튜닝 (어댑터: `k-bite-team/k-menu-qwen3-tts-lora`)
 - **데이터베이스**: Supabase
-- **배포 UI**: Gradio
+- **서버**: FastAPI (`K_Menu_Talk.py`가 `/api/analyze`, `/api/foods/{id}` 노출)
+- **배포 형태**: Flutter 앱 (최종 목표). 기능 동결 전까지는 React 웹앱으로 체크포인트 데모
 
 ## Spec 먼저, 구현은 그다음
 
