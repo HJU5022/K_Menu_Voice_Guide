@@ -183,7 +183,20 @@ Qwen3-TTS 공식 문서 조사 중 `generate_custom_voice()`에 자연어로 톤
 
 - **발음**: 리스펠링 미적용 시 다수 음식명이 부정확하게 발화됨(예: Tteokbokki를 영어 단어처럼 읽음). 리스펠링 적용 후 21개 음식에서 확연한 개선 확인(청취 기준 — UTMOS 기준으로는 6-2절 참고, 자연스러움과는 다른 축의 평가임에 유의).
 - **톤 구분**: `instruct` 미적용 시 GUIDE/CAUTION 간 청각적 차이 거의 없음. `instruct` 적용 후 CAUTION 발화에서 속도·긴장감 차이가 뚜렷하게 감지됨.
-- **Perso.ai 비교**: (기획서 요구사항 — 별도 진행 필요, 7절 TODO 참고)
+- **Perso.ai 비교**: 1차 결과 확보 완료 (6-4절 참고). 76개 문장 전체로 확대한 정식 재평가는 여전히 TODO(7절).
+
+### 6-4. Perso.ai 비교 (1차, 2026-08-21)
+
+`src/tts/perso_client.py`로 Perso.ai Speech API(voice cloning) 연동. 같은 나레이션 화자(`제발.zip` 나레이션 샘플 5개, 화자 본인 동의 확인)로 Perso.ai 쪽 voice를 클로닝(`voice_id: psv-5fb5f0ee151cce710625a02fd6578184`)해서, 같은 문장을 우리 파인튜닝 모델(instruct-trained epoch-31)과 Perso.ai 양쪽에 넣어 UTMOS22로 채점.
+
+| 스타일 | 문장 | 우리 모델 UTMOS | Perso.ai UTMOS | 비율 (기준 ≥85%) |
+|---|---|---|---|---|
+| GUIDE | "Bibimbap is a colorful bowl of warm rice topped with seasoned vegetables, meat, and a fried egg." | 4.2916 | 4.1135 | **104.3%** ✅ |
+| CAUTION | "Careful, this one's spicy! Duck-bok-kee is chewy rice cakes simmered in a thick, spicy chili sauce." | 4.4408 | 4.1556 | **106.9%** ✅ |
+
+**결론**: 두 스타일 모두 성공 기준(≥85%)을 크게 상회, 우리 모델이 Perso.ai보다 오히려 높게 채점됨(104~107%).
+
+> ⚠️ **한계 — 이걸로 "이겼다"고 단정하지 말 것**: 스타일당 문장 1개(n=1)뿐이라 통계적으로 유의미하다고 보기 어렵다. 6-2절 기존 평가(76개)와 동일 규모로 확대 재평가가 필요하다(7절 TODO). 원본 오디오 4개(ours/perso × guide/caution)는 git에는 안 올리고 팀 공유 드라이브/로컬에 보관(기존 샘플 오디오와 동일 컨벤션).
 
 ---
 
@@ -191,7 +204,8 @@ Qwen3-TTS 공식 문서 조사 중 `generate_custom_voice()`에 자연어로 톤
 
 - [x] **1차 자동 평가 (library 기반 MOS)**: UTMOS22로 오디오 76개 채점 완료 (6-2절, 사용 체크포인트·lora_scale 명시)
 - [ ] **8차(최종, 리스펠링 반영) 모델 기준 UTMOS 재평가**: 6-2절 food_screen 평가는 3차(리스펠링 학습 반영 전) 모델 기준이었음 — 8차 모델로 동일 76개 재채점 필요
-- [ ] **Perso.ai UTMOS 비교**: 동일 문장을 파인튜닝 모델과 Perso.ai API 양쪽으로 생성해 UTMOS 채점 후 비교. **성공 기준: 파인튜닝 모델 UTMOS ≥ Perso.ai UTMOS × 85%**. Perso.ai 오디오 샘플 확보 필요(팀 계정/API 접근 권한 있는 분 진행 부탁 — TTS 파트에서는 API 접근 권한이 없어 직접 생성 불가)
+- [x] **Perso.ai UTMOS 비교 (1차)**: 스타일당 1문장씩 비교 완료, 두 스타일 다 성공 기준(≥85%) 상회 (6-4절 참고)
+- [ ] **Perso.ai UTMOS 비교 (정식, 76문장 확대)**: 6-4절은 n=1짜리 1차 결과일 뿐 — 6-2절과 동일한 76개 문장 세트로 재평가 필요
 - [ ] **MOS 정식 평가 (사람 평가자)**: 외부 평가자 5명 확보, 블라인드 A/B(기본 모델 vs 파인튜닝 모델, 순서 랜덤화), 발음 정확도·자연스러움 각 1~5점 척도(ITU-T P.800 기준) — 기획서 AC5 요구사항(발음 0.4점 이상 향상, 스타일 구분률 85% 이상). 1차 자동 평가는 이를 대체하지 않음. **평가 절차: ① UTMOS 자동 채점 → ② 사용자(외부 평가자) 직접 청취 검증 순으로 진행**
 - [ ] CAUTION 클래스 실제 녹음 추가 검토 (현재는 `instruct`로 우회, 데이터 자체 보강은 여전히 유효한 개선 방향)
 - [ ] UTMOS 하락폭 큰 5개 음식(4절) 리스펠링 표기 재검토
