@@ -2,10 +2,14 @@
 
 베이스 모델: Qwen/Qwen3-TTS-12Hz-1.7B-Base
 LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora
-  - 최종 체크포인트: checkpoint-epoch-39 (8차 실험 `final_respelled_lr5e-6_ep40`,
-    lr=5e-6, rank=16, alpha=32, 40 epoch, batch=4)
-  - 하이퍼파라미터 5개 조합(LR 5e-6/1e-5/2e-5 x rank 16/32) 비교 후 채택된 값.
-    상세 실험 기록: tts/TTS_MODULE.md 3절, tts/training_log.csv
+  - 최종 체크포인트: checkpoint-epoch-31 (`instruct_trained_lr5e-6_ep40` 런,
+    lr=5e-6, rank=16, alpha=32, 40 epoch, batch=4, val_loss=8.8919로 전체 에폭 중 최저)
+  - 2026-08-20: 이전 체크포인트(epoch-39, `final_respelled_lr5e-6_ep40`)는 리스펠링만
+    학습 데이터에 반영돼 있고 instruct는 추론 시점에만 적용되던 버전이었음. 이번 런은
+    학습 스크립트(dataset.py/sft_12hz_lora.py)를 고쳐서 instruct 임베딩을 시퀀스 앞에
+    이어붙이는 방식으로 실제 학습에도 반영함 — 학습/추론 조건이 일치하도록 함.
+  - 하이퍼파라미터 자체(LR=5e-6, rank=16)는 기존 5개 조합 비교에서 채택된 값 그대로 재사용.
+    상세 실험 기록: tts/TTS_MODULE.md 3절, tts/training_log.csv (구 체크포인트 기준)
 
 이 파일의 로직은 박민영님이 실제 학습에 쓴 노트북에서 확인한, 커뮤니티 패치
 (instavar/qwen3-tts-lora-finetuning, patches/0001-qwen3-tts-lora.patch가 공식
@@ -22,9 +26,15 @@ Qwen3-TTS 저장소에 추가하는 finetuning/infer_lora_custom_voice.py)를 �
 - LoRA scale은 peft.tuners.lora.LoraLayer의 set_scale()으로 적용한다 (1.0이면 생략).
 
 발음 개선(리스펠링)과 톤 구분(instruct)은 2026-08-19 최종 업데이트로 synthesize()에
-추가됨 — 상세 근거는 tts/TTS_MODULE.md 4·5절 참고. instruct는 LoRA 학습 조건이 아니라
-Qwen3-TTS 베이스 모델의 추론 시점 기능이다(재학습 없이 기존 체크포인트에 바로 적용됨,
-TTS_MODULE.md 5절 참고) — GUIDE/CAUTION 톤 구분용이며, 아래 발화 안정성 문제와는 무관하다.
+추가됨 — 상세 근거는 tts/TTS_MODULE.md 4·5절 참고.
+
+2026-08-20 정정: 위 TTS_MODULE.md 5절은 "instruct는 LoRA 학습 조건이 아니라 베이스 모델
+추론 시점 기능"이라고 설명하는데, 이건 **epoch-39(구) 체크포인트에만 해당**하던 얘기였음.
+확인해보니 그 체크포인트를 학습한 스크립트(sft_12hz_lora.py)엔 애초에 instruct를 받는
+경로 자체가 없었음 — instruct 효과는 베이스 모델의 zero-shot instruct-following 능력에서
+나온 것. epoch-31(신규) 체크포인트부터는 학습 스크립트를 고쳐서 instruct를 실제 학습에도
+반영했으므로, 이제는 학습 조건이 맞다. GUIDE/CAUTION 톤 구분용이며, 아래 발화 안정성
+문제와는 무관하다.
 
 2026-08-20: 실제 GPU로 처음 돌려보니 발화 시작부에 최대 0.8초 무음이 붙거나 문장 중간에
 200~600ms 끊김이 생기는 증상 확인 — LoRA scale(0.2/0.3/0.4/0.5)이나 instruct 유무와
