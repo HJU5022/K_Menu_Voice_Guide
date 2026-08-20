@@ -18,18 +18,20 @@ class AnalyzeToFoodDetailFlowTests(unittest.TestCase):
         self.client = TestClient(app)
 
     @patch.object(K_Menu_Talk, "create_tts_response")
+    @patch.object(K_Menu_Talk, "get_food_info")
     @patch.object(K_Menu_Talk, "get_details")
     @patch.object(K_Menu_Talk, "analyze_image")
     def test_full_analyze_then_food_detail_flow(
-        self, mock_analyze_image, mock_get_details, mock_create_tts_response
+        self, mock_analyze_image, mock_get_details, mock_get_food_info, mock_create_tts_response
     ):
         mock_analyze_image.return_value = {
             "status": "candidates_found",
             "ocr_text": "비빔밥",
             "candidates": [
-                {"food_id": 1, "name_kr": "비빔밥", "score": 95, "modifiers": {}}
+                {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap", "score": 95, "modifiers": {}}
             ],
         }
+        mock_get_food_info.return_value = {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"}
         mock_get_details.return_value = {
             "DESCRIPTION": "설명",
             "PRONUNCIATION": "비빔밥",
@@ -54,7 +56,7 @@ class AnalyzeToFoodDetailFlowTests(unittest.TestCase):
         analyze_body = analyze_res.json()
         self.assertEqual(analyze_body["status"], "candidates_found")
         candidate = analyze_body["candidates"][0]
-        for field in ("food_id", "name_kr", "score", "modifiers"):
+        for field in ("food_id", "name_kr", "name_en", "score", "modifiers"):
             self.assertIn(field, candidate)
 
         detail_res = self.client.get(f"/api/foods/{candidate['food_id']}")

@@ -10,6 +10,7 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+.venv-tts/
 ocr_test_env/
 *.egg-info/
 .ipynb_checkpoints/
@@ -28,6 +29,9 @@ build/
 
 # 로그
 *.log
+
+# TTS가 요청마다 생성하는 오디오 (K_Menu_Talk.py의 /audio 정적 서빙 디렉토리)
+static/
 
 # data
 data/*

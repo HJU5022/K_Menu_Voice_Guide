@@ -15,6 +15,11 @@ vendor/ppocr 안의 __init__.py 몇 개는 우리가 안 쓰는 기능(CopyPaste
 import os
 
 os.environ.setdefault("FLAGS_allocator_strategy", "auto_growth")
+# PP-OCRv5_mobile_det + oneDNN 조합에서 이 Paddle 버전(3.3.1)의 새 실행기가
+# `ConvertPirAttribute2RuntimeAttribute not support` NotImplementedError로 죽는다
+# (paddle/fluid/framework/new_executor/instruction/onednn/onednn_instruction.cc).
+# oneDNN 가속을 기본으로 켜지 않게 해서 이 경로 자체를 피한다.
+os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "False")
 
 import cv2
 import numpy as np

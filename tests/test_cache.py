@@ -30,7 +30,7 @@ class CacheTests(unittest.TestCase):
     def setUp(self):
         cache._cache = None
         self.tables = {
-            "foods": [{"id": 1, "name_kr": "비빔밥", "spice_level": 1}],
+            "foods": [{"id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap", "spice_level": 1}],
             "food_details": [
                 {"food_id": 1, "category": "DESCRIPTION", "detail_text": "Mixed rice."},
                 {"food_id": 1, "category": "ALLERGY", "detail_text": "Contains egg."},
@@ -58,6 +58,7 @@ class CacheTests(unittest.TestCase):
             result = cache.get_food(1)
 
         self.assertEqual(result["name_kr"], "비빔밥")
+        self.assertEqual(result["name_en"], "Bibimbap")
 
     def test_get_food_returns_none_for_unknown_id(self):
         with patch.object(cache, "client", self.fake_client):
