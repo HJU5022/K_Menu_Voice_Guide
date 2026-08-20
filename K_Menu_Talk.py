@@ -5,6 +5,14 @@ HTTP API 계약이 필요하기 때문이다(docs/specs/api-layer.md 참고). �
 요청/응답 변환만 두고, OCR·텍스트·TTS 로직은 그대로 src/ 아래에 둔다.
 """
 
+# 다른 어떤 import보다도 먼저 torch를 로드해야 한다 — src/pipeline.py가 쓰는 paddleocr을
+# import하면 내부적으로 paddlex -> modelscope로 이어지는 체인이 torch를 끌어오는데, 그
+# 시점에 paddle이 이미 로드해둔 네이티브 DLL과 얽혀 torch의 shm.dll 로딩이 깨진다
+# (Windows, OSError: [WinError 127]). src/pipeline.py가 TTS 추론 자체는 별도 venv의
+# 자식 프로세스로 분리했지만(src/tts/worker.py), 이 문제는 그것과 무관하게 paddleocr
+# 초기화 시점에 또 발생한다 — 실측 재현·검증 완료(2026-08-20).
+import torch  # noqa: F401
+
 import shutil
 import tempfile
 from pathlib import Path
