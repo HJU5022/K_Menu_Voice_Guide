@@ -11,9 +11,7 @@
 """
 
 import json
-import subprocess
 import unittest
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from src import pipeline
@@ -85,38 +83,138 @@ class PipelineTests(unittest.TestCase):
         )
 
 
+class FakeWorker:
+    """상주 워커 프로세스 흉내 — 실제 자식 프로세스를 띄우지 않고 파이프 동작만 재현한다.
+
+    진짜 워커는 stdin으로 요청 한 줄을 받고 stdout으로 응답 한 줄을 돌려준다. 여기서는
+    미리 준비해둔 응답을 순서대로 내주고, 무엇을 받았는지(written)와 죽었는지(killed)를
+    기록해둔다. subprocess.Popen과 같은 규칙으로 poll()·kill()도 흉내낸다.
+    """
+
+    def __init__(self, responses, alive=True):
+        self._responses = list(responses)
+        self._alive = alive
+        self.written = []
+        self.killed = False
+        self.stdin = self._Stdin(self)
+        self.stdout = self._Stdout(self)
+
+    class _Stdin:
+        def __init__(self, owner):
+            self._owner = owner
+
+        def write(self, data):
+            self._owner.written.append(data)
+
+        def flush(self):
+            pass
+
+    class _Stdout:
+        def __init__(self, owner):
+            self._owner = owner
+
+        def readline(self):
+            # 준비된 응답이 떨어지면 ""를 준다 = 파이프가 닫혔다(워커가 끝났다)는 뜻
+            return self._owner._responses.pop(0) if self._owner._responses else ""
+
+    def poll(self):
+        """None이면 살아있음, 숫자면 이미 종료됨 (subprocess.Popen과 같은 규칙)."""
+        return None if self._alive else 1
+
+    def kill(self):
+        self.killed = True
+        self._alive = False
+
+
 class SynthesizeViaSubprocessTests(unittest.TestCase):
-    """_synthesize_via_subprocess()는 자식 프로세스(src/tts/worker.py) 경계를 감싼다 —
-    paddle(OCR)과 torch(TTS)를 같은 프로세스에 못 올리는 문제(WinError 127) 때문에
-    도입됨. 여기서는 subprocess.run() 자체를 mock해서 그 경계만 검증한다.
+    """_synthesize_via_subprocess()는 **상주 워커**(src/tts/worker.py)와의 대화를 감싼다.
 
-    자식 프로세스는 결과를 stdout에 JSON 한 줄로 찍는다. 그래서 이 함수의 일은
-    "그 한 줄을 안전하게 파싱하고, 뭔가 잘못되면 서비스를 죽이지 않는 것"이다."""
+    워커를 별도 프로세스로 띄우는 이유는 paddle(OCR)과 torch(TTS)를 같은 프로세스에
+    못 올리는 문제(WinError 127) 때문이고, 그 프로세스를 죽이지 않고 재사용하는 이유는
+    요청마다 모델을 다시 GPU에 올리면 90초 이상 걸리기 때문이다.
 
-    @patch("src.pipeline.subprocess.run")
-    def test_returns_parsed_result_on_success(self, mock_run):
-        """정상일 때 — stdout의 JSON을 그대로 파싱해서 돌려준다."""
-        mock_run.return_value = SimpleNamespace(
-            stdout=json.dumps({"audio_path": "answer.wav", "status": "ok", "latency_ms": 42.0})
+    여기서 검사하는 건 그 대화 규칙이다 — 한 줄 보내고 한 줄 받기, 워커 재사용,
+    죽은 워커 감지·재시작, 그리고 어떤 실패든 서비스를 죽이지 않고 not_ready로 떨어지는지.
+    """
+
+    def setUp(self):
+        # 워커 핸들이 모듈 전역이라, 앞 테스트가 남긴 값이 다음 테스트로 새면 결과가 꼬인다
+        pipeline._worker = None
+
+    def tearDown(self):
+        pipeline._worker = None
+
+    def test_returns_parsed_result_on_success(self):
+        """정상 응답 한 줄을 파싱해서 돌려주는지, 그리고 요청이 한 줄로 제대로 나갔는지."""
+        fake = FakeWorker(
+            [json.dumps({"audio_path": "answer.wav", "status": "ok", "latency_ms": 42.0}) + "\n"]
         )
-
-        result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+        with patch("src.pipeline._start_worker", return_value=fake):
+            result = pipeline._synthesize_via_subprocess("text", "GUIDE")
 
         self.assertEqual(result, {"audio_path": "answer.wav", "status": "ok", "latency_ms": 42.0})
+        # 개행으로 끝나야 워커의 readline이 요청을 끊어 읽을 수 있다
+        self.assertEqual(fake.written, ['{"text": "text", "style": "GUIDE"}\n'])
 
-    @patch("src.pipeline.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="worker", timeout=300))
-    def test_falls_back_when_subprocess_times_out(self, mock_run):
-        """자식 프로세스가 시간 안에 안 끝나도 예외를 터뜨리지 말고 not_ready로 넘어가야 한다."""
-        result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+    def test_reuses_worker_across_calls(self):
+        """이 구조의 핵심 — 두 번째 요청은 워커를 새로 띄우지 않고 그대로 재사용한다."""
+        fake = FakeWorker(
+            [
+                json.dumps({"audio_path": "a.wav", "status": "ok", "latency_ms": 1.0}) + "\n",
+                json.dumps({"audio_path": "b.wav", "status": "ok", "latency_ms": 2.0}) + "\n",
+            ]
+        )
+        with patch("src.pipeline._start_worker", return_value=fake) as mock_start:
+            first = pipeline._synthesize_via_subprocess("text one", "GUIDE")
+            second = pipeline._synthesize_via_subprocess("text two", "CAUTION")
+
+        self.assertEqual(first["audio_path"], "a.wav")
+        self.assertEqual(second["audio_path"], "b.wav")
+        # 두 번 불렸다면 매 요청마다 모델을 다시 올리는 것 = 이 변경이 무의미해진다
+        mock_start.assert_called_once()
+
+    def test_restarts_worker_when_previous_one_died(self):
+        """죽은 워커를 붙들고 있으면 이후 요청이 전부 실패한다 — 감지해서 새로 띄워야 한다."""
+        dead = FakeWorker([], alive=False)
+        alive = FakeWorker(
+            [json.dumps({"audio_path": "c.wav", "status": "ok", "latency_ms": 3.0}) + "\n"]
+        )
+        pipeline._worker = dead
+
+        with patch("src.pipeline._start_worker", return_value=alive) as mock_start:
+            result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+
+        mock_start.assert_called_once()
+        self.assertEqual(result["audio_path"], "c.wav")
+
+    def test_falls_back_when_worker_times_out(self):
+        """정해진 시간 안에 응답이 없으면 not_ready로 떨어지고, 그 워커는 버린다."""
+        fake = FakeWorker([])
+        with (
+            patch("src.pipeline._start_worker", return_value=fake),
+            patch("src.pipeline._readline_with_timeout", return_value=None),
+        ):
+            result = pipeline._synthesize_via_subprocess("text", "GUIDE")
 
         self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
+        # 응답이 밀린 워커를 그대로 두면 다음 요청의 응답과 어긋난다
+        self.assertTrue(fake.killed)
+        self.assertIsNone(pipeline._worker)
 
-    @patch("src.pipeline.subprocess.run")
-    def test_falls_back_on_malformed_output(self, mock_run):
-        """stdout이 JSON이 아니어도 마찬가지 — TTS 라이브러리가 경고문을 찍는 경우가 실제로 있다."""
-        mock_run.return_value = SimpleNamespace(stdout="not json")
+    def test_falls_back_on_malformed_output(self):
+        """JSON이 아닌 줄이 와도(라이브러리 경고가 섞이는 경우) 죽지 않고 not_ready."""
+        fake = FakeWorker(["not json\n"])
+        with patch("src.pipeline._start_worker", return_value=fake):
+            result = pipeline._synthesize_via_subprocess("text", "GUIDE")
 
-        result = pipeline._synthesize_via_subprocess("text", "GUIDE")
+        self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
+        self.assertTrue(fake.killed)
+
+    def test_falls_back_when_worker_closes_pipe(self):
+        """워커가 응답 없이 파이프를 닫아도(빈 문자열) 실패로 처리한다."""
+        fake = FakeWorker([])
+        with patch("src.pipeline._start_worker", return_value=fake):
+            result = pipeline._synthesize_via_subprocess("text", "GUIDE")
 
         self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
 
