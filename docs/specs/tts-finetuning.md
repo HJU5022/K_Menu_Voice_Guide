@@ -91,6 +91,15 @@
 - `synthesize()`의 반환 계약(`audio_path`, `latency_ms`, `status`)은 그대로 유지 — 다만 정상 동작 시 `status`는 `"not_ready"`가 아니라 `"ok"`, `audio_path`는 실제 임시 WAV 파일 경로가 됨
 - Perso.ai 호출, TTFB 측정, 사전생성 캐시(Plan B)는 여전히 범위 밖
 
+### 구현 변경 이력 (2026-08-21) — TTFB 실측 및 Plan B 전환
+
+위에서 범위 밖이었던 TTFB 측정과 사전생성 캐시가 실제로 진행됨:
+
+- **TTFB 목표 확정**: 5~7초 (팀 합의, D5 체크포인트)
+- **라이브 생성 실측** (원격 RTX 3080 Ti, 3회): 콜드(모델 로딩 포함) 61.3초 / 워밍업 후(상주 워커, PR #45) 약 33초 — 목표 대비 구조적 미달
+- **판정**: 기획서 위험 대응("TTS 응답 지연이 목표치 초과 → 초과 시 사전 생성 캐싱으로 전환")에 따라 **Plan B 전환 결정**
+- **구현**: `src/tts/pregenerate.py`(배치 생성 + RTF 로그) + `src/pipeline.py` 캐시 조회(`static/tts_cache/food_{id}_{STYLE}.wav`, 캐시 히트 시 1초 미만, 미보유 조합은 라이브 폴백). 상세는 `src/tts/README.md` 참고
+
 ### 1차 구현은 추측이었고 틀렸음 — 실제 학습 노트북 확보 후 전면 재작성함
 
 처음엔 `finetuning/infer_lora_custom_voice.py`(커뮤니티 레포가 패치로 추가하는 파일)를 공개 저장소에서 못 찾아서, 공식 `qwen_tts` 소스 코드만 읽고 추측으로 구현했음(`generate_voice_clone` + `VoiceClonePromptItem` 방식). 이후 박민영님이 실제 학습에 쓴 노트북(`qwen3_tts_lora_finetune.ipynb`)을 받아 그 안의 실행 결과(패치 파일 `patches/0001-qwen3-tts-lora.patch`)에서 진짜 코드를 확인한 결과, **핵심 부분이 추측과 달랐음**:

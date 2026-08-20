@@ -1,0 +1,775 @@
+{
+  "label": "final",
+  "rec": "hf",
+  "summary": {
+    "01_normal": {
+      "images": 20,
+      "labels": 59,
+      "label_hit": 0.5424,
+      "label_cer": 0.2945,
+      "matchable_images": 20,
+      "match_recall": 0.9
+    },
+    "02_multi_food": {
+      "images": 15,
+      "labels": 93,
+      "label_hit": 0.7849,
+      "label_cer": 0.2661,
+      "matchable_images": 15,
+      "match_recall": 0.9333
+    },
+    "03_low_quality": {
+      "images": 10,
+      "labels": 19,
+      "label_hit": 0.6316,
+      "label_cer": 0.3553,
+      "matchable_images": 1,
+      "match_recall": 1.0
+    },
+    "04_unregistered": {
+      "images": 5,
+      "labels": 6,
+      "label_hit": 0.1667,
+      "label_cer": 0.4765,
+      "matchable_images": 0,
+      "match_recall": null
+    },
+    "__all__": {
+      "images": 50,
+      "labels": 177,
+      "label_hit": 0.6667,
+      "label_cer": 0.2923,
+      "matchable_images": 36,
+      "match_recall": 0.9167
+    }
+  },
+  "rows": [
+    {
+      "file_name": "SL_BF01_M0002_228331_1.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 4,
+      "label_hits": 1,
+      "label_cers": [
+        1.0,
+        0.0,
+        0.14285714285714285,
+        0.2
+      ],
+      "correct_food": true,
+      "ocr_text": "PLBU0g 혼밥 돼지보쌈+어리굴젓 2350원 L+4네~C~생pc 혼술환영 닭꾸추매대 점심한식부페 녹두빈대떡 12.0 U0Ipc00PcIcaea 辛국라르음 단체환영 Xpcm0.00amseaes0c 통돼지두루치그 베목er주 18000"
+    },
+    {
+      "file_name": "SL_BF01_M0002_297523_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        0.4444444444444444,
+        0.42857142857142855
+      ],
+      "correct_food": true,
+      "ocr_text": "고기수한리필2 삼겹살계비목산이이 시살등심.왕계갈비살,차돌박 삼겹살무한리탕+3 구우우발 00C9"
+    },
+    {
+      "file_name": "BS_BF01_M0002_581151_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.04
+      ],
+      "correct_food": true,
+      "ocr_text": "미 리미엄 겹+대패+목살+항정살+돼지갈비+닭갈비+껍데기 SET 삼겹+대패+목살+항정살+돼지갈비 SET A 14.9000 13.900 닭갈비+껍데기+우삼겹"
+    },
+    {
+      "file_name": "BS_BF01_M0002_579792_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 2,
+      "label_cers": [
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "평일12~시부터5까지주문가능 냉면갈비정식 돼지갈비20g+냉면(물/비빔택1 고기추가 0.000 돼지갈비200"
+    },
+    {
+      "file_name": "DG_KF01_M0001_594971_3.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 7,
+      "label_hits": 7,
+      "label_cers": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.4,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "돼지고기(국내산)쌀(국내산),고추가루(중국산 고소하게들깨가루쫀아붓기 기본맛으로먹어보다가후추,들깨도기호에맛게 .고기는비범간장에콕 얼큰하게다대기풀고 .깔꼼하게후추톡톡 추가반찬셀프 지나치지말고한번널어드서보세요 념어먹오면더맛있어진다는사실 수육+국물 보쌈정식 마담막국수 (고기+내장) 섞어국밥 (내장) 내장국밥 (고기+찰/고기순대 순대국밥 순살코기 살코기국밥 껍데기와비계가포함된고기 돼지국밥 맛X게먹는병 1.0 음 어 어 어 어 유"
+    },
+    {
+      "file_name": "DG_KF01_M0001_603946_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 4,
+      "label_hits": 3,
+      "label_cers": [
+        0.125,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "산채건강자언밥상 머니의손맛담은건강참이한상가득 한방수육+치자버섯오등전+산채모등나물 묵무침+한우시래기된장굴+솥밥 2인이상주문능71인분15.00 버섯전골 한우사골육수에빠진 밀곱가지버섯이선사하 신선한맛의향면 바수육+차자버섯오등전 묵무침+솥밥 1인10.0원 2인이상주문가능 바cT 능이버섯전골 버섯의왕 자언산능이버섯이 한가득들어간건강보양식 한비수+차자버섯오등전+묵무침+솥밥 1인분2.0원2인0상주문+능 산채비빔밥 자연을품은든든한한끼식 한우시래기된장굴+묵무침+공기밥 1인분0.0"
+    },
+    {
+      "file_name": "DG_KF01_M0001_595317_9.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 2,
+      "label_hits": 1,
+      "label_cers": [
+        0.2222222222222222,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "프리미엄선물세트 소양념본갈비&한우불고기 한우불(500t택) 양념0갈비504c2)1700/2 렐고기(5g2)g5.01 한우불고기선물세트 고(5glp160.0/c 혼합선물세트1호 한우불고기&칼집A갈비 우 칼집L갈비(600g2 한우불고기(600g2백 갈집A갈비선물세트 혼합선물세트1호 L4비(Bcg2)75.00/10 4비(5cgc)140.0/Uc 핫 150020p 핫"
+    },
+    {
+      "file_name": "IN_IF02_M0001_676201_7.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "000 콩국수 요E"
+    },
+    {
+      "file_name": "IN_IF02_M0001_718433_2.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 2,
+      "label_hits": 1,
+      "label_cers": [
+        0.5555555555555556,
+        0.4444444444444444
+      ],
+      "correct_food": true,
+      "ocr_text": "사이 꼬 리 양갈비2대(20) 양갈비3(300) 비 29.900 M 포T으"
+    },
+    {
+      "file_name": "IN_IF02_M0001_9006586_4.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 2,
+      "label_cers": [
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "000 D00 포토식 마라탕 주A 0000 순대 매 000"
+    },
+    {
+      "file_name": "GJ_IF02_M0001_807366_5.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.7857142857142857
+      ],
+      "correct_food": true,
+      "ocr_text": "08.0 콩국수c0pcp500lcs 갓 대"
+    },
+    {
+      "file_name": "GJ_IF03_M0001_9005970_2.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 5,
+      "label_hits": 3,
+      "label_cers": [
+        0.6,
+        0.0,
+        0.0,
+        0.0,
+        0.6
+      ],
+      "correct_food": true,
+      "ocr_text": "소불고기덮밥 매콤핫바베큐데리 우삼겹덮밥 etIpm80gTIcec BetplSrletmIcec 새우장덮밥 기cM니S A6c0T 460T 46T 간장소스 간장소스"
+    },
+    {
+      "file_name": "DJ_BF01_M0002_863343_1.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 3,
+      "label_hits": 3,
+      "label_cers": [
+        0.5,
+        0.6923076923076923,
+        0.75
+      ],
+      "correct_food": true,
+      "ocr_text": "옥외가녁교시안내 숯불돼지갈비 무한리필 김치찌개(한리멸이용시) 냉면(물/비빔)우한리팔이몽시) 소갈비살(50gp한리말이용몽시) 계란찜(한리,말이몽시) 된장찌개(무한리플이몽시) 돼지껍데기 00pI0ce0sp8yssea (한리필이용시) 1인1c.500 C0 5.0 CC C00 (1세이상) 소또E또E"
+    },
+    {
+      "file_name": "DJ_BF01_M0002_848552_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 3,
+      "label_hits": 2,
+      "label_cers": [
+        1.0,
+        0.0,
+        0.6
+      ],
+      "correct_food": true,
+      "ocr_text": "한식뷔페 월식700 생삼겹살 200135.0 8000 보"
+    },
+    {
+      "file_name": "DJ_FF01_M0002_851884_3.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 7,
+      "label_hits": 0,
+      "label_cers": [
+        0.2,
+        0.25,
+        0.3333333333333333,
+        0.25,
+        0.3333333333333333,
+        0.25,
+        0.2222222222222222
+      ],
+      "correct_food": true,
+      "ocr_text": "50 고기3종 데리야끼봉구 5.0 N5.0 돼불에햄 깻잎마요소불고기 00m 소고기봉된장 4.300 상기이미지는연칠된이미지로실제와다롤수요 점보치킨마요 00msm0 매콤제육닭갈비 4.800"
+    },
+    {
+      "file_name": "US_IF03_M0001_883300_2.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 1,
+      "label_cers": [
+        0.8,
+        0.5714285714285714
+      ],
+      "correct_food": false,
+      "ocr_text": "자연산회전문 두남일회회 특3150.0 대810.0 중8.0 소0.00 두남일회스페셜 A88.0 B90.000 C840.0 2인이상된니다 배추김치,배추(국내산),밥(쌀국내산),고大가루(국내산) 우럭,치(내산상),아커내"
+    },
+    {
+      "file_name": "US_IF03_M0001_9002789_2.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "겨울철별미한우육비빔밥 C엔 한우육회비빔밥 섯내산한우육회 특제양에음채 2000"
+    },
+    {
+      "file_name": "GK_BF01_M0002_993066_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "칼수 미브I우 로 무한리필 11000 삼겹살+된장찌개 된장찌 삼겹살 LD 미브우"
+    },
+    {
+      "file_name": "GK_FF01_M0002_1159493_1.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 7,
+      "label_hits": 0,
+      "label_cers": [
+        0.3,
+        0.25,
+        0.3333333333333333,
+        1.0,
+        0.75,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "ocr_text": "고기3종 50 깻잎마요소불꼬기 %5200 면 점보치킨마요 75~00"
+    },
+    {
+      "file_name": "GK_IF01_M0001_1014598_5.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 2,
+      "label_cers": [
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "MelIPNeFL 우삼겹쌈밥 삼겹살쌈밥 공기밥은인분수에맛게제공돔니다 (1인200)세T (1인200)C 1인)0~15.00 1인)m13.0 인이상주문이가능합니다 10당8607 100당61원"
+    },
+    {
+      "file_name": "DG_KF01_M0001_594403_5.jpg",
+      "category": "02_multi_food",
+      "match_count": 7,
+      "label_total": 8,
+      "label_hits": 8,
+      "label_cers": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.0,
+        0.0,
+        0.3333333333333333,
+        0.0,
+        0.2222222222222222
+      ],
+      "correct_food": true,
+      "ocr_text": "트 정성으로지음밥 곤드레돈불백비빔밥9.500 철판소불고기 철판돈불백 깍둑소고기비빔밥12.0 함게제공는담백한재래김에싸드시면더육맛있어요 곁들임메뉴는단품 009 5000 품석한상 브 곁들임 곤드레비빔밥 차돌주꾸미비빔밥12.0 쫄깃감자찐만두50 철판제육볶음5.0 8.500"
+    },
+    {
+      "file_name": "DJ_KF01_M0001_832938_5.jpg",
+      "category": "02_multi_food",
+      "match_count": 7,
+      "label_total": 8,
+      "label_hits": 6,
+      "label_cers": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.5
+      ],
+      "correct_food": true,
+      "ocr_text": "곤드레돈불백비빔밥9.500 깍둑소고기비빔밥12.0 철판돈불백 함게제공다는담백한재래김에싸드시면더맛요 5.0 퐁트 겹들임 곤드레비빔밥 차돌주꾸미비빔밥12.0 철판제육볶음 5.0 8.500"
+    },
+    {
+      "file_name": "SL_BF01_M0002_416913_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 5,
+      "label_total": 8,
+      "label_hits": 8,
+      "label_cers": [
+        0.2,
+        0.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.5555555555555556,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "O고기냉면 X추가메뉴 O고기찌게 계란찜 고기추가(150) 냉면곱빼기 된장찌개 비빔냉면 물냉면 김치찌개 고기(돼지갈비150)+된장찌개.김치찌개택 고기(돼지갈비150)+물.,비빔냉면택 밥,음료수및셀프바이용가능함니다 ---T 4 ---- 3500 4.0 5.0 1.00 8000c 5.00 500 80008 8.00"
+    },
+    {
+      "file_name": "BS_IF02_M0001_9001985_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 4,
+      "label_hits": 3,
+      "label_cers": [
+        0.0,
+        0.3333333333333333,
+        0.0,
+        0.6666666666666666
+      ],
+      "correct_food": true,
+      "ocr_text": "갈비탕 100 I00 땡분치두 소고기물만두4치기 분꾸 갈비찜 뽕 00gg C9.000"
+    },
+    {
+      "file_name": "GJ_KF01_M0001_770607_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 4,
+      "label_hits": 4,
+      "label_cers": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "F5FT 그대는옥심쟁이후훈이 구우U0 모든메인메뉴반만추가가닝20 모든메인메뉴반반가능 꽃냉채족발 꽃보다족발시 오~오~오y D35.0 340.00 반반족발 00 참숯구이보쌈 보쌈은불맛이다시 D3500 3400000 csetT 00c8c 000e 직화매운보쌈 맛넛게맵다 물지도따지지도암고"
+    },
+    {
+      "file_name": "DJ_IF02_M0002_833954_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 5,
+      "label_hits": 4,
+      "label_cers": [
+        0.6666666666666666,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "불고기접시 고기비빔냉면 FC도 유제골 니다 요쿄요 이 5.0 00T C0 00 C0 C C s C"
+    },
+    {
+      "file_name": "US_BF01_M0002_895973_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 6,
+      "label_hits": 5,
+      "label_cers": [
+        0.0,
+        0.5,
+        0.6923076923076923,
+        0.7272727272727273,
+        0.0,
+        0.6666666666666666
+      ],
+      "correct_food": true,
+      "ocr_text": "8.000 숯불돼지갈비무한리쫄 (1인기준 22년기준입니다 옥외가 교시안내 0Lt00rpIcet0ls0asset0 숯불돼지갈비 1인10.9 무한리필 (1세이상 5.900 1원 C 냉면(물/비빔)(무한리필이몽시 꼬트 C 3.00 된장찌개(무한리필이몽시) C 35.0 계란찜(한리말이몽시) 원 9.000 소갈비살 010C.0C 원 9.900 미Bc0/V050gl)cc"
+    },
+    {
+      "file_name": "US_KF01_M0001_879100_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 5,
+      "label_hits": 5,
+      "label_cers": [
+        0.0,
+        0.0,
+        0.16666666666666666,
+        0.0,
+        0.42857142857142855
+      ],
+      "correct_food": true,
+      "ocr_text": "생샌김지추)/통산))산)젠 센간)생장~생엘일산(산)/고 주상)샌애애샌앤생44C 원산지 3육개장전골 순두부육개장전골 닭개장전골 궁중보쌈(대) 궁중보쌈(중) 만두육개장전골 초화맛볼수Xs 몸에좋은한방재로와매실짱아찌절요 잔한사골육수에닭가슴살을듬뿍생은 진한육개장에소고기양지들듬뿍운은 소고기양지플듬육g은만추메뉴입니다 진한육개장에다양하고푸짐한만두 소고양지듬은술안주메뉴입니다 진한육개장에달양한,공포실포실한순두부 피 대교메뉴입니다 대교메뉴입니다 대교메뉴입니다 차림과차이가있을수있니다 80092 290 80006 800 3500 000092"
+    },
+    {
+      "file_name": "DG_KF01_M0001_594403_6.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 3,
+      "label_hits": 2,
+      "label_cers": [
+        0.0,
+        0.14285714285714285,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "일 일 차돌강된장비빔밥 구수임가두 감칠맛가득한별미 맛간장에달여낸궁중요리를재해석한 돼지고기등심을뚝똑쌀어 10.0 장뚝똑이비빔밥 감실맛기득 조절해서드시는겟올추천합니다 기호에따라다소맵게느질수있우니 매콤칼갈한맛이일품 신선한해산물을불향가득하게볶아 다진돼지고기를냉어만든약고추장 10.0 해물약고추장비빔밥 불향가득 야츠 맛보세요 비빔밥으로 3지"
+    },
+    {
+      "file_name": "GJ_KF01_M0001_777983_4.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 4,
+      "label_hits": 4,
+      "label_cers": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "icmls0Ip 어탕칼국수 입안가특향한내음의유자육회비빔탕 구버섯고사리,무순의신선참이장어우잔 달콤한유차의풍미를슬수있는부드레운육회 세lcmalcmc0m0pcp 유자육회비빔밥 바다내음간득한미역을녕어꼬고담백한맛이일품인 0malsSeamraeas0Upc 한우궁중미역국 정통궁중육개장 토란대와고사리죽주,대파를념어시원하고칼칼한맛오 한우양지로우낸진한육수에걸대로운은한우 0mlscamlcls0p 궁중육개장 대표메뉴 LUNCcHiFTiL 12.000 14.00 12.00 12.00"
+    },
+    {
+      "file_name": "DJ_BF01_M0002_868071_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 5,
+      "label_hits": 4,
+      "label_cers": [
+        0.8333333333333334,
+        0.4666666666666667,
+        0.6363636363636364,
+        0.7272727272727273,
+        0.75
+      ],
+      "correct_food": true,
+      "ocr_text": "갈비와목전지를함까 제공하는돼지갈비무한리필전문점입니다 목전지는참맛있는고기입니다 질좋은목전지를사용합니다 옥외가녁교시안내 0U00PpI0cealspaysysea 숯불돼지갈비 1인16.50 무한리필 (1세이상 냉면(물/비빔)(한리필이용시 C 5.500 꼬꼬꼬E 김치찌개(한리필이용시) C 된장찌개한리필이용시) 3.00g 계란찜(한리필이몽시) 70 세트 소갈비살500l무한리플이l용시 8c00 0gt뎅53Tt 돼지껍데기 (무한리필이용시)"
+    },
+    {
+      "file_name": "JR_IF01_M0001_1600395_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 4,
+      "label_hits": 4,
+      "label_cers": [
+        0.3333333333333333,
+        0.5,
+        0.375,
+        0.7222222222222222
+      ],
+      "correct_food": true,
+      "ocr_text": "트휴슈구부추왕만두(1개)+,.60 주고기수제물만두 辛솥트비빔면 솥냉면 3rs 700 009 009"
+    },
+    {
+      "file_name": "JR_IF03_M0002_1557915_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 14,
+      "label_hits": 7,
+      "label_cers": [
+        0.3333333333333333,
+        0.42857142857142855,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.0,
+        0.3333333333333333,
+        0.0,
+        0.42857142857142855,
+        0.0,
+        1.0,
+        0.0,
+        0.75,
+        0.5,
+        0.6666666666666666
+      ],
+      "correct_food": true,
+      "ocr_text": "미브 해물삼합 물삼합 물삼합 해물삼합 C0mlcmIFmlial DI67l0I0ls 미LlsIF0770mlp VA뉴크7바 뼈카포T 7V60m다 뉴파)트) 그/3ypm V4 모 어거 0000 000a 500굴찜 50낙지탕탕 5000 700낙지볶음 12.00 두 굴전 조개탕 제육볶음 게지전 pTgamIPalmlamlsc0 a50IF8mc0lS 짜70r4 50X-7 0n05mm0 념세 볶제국 Sa0-0mletlF0m s0-mcea0c0pc5 3C0r4 c0PpcacLUm000pPpls 4tmw바 30cA4l6도 CttCs또스 M볶떡우 Bm세00 꽃트 짜즈파네 C시"
+    },
+    {
+      "file_name": "JJ_BF01_M0002_9003878_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 5,
+      "label_hits": 1,
+      "label_cers": [
+        0.9166666666666666,
+        0.5,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "correct_food": false,
+      "ocr_text": "옥외가겨교시안내 제공하는돼지갈비무한리필전문점입니다 냉면(물/비빔)무한리필이용시) 무한리필 숯불돼지갈비 기치찌개 목전지는참맛있는고기입니다 질좋은목전지를사용합니다 시8slSacsp80c0p 갈비와목전지를함까 1인16.50 11세이상 세"
+    },
+    {
+      "file_name": "JJ_IF03_M0001_1959133_3.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 10,
+      "label_hits": 8,
+      "label_cers": [
+        0.0,
+        0.0,
+        0.3333333333333333,
+        0.0,
+        0.0,
+        0.125,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "돔베고기 전복구이 육돔+동으로구우낸생선요리 옥돔구이 뿔소라찜 추가메뉴 세4네니쟁뎅비세+4간미게생+4생c 제주성게알,한판 제주성게알과쫄깃한전복,문어를톳게우밥에비뼈먹는한그릇요 성게해물비빔밥 해오반물회 쫄한보말과 보밀죽 전복뚝배기 애닭 보말전복칼국수 CUcicscs 특발안소스와푸짐한전복과소라,문어,미역의조화 식사류 베토페채우뎅지 특별육수의맑은맛 C네4우생냉+우꼬냉c 대교메뉴 0002 35.00 35.00 15.00 15.00 15.0 150 15.0 육육떡운 육 료 또 돔 불 물 발"
+    },
+    {
+      "file_name": "SL_BF01_M0002_173995_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "ocr_text": "공깃밥과샐러드바까지 영시간1200230 대기표를발고기다러주세요 대기하실분은카운터에서 또우"
+    },
+    {
+      "file_name": "DG_IF01_M0004_9002696_4.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.2
+      ],
+      "correct_food": false,
+      "ocr_text": "084c 반반구이토끼밥상 인기메뉴 남매블를대기펩수바고자하시앤대기청수버른을늘러추세 전체메뉴 매장위치보기"
+    },
+    {
+      "file_name": "KW_IF03_M0001_1307103_4.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 1,
+      "label_cers": [
+        0.7,
+        0.5555555555555556
+      ],
+      "correct_food": false,
+      "ocr_text": "쇠고인기메뉴 명블허전조판곱도리탕 5.0 당일도촉한극내산한우대창(200)과순살닭정육5000상.양피 감자,당근,대파갓,깻잎등풍부한야채의조화로운일품탕요리 우동사리기본제공(추가시.)공기밥(성삼광쌀1.5 대창추200105.)대추710009.0 직원들추천차도리탕 5.0 꼬특꼬특한식감의질플은e차들박이와순살닭정육500이상.양피 감자당근,매대파,갓,깻잎등풍부한야채의조화로운일품탕요리 우동사리기븐제공(추가시.)공기밥(윙성삼광쌀1.5) 차들박0추7100005.0)차들박이추71000.0"
+    },
+    {
+      "file_name": "JJ_IF03_M0001_9005367_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 1,
+      "label_cers": [
+        0.6,
+        0.0
+      ],
+      "correct_food": false,
+      "ocr_text": "추천사케온나나카세다이긴 딱새우회+미니오뎅탕 그 대가리들튀계드립니다 0000c 추전조합 다 나.O00"
+    },
+    {
+      "file_name": "JJ_IF02_M0001_1950810_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 3,
+      "label_hits": 2,
+      "label_cers": [
+        0.75,
+        0.4444444444444444,
+        0.0
+      ],
+      "correct_food": false,
+      "ocr_text": "0육 양영양탕 양고기전골(10) 辛야치 辛치흑쫄(辛야,)+辛통) 辛치케개 C금그수육(갈비+고기) 그 辛치스E 그 점심특선4쫄츠 00CET 추가메뉴스 (꾸) 드 50.0 5.0 45.000 0000 0caT 떡 흑추전 비 I"
+    },
+    {
+      "file_name": "CC_IF03_M0002_1399433_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "ocr_text": "V어C 발 참치코스 양종"
+    },
+    {
+      "file_name": "CC_IF02_M0001_1418372_2.jpg",
+      "category": "03_low_quality",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 2,
+      "label_cers": [
+        0.0,
+        0.0
+      ],
+      "correct_food": true,
+      "ocr_text": "음辛뿌구치 15.000 소고기장조림 흑음솥요듬 6.00 훈제족발 800 U베니꽃치트"
+    },
+    {
+      "file_name": "JJ_IF03_M0001_9005367_3.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.0
+      ],
+      "correct_food": false,
+      "ocr_text": "추천주듀한라산I7도리도 매생이누룽지탕 술먹우면서해장쌈가능 뎅 주인장추천메뉴 25.000 추천조합 소L 어 + 2.000 치 누룽지사리 우동사리 니O"
+    },
+    {
+      "file_name": "CC_IF02_M0004_1417393_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.25
+      ],
+      "correct_food": false,
+      "ocr_text": "농가돼지고기볶음 008LL MO시I2"
+    },
+    {
+      "file_name": "DJ_KF01_M0001_834930_2.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 4,
+      "label_hits": 4,
+      "label_cers": [
+        0.25,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "correct_food": false,
+      "ocr_text": "직화고기비빔밀면 꿔킨어묵의식감과고소한김가루가 부산어묵비빔밀면 돈까스비빔밀면 불고기를연탄에구위 00l64 어우러진비빔밀면 매운 기본 평생잇지못하는맛 부산식생돈과부산원조비빔밀면 단백한맛이밀면의찰떡궁합 0cL4 00l6%4 09.500"
+    },
+    {
+      "file_name": "SL_BF01_M0002_18469_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.6666666666666666
+      ],
+      "correct_food": false,
+      "ocr_text": "라 한식 트 6.500"
+    },
+    {
+      "file_name": "SL_BF01_M0002_264738_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.3333333333333333
+      ],
+      "correct_food": false,
+      "ocr_text": "니비운 무한리필 C6500 점심저널세미한식뷔페 큰집밥상1인 추가메인및반찬 SETLF 요일별 MNNHEAU 월 숯불제육된장찌개잡채야채전 화 불고기오징어볶음계란말이두부 수 무한삼겹살A%강된장전 목철판제육구이오징어숙회물만두 금 숯불간장제육강된장계란말이떡복이 토 오늘의밥상 요일별메뉴는변동사항이을수있어요"
+    },
+    {
+      "file_name": "SL_BF01_M0002_354225_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.5
+      ],
+      "correct_food": false,
+      "ocr_text": "1인12.90 이용시간2~시간 영껍시간 셀프바는조금식자주이용해주세요 000e0i0 무한프리미엄 이용안내 4세이하무료 소"
+    },
+    {
+      "file_name": "SL_BF01_M0002_355845_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        0.6923076923076923,
+        0.6666666666666666
+      ],
+      "correct_food": false,
+      "ocr_text": "1D므IiIIEEI므므므CCCE 평일점심2시이전 19.900 6샤브샤브 C00 무한리필 7세미만 10세0하1.9000 5.900 2T"
+    },
+    {
+      "file_name": "SL_FF01_M0001_262052_4.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 1,
+      "label_cers": [
+        0.0
+      ],
+      "correct_food": false,
+      "ocr_text": "NEN치즈뿌치(체다) M3세 치파오떡강정 맘스양념치킨 제품명 M세 간장마늘떡강정 간장마늘치킨 군옥수수뿌치 수량 홍흥료 CS크ET 반반치킨후라이드 M3세 밀 닭강정트리오 허니버터뿌치 세1200 +양념1종 후라이드통다리 주문수량 케이준떡강정 후라이드치킨"
+    }
+  ]
+}
