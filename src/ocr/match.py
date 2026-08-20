@@ -90,6 +90,7 @@ def match_food_candidates(text: str) -> list[dict]:
             {
                 "food_id": food["id"],
                 "name_kr": food["name_kr"],
+                "name_en": food["name_en"],
                 "score": score,
                 "modifiers": {"spice": spice_hits, "ingredient": ingredient_hits},
             }

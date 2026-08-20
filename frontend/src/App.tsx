@@ -13,8 +13,34 @@ const SUPPORTED_DISHES = [
   ["비빔밥", "Bibimbap"], ["불고기", "Bulgogi"], ["김치찌개", "Kimchi jjigae"], ["떡볶이", "Tteokbokki"], ["잡채", "Japchae"], ["순두부찌개", "Sundubu jjigae"], ["삼겹살", "Samgyeopsal"], ["갈비", "Galbi"], ["김밥", "Gimbap"], ["라면", "Ramyun"], ["냉면", "Naengmyeon"], ["비빔냉면", "Bibim naengmyeon"], ["칼국수", "Kalguksu"], ["수제비", "Sujebi"], ["파전", "Pajeon"], ["김치전", "Kimchi jeon"], ["된장찌개", "Doenjang jjigae"], ["갈비탕", "Galbitang"], ["설렁탕", "Seolleongtang"], ["삼계탕", "Samgyetang"], ["곱창전골", "Gopchang jeongol"], ["부대찌개", "Budae jjigae"], ["닭갈비", "Dakgalbi"], ["찜닭", "Jjimdak"], ["제육볶음", "Jeyuk bokkeum"], ["오징어볶음", "Ojingeo bokkeum"], ["두부김치", "Dubukimchi"], ["감자탕", "Gamjatang"], ["해장국", "Haejangguk"], ["육개장", "Yukgaejang"], ["김치", "Kimchi"], ["후라이드치킨", "Korean Fried Chicken"], ["양념치킨", "Yangnyeom Chicken"], ["짜장면", "Jajangmyeon"], ["만두", "Mandu"], ["어묵", "Eomuk"], ["순대", "Sundae"], ["닭강정", "Dakgangjeong"], ["호떡", "Hotteok"], ["붕어빵", "Bungeoppang"], ["한국식 핫도그", "Korean Corn Dog"], ["보쌈", "Bossam"], ["족발", "Jokbal"], ["갈비찜", "Galbijjim"], ["계란찜", "Gyeran-jjim"], ["김치볶음밥", "Kimchi Bokkeumbap"], ["떡국", "Tteokguk"], ["잔치국수", "Janchi-guksu"], ["콩국수", "Kongguksu"], ["빙수", "Bingsu"],
 ] as const;
 
-async function analyzeMenu(image: File): Promise<FoodCandidate[]> { const form = new FormData(); form.append("image", image); const res = await fetch(`${API_BASE_URL}/api/menu/analyze`, { method: "POST", body: form }); if (!res.ok) throw new Error("analysis failed"); return (await res.json()).candidates; }
-async function fetchFoodGuide(foodId: number): Promise<FoodGuide> { const res = await fetch(`${API_BASE_URL}/api/foods/${foodId}/guide`); if (!res.ok) throw new Error("guide failed"); return res.json(); }
+// 백엔드(K_Menu_Talk.py, docs/specs/api-layer.md) 응답 스키마 — snake_case, details는 카테고리별 dict.
+type BackendCandidate = { food_id: number; name_kr: string; name_en: string; score: number; modifiers: unknown };
+type AnalyzeApiResponse = { status: "ocr_empty" | "unsupported_food" | "candidates_found"; ocr_text: string; candidates: BackendCandidate[] };
+type FoodDetailApiResponse = { food_id: number; name_kr: string; name_en: string; details: Record<string, string>; narration_text: string; style: string; tts_status: string; narration_audio_path: string | null; tts_latency_ms: number };
+
+class AnalyzeStatusError extends Error { status: AnalyzeApiResponse["status"]; constructor(status: AnalyzeApiResponse["status"]) { super(status); this.status = status; } }
+
+async function analyzeMenu(image: File): Promise<FoodCandidate[]> {
+  const form = new FormData(); form.append("image", image);
+  const res = await fetch(`${API_BASE_URL}/api/analyze`, { method: "POST", body: form });
+  if (!res.ok) throw new Error("analysis failed");
+  const data: AnalyzeApiResponse = await res.json();
+  if (data.status !== "candidates_found") throw new AnalyzeStatusError(data.status);
+  return data.candidates.map((food) => ({ foodId: food.food_id, foodKo: food.name_kr, foodEn: food.name_en, matchScore: food.score }));
+}
+async function fetchFoodGuide(foodId: number): Promise<FoodGuide> {
+  const res = await fetch(`${API_BASE_URL}/api/foods/${foodId}`);
+  if (!res.ok) throw new Error("guide failed");
+  const data: FoodDetailApiResponse = await res.json();
+  return {
+    foodId: data.food_id, foodKo: data.name_kr, foodEn: data.name_en,
+    pronunciation: data.details.PRONUNCIATION ?? "", spicy: data.details.SPICY ?? "",
+    description: data.details.DESCRIPTION ?? "", ingredient: data.details.INGREDIENT ?? "",
+    howToEat: data.details.HOW_TO_EAT ?? "", allergy: data.details.ALLERGY ?? "",
+    narrationText: data.narration_text,
+    audioUrl: data.narration_audio_path ? `${API_BASE_URL}${data.narration_audio_path}` : null,
+  };
+}
 
 function App() {
   const [screen, setScreen] = useState<Screen>("camera");
@@ -60,7 +86,10 @@ function App() {
       const boxes: Box[] = [{ left: 12, top: 20, width: 45, height: 12 }, { left: 42, top: 43, width: 40, height: 12 }, { left: 18, top: 66, width: 48, height: 12 }];
       const next = (await analyzeMenu(image)).map((food, index) => ({ ...food, bbox: boxes[index] }));
       setCandidates(next); setHighlightedFoodId(next[0]?.foodId ?? null); setScreen("candidates");
-    } catch { setErrorKind("ocr"); setScreen("error"); }
+    } catch (err) {
+      setErrorKind(err instanceof AnalyzeStatusError && err.status === "unsupported_food" ? "unsupported" : "ocr");
+      setScreen("error");
+    }
   }
   function capturePhoto() {
     const video = videoRef.current; if (!video || !video.videoWidth) return;

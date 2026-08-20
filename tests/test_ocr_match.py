@@ -8,9 +8,9 @@ from src.ocr import match
 class OcrMatchTests(unittest.TestCase):
     def setUp(self):
         self.foods = [
-            {"id": 1, "name_kr": "갈비"},
-            {"id": 2, "name_kr": "닭갈비"},
-            {"id": 3, "name_kr": "비빔밥"},
+            {"id": 1, "name_kr": "갈비", "name_en": "Galbi"},
+            {"id": 2, "name_kr": "닭갈비", "name_en": "Dakgalbi"},
+            {"id": 3, "name_kr": "비빔밥", "name_en": "Bibimbap"},
         ]
 
     def test_match_food_candidates_sorts_by_score_then_name_length(self):
