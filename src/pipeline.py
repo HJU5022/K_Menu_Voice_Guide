@@ -8,9 +8,12 @@ UI-friendly response.
 import json
 import os
 import queue
+import shutil
 import subprocess
+import tempfile
 import threading
 from pathlib import Path
+from time import perf_counter
 
 from src.text_gen.narration import get_narration
 from src.ocr.infer import recognize
@@ -33,6 +36,11 @@ _TTS_LOG_PATH = _PROJECT_ROOT / "logs" / "tts_worker.log"
 # 응답 대기 상한. 첫 요청은 모델을 GPU에 올리는 시간(실측 90~160초)이 포함되므로 넉넉히 준다.
 # main에서 자식 프로세스 타임아웃을 300초 -> 600초로 늘린 것과 같은 값으로 맞춘다.
 _TTS_TIMEOUT_SEC = 600
+
+# Plan B — 사전 생성 캐시(src/tts/pregenerate.py가 만든 파일)가 있으면 라이브 생성 대신
+# 그걸 쓴다. 실측 결과 라이브 생성이 워밍업 후에도 약 33초로 TTFB 목표(5~7초)를 크게
+# 넘기 때문이다(README 9절 위험 대응 "초과 시 사전 생성 캐싱으로 전환").
+_TTS_CACHE_DIR = _PROJECT_ROOT / "static" / "tts_cache"
 
 _TTS_FAILED: dict[str, object] = {"audio_path": None, "status": "not_ready", "latency_ms": 0.0}
 
@@ -126,6 +134,27 @@ def _synthesize_via_subprocess(text: str, style: str) -> dict[str, object]:
             return dict(_TTS_FAILED)
 
 
+def _load_cached_tts(food_id: int, style: str) -> dict[str, object] | None:
+    """사전 생성 캐시가 있으면 그 **복사본**의 경로를 synthesize()와 같은 형태로 돌려준다.
+
+    복사본을 만드는 이유: K_Menu_Talk.py의 _publish_audio()가 받은 파일을 정적 폴더로
+    이동(move)시키므로, 캐시 원본을 그대로 넘기면 첫 요청이 캐시를 소모해버린다.
+    """
+    cached = _TTS_CACHE_DIR / f"food_{food_id}_{style}.wav"
+    if not cached.is_file():
+        return None
+
+    started_at = perf_counter()
+    copy = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    copy.close()
+    shutil.copyfile(cached, copy.name)
+    return {
+        "audio_path": copy.name,
+        "status": "ok",
+        "latency_ms": (perf_counter() - started_at) * 1000,
+    }
+
+
 def create_tts_response(food_id: int) -> dict[str, object]:
     """Create the text-and-audio response for one already-matched food.
 
@@ -134,7 +163,9 @@ def create_tts_response(food_id: int) -> dict[str, object]:
     (README 9절 "TTS 생성 실패 | 상세 텍스트 우선 출력" 참고).
     """
     narration = get_narration(food_id)
-    tts_result = _synthesize_via_subprocess(narration["text"], narration["style"])
+    tts_result = _load_cached_tts(food_id, narration["style"]) or _synthesize_via_subprocess(
+        narration["text"], narration["style"]
+    )
 
     return {
         "narration_text": narration["text"],

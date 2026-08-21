@@ -10,7 +10,11 @@
 | `training_log.csv` | 위 실험의 에폭별 Val Loss 원본 로그 (`TTS_MODULE.md` 3절 표의 근거 데이터) |
 | `qwen3_tts_lora_final.ipynb` | 실제 학습에 쓴 Colab 노트북 (환경설정 → 데이터빌드 → 학습 → 업로드) |
 | `mos_scores.csv` | TTS 발음·자연스러움 MOS 채점 원본 데이터 |
-| `model_comparison.md` | OCR 2개(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교 정리 |
+| `model_comparison.md` | OCR(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교 · Plan B 판단 정리 |
+| `measure_ocr.py` | OCR 동일 조건 비교 측정 스크립트 — base/로컬 체크포인트/최종(HF)을 같은 코드로 측정 (매칭 정확도·라벨일치·라벨 CER) |
+| `measure_ocr_final.json` | 최종(4차) 모델 실측 결과 원본 (2026-08-21, 매칭 91.67% · 라벨일치 66.67%) |
+| `tts_pregen_log.csv` | 사전 생성 배치의 항목별 생성 시간·음성 길이·RTF 기록 (배치 실행 시 생성) |
+| `perso_comparison/` | Perso.ai 비교 원본 오디오 4개 (ours/perso × guide/caution) |
 
 앞의 3개는 원래 `src/tts/`에 있었으나, 학습 실험 기록·산출물이라 이곳으로 옮겼습니다. `src/tts/`에는 실제 서비스가 실행하는 런타임 코드만 둡니다.
 
