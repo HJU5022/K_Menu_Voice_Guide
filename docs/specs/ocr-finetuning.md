@@ -61,7 +61,7 @@
 
 - 학습 데이터 출처: AI Hub "관광 음식메뉴판 데이터" — 학습 39,000장(13개 지역 × 3,000), 검증 6,500장(13개 지역 × 500), 평가용 테스트 50장(`OCR_test_set_50`, 학습/검증과 별도 구성)
 - 커스텀 딕셔너리 파일 경로/형식: `OCR_finetune_data/custom_dict.txt` — 한 줄에 문자 1개, 총 1,118자. 학습·검증 데이터에 등장한 문자 + 등록 음식명 문자의 합집합(`prepare_dataset.py`의 `build_dictionary`)
-- 매칭 임계값 (RapidFuzz score): `match.py`의 `MATCH_THRESHOLD = 70` (`fuzz.partial_ratio` 기준)
+- 매칭 임계값 (RapidFuzz score): `match.py`의 `MATCH_THRESHOLD = 85` (`name_score()` 기준, 2026-08-23 오탐 측정 후 65에서 상향 — `eval/measure_match_precision.py` 참고)
 
 ## AC (Given-When-Then)
 
