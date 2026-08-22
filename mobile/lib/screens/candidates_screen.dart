@@ -74,9 +74,13 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
   }
 
   /// 이 후보가 지금 카트에 몇 개 담겨 있는지. 안 담겨 있으면 0.
+  ///
+  /// foodId만으로 찾으면 안 된다 — 물만두와 군만두는 foodId가 같아서, 하나를 담으면
+  /// 다른 카드의 수량까지 같이 올라간 것처럼 보인다. 서버가 묶는 기준과 똑같이
+  /// (foodId + 메뉴판 줄 글자)로 찾는다.
   int _quantityOf(Candidate candidate) {
     for (final line in _cart?.items ?? const <CartLine>[]) {
-      if (line.foodId == candidate.foodId) return line.quantity;
+      if (line.lineKey == candidate.lineKey) return line.quantity;
     }
     return 0;
   }

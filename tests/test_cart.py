@@ -20,7 +20,7 @@ class CartStoreTests(unittest.TestCase):
     def setUp(self):
         store.clear_all()
 
-    def add(self, food_id, name_kr, name_en, price_krw, quantity_delta):
+    def add(self, food_id, name_kr, name_en, price_krw, quantity_delta, menu_text=None):
         return store.change_quantity(
             CART_ID,
             food_id=food_id,
@@ -28,6 +28,7 @@ class CartStoreTests(unittest.TestCase):
             name_en=name_en,
             price_krw=price_krw,
             quantity_delta=quantity_delta,
+            menu_text=menu_text,
         )
 
     def test_new_cart_is_empty_instead_of_missing(self):
@@ -64,6 +65,48 @@ class CartStoreTests(unittest.TestCase):
         self.assertEqual(cart["items"][0]["quantity"], 2)
         self.assertEqual(cart["items"][0]["line_total_krw"], 18000)
         self.assertEqual(cart["total_krw"], 18000)
+
+    def test_same_food_on_different_menu_lines_stays_separate(self):
+        """물만두와 군만두는 둘 다 "만두"지만 메뉴판에서는 다른 줄이다.
+
+        food_id로만 묶으면 화면에는 카드가 둘인데 카트에서 하나로 합쳐지고,
+        가격이 다른 둘을 한 줄로 만들어 총계까지 틀린다.
+        """
+        self.add(1, "만두", "Mandu", 5000, 1, menu_text="물만두 5,000")
+        cart = self.add(1, "만두", "Mandu", 6000, 1, menu_text="군만두 6,000")
+
+        self.assertEqual([item["menu_text"] for item in cart["items"]],
+                         ["물만두 5,000", "군만두 6,000"])
+        self.assertEqual(cart["total_krw"], 11000)
+
+    def test_same_menu_line_still_merges(self):
+        """같은 줄을 두 번 담으면 수량만 오른다 — 줄이 늘어나면 안 된다."""
+        self.add(1, "만두", "Mandu", 5000, 1, menu_text="물만두 5,000")
+        cart = self.add(1, "만두", "Mandu", 5000, 1, menu_text="물만두 5,000")
+
+        self.assertEqual(len(cart["items"]), 1)
+        self.assertEqual(cart["items"][0]["quantity"], 2)
+
+    def test_removing_one_line_leaves_the_other(self):
+        """한 줄을 빼도 같은 음식의 다른 줄은 남아 있어야 한다."""
+        self.add(1, "만두", "Mandu", 5000, 1, menu_text="물만두 5,000")
+        self.add(1, "만두", "Mandu", 6000, 1, menu_text="군만두 6,000")
+
+        cart = self.add(1, "만두", "Mandu", 5000, -1, menu_text="물만두 5,000")
+
+        self.assertEqual([item["menu_text"] for item in cart["items"]], ["군만두 6,000"])
+
+    def test_without_menu_text_it_merges_by_food_id(self):
+        """줄 정보가 없으면 예전처럼 음식 기준으로 묶는다.
+
+        좌표 없이 매칭된 경로에는 줄 구분 정보 자체가 없다. 그때는 나누는 근거가
+        없으므로 합치는 쪽이 맞다.
+        """
+        self.add(1, "만두", "Mandu", 5000, 1)
+        cart = self.add(1, "만두", "Mandu", 5000, 1)
+
+        self.assertEqual(len(cart["items"]), 1)
+        self.assertEqual(cart["items"][0]["quantity"], 2)
 
     def test_quantity_zero_removes_the_line(self):
         """AC-03 · 수량이 0이 되면 그 줄이 사라진다 (수량 0짜리 줄을 남기지 않는다)."""
