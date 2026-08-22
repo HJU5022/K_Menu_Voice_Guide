@@ -6,8 +6,12 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- 홈 화면 아이콘 아래에 표시되는 이름. iOS는 약 12자를 넘으면 줄임표로
+	     자르므로 정식 명칭("K-Menu Voice Guide") 대신 짧은 형태를 쓴다.
+	     바로 아래 CFBundleName은 사용자에게 거의 노출되지 않는 내부 짧은 이름이라
+	     flutter create가 만든 값을 그대로 둔다. -->
 	<key>CFBundleDisplayName</key>
-	<string>Mobile</string>
+	<string>K-Menu</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
