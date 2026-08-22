@@ -14,7 +14,8 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 - **TTS**: Qwen3-TTS-12Hz-1.7B-Base + PEFT(LoRA) 파인튜닝 (어댑터: `k-bite-team/k-menu-qwen3-tts-lora`)
 - **데이터베이스**: Supabase
 - **서버**: FastAPI (`K_Menu_Talk.py`가 `/api/analyze`, `/api/foods/{id}` 노출)
-- **배포 형태**: Flutter 앱 (최종 목표). 기능 동결 전까지는 React 웹앱으로 체크포인트 데모
+- **배포 UI**: Streamlit (`app.py`) — Hugging Face Spaces Streamlit SDK 진입점. 기존 React 웹앱(`frontend/`)을 2026-08-21에 대체함
+- **배포 형태**: Flutter 앱 (최종 목표, `mobile/`). 앱은 `K_Menu_Talk.py`(FastAPI)를 호출한다 — `app.py`는 HTTP 계약이 없어 앱을 대체하지 못하므로 두 진입점을 함께 유지한다
 
 ## Spec 먼저, 구현은 그다음
 
