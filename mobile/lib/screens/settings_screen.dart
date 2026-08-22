@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../config.dart';
+import 'credits_screen.dart';
+import 'how_it_works_screen.dart';
 import 'supported_foods_screen.dart';
 
 /// 화면에 표시할 앱 버전. `mobile/pubspec.yaml`의 `version`과 맞춰야 한다.
@@ -72,6 +74,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const _AppHeader(),
           const _SectionTitle('Guide'),
           ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('How it works'),
+            subtitle: const Text('Three steps, and what this app does not do'),
+            trailing: const Icon(Icons.chevron_right, color: Colors.black38),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HowItWorksScreen()),
+            ),
+          ),
+          ListTile(
             leading: const Icon(Icons.restaurant_menu),
             title: const Text('Supported dishes'),
             subtitle: const Text('Dishes this guide can explain'),
@@ -91,6 +103,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               MaterialPageRoute(
                 builder: (context) => const SupportedFoodsScreen(),
               ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.copyright_outlined),
+            title: const Text('Credits & sources'),
+            subtitle: const Text('Where the photos and information come from'),
+            trailing: const Icon(Icons.chevron_right, color: Colors.black38),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CreditsScreen()),
             ),
           ),
           const _SectionTitle('Connection'),
