@@ -14,7 +14,7 @@
   1. 이미지를 업로드하면 OCR 상태(`ocr_empty`/`unsupported_food`/`candidates_found`)와 후보 목록을 JSON으로 받는다.
   2. `food_id`로 상세정보(6개 카테고리)와 나레이션 결과(텍스트·스타일·오디오 상태)를 JSON으로 받는다.
   3. 등록되지 않은 `food_id`는 404를 반환한다.
-- **Out of Scope**: 프론트엔드 코드 자체, 인증/로그인, 장바구니·주문 기능, Flutter 클라이언트 코드, 대표이미지(`thumbnail_url`)·출처표시 필드(별도 Spec — `foods` 테이블 컬럼 추가가 선행돼야 함), 배포(HF Spaces/Tailscale) 설정.
+- **Out of Scope**: 프론트엔드 코드 자체, 인증/로그인, 주문·결제 기능, Flutter 클라이언트 코드, 배포(HF Spaces/Tailscale) 설정. 장바구니(`/api/cart`)는 별도 Spec(`docs/specs/cart.md`)에서 다룬다.
 
 ## What
 
@@ -34,6 +34,7 @@
 | EC-02 | 업로드된 파일이 이미지가 아니거나 손상됨 | `analyze_image()` 내부 `recognize()`가 던지는 예외를 그대로 전달(500) — 기존 파이프라인 동작과 동일, 여기서 새로 방어하지 않음 |
 | EC-03 | TTS 모델이 아직 준비 안 됨 (GPU 없음 등) | 기존 `tts_status: "not_ready"`를 그대로 응답에 담아 전달 — 이 레이어에서 예외로 바꾸지 않음 |
 | EC-04 | OCR 결과 없음/미지원 음식 | `analyze_image()`가 이미 반환하는 `ocr_empty`/`unsupported_food` 상태를 그대로 전달 |
+| EC-05 | 음식에 등록된 썸네일이 없음 | `thumbnail_url`/`thumbnail_attribution`을 `null`로 반환 — 프론트는 이 경우 번호 아이콘으로 대체 표시 |
 
 ## How
 
@@ -46,7 +47,15 @@ POST /api/analyze
   "status": "ocr_empty" | "unsupported_food" | "candidates_found",
   "ocr_text": string,
   "candidates": [
-    {"food_id": int, "name_kr": string, "score": int, "modifiers": {...}}
+    {
+      "food_id": int,
+      "name_kr": string,
+      "name_en": string,
+      "score": int,
+      "modifiers": {...},
+      "thumbnail_url": string | null,
+      "thumbnail_attribution": string | null
+    }
   ]
 }
 ```
@@ -92,3 +101,8 @@ GET /api/foods/{food_id}
 - GIVEN: `get_details()`가 존재하지 않는 `food_id`에 대해 `ValueError`를 던진다.
 - WHEN: `GET /api/foods/{food_id}`를 호출한다.
 - THEN: 응답 404를 받는다.
+
+**AC-05 · 후보 썸네일·출처 전달**
+- GIVEN: `foods` 테이블의 `thumbnail_url`·`thumbnail_attribution` 컬럼에 값이 있다.
+- WHEN: `POST /api/analyze`가 그 음식을 후보로 반환한다.
+- THEN: 후보 객체에 `thumbnail_url`과 `thumbnail_attribution`이 그대로 실려 있다. 값이 없는 음식은 두 필드 모두 `null`이다 (테스트: `tests/test_ocr_match.py`, `tests/test_cache.py`).

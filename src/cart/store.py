@@ -1,0 +1,126 @@
+"""장바구니 — 여행자가 고른 메뉴와 수량을 담아두고 원화 총계를 계산한다.
+
+docs/specs/cart.md 참고. 규칙 네 가지가 이 파일의 전부다:
+
+- 같은 음식은 한 줄로 합친다 (food_id 기준)
+- 수량은 0 밑으로 내려가지 않는다 (음수 금지)
+- 수량이 0이 되면 그 줄을 지운다
+- 어떤 요청이든 카트 **전체** 상태를 돌려준다 — 프론트가 부분 갱신을 짜맞출 필요가 없게
+
+가격은 메뉴판 사진에서 읽은 값이라(src/ocr/price.py) 없을 수 있다. 가격을 못 읽은 메뉴도
+담을 수는 있고 총계에는 0으로 들어가되, has_unpriced_items로 "총계가 일부만 반영됐다"고
+알린다 — 실제보다 싸 보이는 합계를 말없이 보여주지 않기 위해서다.
+
+저장은 서버 프로세스 메모리에만 한다. 재시작하면 비워지고 여러 워커로 띄우면 공유되지
+않는다 — 영속 저장은 Spec의 Out of Scope다. 로그인이 없는 서비스라 계정 대신 브라우저가
+만든 카트 ID(UUID)로 구분한다.
+"""
+
+from src.ocr.price import format_price_krw
+
+# {카트 ID: [담긴 줄, ...]} — 줄은 처음 담은 순서를 유지한다.
+_carts: dict[str, list[dict]] = {}
+
+
+def _build_state(cart_id: str, items: list[dict]) -> dict:
+    """담긴 줄들로 응답용 카트 전체 상태를 만든다(합계·표시용 문자열 포함)."""
+    lines = []
+    total_krw = 0
+    item_count = 0
+    has_unpriced_items = False
+
+    for item in items:
+        price_krw = item["price_krw"]
+        quantity = item["quantity"]
+        item_count += quantity
+
+        if price_krw is None:
+            line_total_krw = None
+            has_unpriced_items = True
+        else:
+            line_total_krw = price_krw * quantity
+            total_krw += line_total_krw
+
+        lines.append(
+            {
+                "food_id": item["food_id"],
+                "name_kr": item["name_kr"],
+                "name_en": item["name_en"],
+                "price_krw": price_krw,
+                "price_krw_display": format_price_krw(price_krw),
+                "quantity": quantity,
+                "line_total_krw": line_total_krw,
+                "line_total_display": format_price_krw(line_total_krw),
+            }
+        )
+
+    return {
+        "cart_id": cart_id,
+        "items": lines,
+        "item_count": item_count,
+        "total_krw": total_krw,
+        "total_krw_display": format_price_krw(total_krw),
+        "has_unpriced_items": has_unpriced_items,
+    }
+
+
+def get_cart(cart_id: str) -> dict:
+    """카트 전체 상태를 돌려준다. 처음 보는 카트 ID면 빈 카트(에러 아님)."""
+    return _build_state(cart_id, _carts.get(cart_id, []))
+
+
+def change_quantity(
+    cart_id: str,
+    *,
+    food_id: int,
+    name_kr: str,
+    name_en: str,
+    price_krw: int | None,
+    quantity_delta: int,
+) -> dict:
+    """음식 하나의 수량을 quantity_delta만큼 더하거나 빼고, 카트 전체 상태를 돌려준다.
+
+    이미 담긴 음식이면 새 줄을 만들지 않고 그 줄의 수량만 바꾼다. 결과 수량이 0 이하면
+    줄을 지운다 — "음수 금지"와 "0이면 자동 삭제"가 같은 한 줄에서 나온다.
+
+    카트에 없는 음식을 빼려고 하면(quantity_delta < 0) 아무 일도 일어나지 않는다.
+    수량 0짜리 빈 줄을 남기지 않기 위해서다.
+    """
+    items = _carts.setdefault(cart_id, [])
+
+    for item in items:
+        if item["food_id"] == food_id:
+            item["quantity"] += quantity_delta
+            # 이번에 읽은 가격이 있으면 그 값으로 갱신한다. 처음 담을 때 가격을 못 읽었더라도
+            # 다른 사진에서 읽히면 그때부터 총계에 반영되도록 하기 위함.
+            if price_krw is not None:
+                item["price_krw"] = price_krw
+            break
+    else:
+        items.append(
+            {
+                "food_id": food_id,
+                "name_kr": name_kr,
+                "name_en": name_en,
+                "price_krw": price_krw,
+                "quantity": quantity_delta,
+            }
+        )
+
+    _carts[cart_id] = [item for item in items if item["quantity"] > 0]
+    return _build_state(cart_id, _carts[cart_id])
+
+
+def clear_cart(cart_id: str) -> dict:
+    """카트 하나를 비우고, 비워진 전체 상태를 돌려준다.
+
+    다른 카트 ID는 건드리지 않는다. 반환 모양이 담기/조회와 같아야 프론트가 응답을
+    그대로 갈아끼울 수 있다.
+    """
+    _carts.pop(cart_id, None)
+    return _build_state(cart_id, [])
+
+
+def clear_all() -> None:
+    """저장된 모든 카트를 버린다 — 테스트가 서로 영향을 주지 않게 하기 위한 용도."""
+    _carts.clear()

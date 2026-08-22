@@ -16,7 +16,19 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
+
 from src import pipeline
+from src.ocr.preprocess import SourceMapping
+
+# 전처리가 사진을 하나도 안 건드린 경우 — 전처리 좌표 = 원본 좌표.
+# analyze_image()가 좌표 되돌리기 정보를 그대로 흘려보내는지만 볼 때 쓴다.
+IDENTITY_MAPPING = SourceMapping(
+    inverse_rotation=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+    scale=1.0,
+    width=1000,
+    height=1000,
+)
 
 
 class PipelineTests(unittest.TestCase):
@@ -325,10 +337,10 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         mock_get_details.assert_not_called()
 
     @patch("src.pipeline.match_food_candidates")
-    @patch("src.pipeline.recognize")
-    def test_analyze_image_returns_ocr_empty_without_matching(self, mock_recognize, mock_match_candidates):
+    @patch("src.pipeline.recognize_boxes_with_mapping")
+    def test_analyze_image_returns_ocr_empty_without_matching(self, mock_recognize_boxes_with_mapping, mock_match_candidates):
         """글자를 하나도 못 읽었으면(공백뿐) 매칭도 시도하지 않고 ocr_empty로 끝낸다."""
-        mock_recognize.return_value = "   "  # 공백만 있는 결과
+        mock_recognize_boxes_with_mapping.return_value = ([(0, 0, 10, 10, "   ")], IDENTITY_MAPPING)
 
         result = pipeline.analyze_image("dummy.jpg")
 
@@ -339,16 +351,17 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         mock_match_candidates.assert_not_called()
 
     @patch("src.pipeline.match_food_candidates")
-    @patch("src.pipeline.recognize")
+    @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_unsupported_food_with_ocr_text(
-        self, mock_recognize, mock_match_candidates
+        self, mock_recognize_boxes_with_mapping, mock_match_candidates
     ):
         """글자는 읽었는데 등록 음식이 없으면 unsupported_food.
 
         ocr_empty와 구분해야 한다 — 프론트가 "다시 찍어주세요"와 "미지원 음식입니다"
         중 어떤 안내를 띄울지 이 status로 결정하기 때문이다.
         """
-        mock_recognize.return_value = "미지원음식"
+        boxes = [(0, 0, 100, 20, "미지원음식")]
+        mock_recognize_boxes_with_mapping.return_value = (boxes, IDENTITY_MAPPING)
         mock_match_candidates.return_value = []
 
         result = pipeline.analyze_image("dummy.jpg")
@@ -357,14 +370,14 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
             result,
             {"status": "unsupported_food", "ocr_text": "미지원음식", "candidates": []},
         )
-        mock_match_candidates.assert_called_once_with("미지원음식")
+        mock_match_candidates.assert_called_once_with("미지원음식", boxes=boxes)
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
     @patch("src.pipeline.match_food_candidates")
-    @patch("src.pipeline.recognize")
+    @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_candidates_without_creating_response(
-        self, mock_recognize, mock_match_candidates, mock_get_details, mock_synthesize
+        self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
     ):
         """후보를 찾아도 여기서 상세·음성까지 만들지는 않는다.
 
@@ -375,14 +388,67 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
             {"food_id": 2, "name_kr": "닭갈비", "score": 100, "modifiers": {}},
             {"food_id": 1, "name_kr": "갈비", "score": 95, "modifiers": {}},
         ]
-        mock_recognize.return_value = "닭갈비 갈비"
+        # detection이 상자를 읽기 순서와 다르게 돌려준 상황 — 줄로 묶어 순서를 되돌려야 한다
+        boxes = [
+            (300, 100, 60, 20, "9,000"),
+            (300, 200, 70, 20, "12,000"),
+            (10, 100, 80, 22, "닭갈비"),
+            (10, 200, 60, 22, "갈비"),
+        ]
+        mock_recognize_boxes_with_mapping.return_value = (boxes, IDENTITY_MAPPING)
         mock_match_candidates.return_value = candidates
 
         result = pipeline.analyze_image("dummy.jpg")
 
         self.assertEqual(
             result,
-            {"status": "candidates_found", "ocr_text": "닭갈비 갈비", "candidates": candidates},
+            {
+                "status": "candidates_found",
+                "ocr_text": "닭갈비 9,000 갈비 12,000",
+                # match가 위치를 못 붙인 후보는 source가 null이다 (여기선 match를 mock했으므로)
+                "candidates": [{**candidate, "source": None} for candidate in candidates],
+            },
         )
+        # 좌표를 매칭 단계까지 그대로 넘겨야 가격을 위치로 짝지을 수 있다
+        mock_match_candidates.assert_called_once_with("닭갈비 9,000 갈비 12,000", boxes=boxes)
+        mock_get_details.assert_not_called()
+        mock_synthesize.assert_not_called()
+
+    @patch("src.pipeline._synthesize_via_subprocess")
+    @patch("src.pipeline.get_details")
+    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.recognize_boxes_with_mapping")
+    def test_analyze_image_converts_source_box_to_original_photo_ratios(
+        self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
+    ):
+        """match가 준 전처리 좌표를 원본 사진 기준 비율로 옮겨 source로 내보낸다.
+
+        프론트가 사용자의 사진 위에 상자를 그리려면 원본 기준이어야 한다. px 그대로 내보내면
+        사진을 축소해 보여주는 화면에서 상자가 엉뚱한 곳에 찍힌다.
+        """
+        mock_recognize_boxes_with_mapping.return_value = (
+            [(100, 200, 300, 80, "비빔밥 9,000")],
+            IDENTITY_MAPPING,  # 1000x1000 원본, 배율 1, 회전 없음
+        )
+        mock_match_candidates.return_value = [
+            {
+                "food_id": 1,
+                "name_kr": "비빔밥",
+                "score": 95,
+                "modifiers": {},
+                "source_text": "비빔밥 9,000",
+                "source_box": (100, 200, 300, 80),
+            }
+        ]
+
+        candidate = pipeline.analyze_image("dummy.jpg")["candidates"][0]
+
+        self.assertEqual(candidate["source"]["text"], "비빔밥 9,000")
+        self.assertAlmostEqual(candidate["source"]["left"], 0.1)
+        self.assertAlmostEqual(candidate["source"]["top"], 0.2)
+        self.assertAlmostEqual(candidate["source"]["width"], 0.3)
+        self.assertAlmostEqual(candidate["source"]["height"], 0.08)
+        # 내부용 원시 좌표는 응답에 남기지 않는다
+        self.assertNotIn("source_box", candidate)
         mock_get_details.assert_not_called()
         mock_synthesize.assert_not_called()

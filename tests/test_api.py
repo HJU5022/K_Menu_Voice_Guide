@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 
 import K_Menu_Talk
 from K_Menu_Talk import app
+from src.cart import store as cart_store
 
 
 class AnalyzeEndpointTests(unittest.TestCase):
@@ -48,6 +49,101 @@ class AnalyzeEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "candidates_found")
         mock_analyze_image.assert_called_once()
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_analyze_candidate_includes_price_fields(self, mock_analyze_image):
+        """메뉴판에서 읽은 가격(price_krw/price_krw_display)이 후보 응답에 그대로 실리는지."""
+        mock_analyze_image.return_value = {
+            "status": "candidates_found",
+            "ocr_text": "비빔밥 9,000원",
+            "candidates": [
+                {
+                    "food_id": 1,
+                    "name_kr": "비빔밥",
+                    "name_en": "Bibimbap",
+                    "score": 95,
+                    "modifiers": {},
+                    "price_krw": 9000,
+                    "price_krw_display": "₩9,000",
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("menu.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")},
+        )
+
+        candidate = response.json()["candidates"][0]
+        self.assertEqual(candidate["price_krw"], 9000)
+        self.assertEqual(candidate["price_krw_display"], "₩9,000")
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_analyze_candidate_price_defaults_to_none_when_absent(self, mock_analyze_image):
+        """가격 필드를 안 준 후보 dict(가격 없는 메뉴)도 200으로 응답하고 null이어야 한다."""
+        mock_analyze_image.return_value = {
+            "status": "candidates_found",
+            "ocr_text": "비빔밥",
+            "candidates": [
+                {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap", "score": 95, "modifiers": {}}
+            ],
+        }
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("menu.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")},
+        )
+
+        candidate = response.json()["candidates"][0]
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(candidate["price_krw"])
+        self.assertIsNone(candidate["price_krw_display"])
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_analyze_candidate_includes_source_position(self, mock_analyze_image):
+        """후보가 사진 어디의 어떤 글자에서 나왔는지가 응답에 실려야 한다 — 프론트가 그 자리에 상자를 그린다."""
+        mock_analyze_image.return_value = {
+            "status": "candidates_found",
+            "ocr_text": "비빔밥 9,000",
+            "candidates": [
+                {
+                    "food_id": 1,
+                    "name_kr": "비빔밥",
+                    "name_en": "Bibimbap",
+                    "score": 95,
+                    "modifiers": {},
+                    "source": {"text": "비빔밥 9,000", "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.08},
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("menu.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")},
+        )
+
+        source = response.json()["candidates"][0]["source"]
+        self.assertEqual(source["text"], "비빔밥 9,000")
+        self.assertEqual((source["left"], source["top"]), (0.1, 0.2))
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_analyze_candidate_source_is_null_when_position_is_unknown(self, mock_analyze_image):
+        """위치를 못 찾은 후보도 200으로 나가야 한다 — 사진 위 상자만 생략된다."""
+        mock_analyze_image.return_value = {
+            "status": "candidates_found",
+            "ocr_text": "비빔밥",
+            "candidates": [
+                {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap", "score": 95, "modifiers": {}}
+            ],
+        }
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("menu.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["candidates"][0]["source"])
 
     @patch.object(K_Menu_Talk, "analyze_image")
     def test_analyze_passes_through_ocr_empty(self, mock_analyze_image):
@@ -153,6 +249,195 @@ class FoodDetailEndpointTests(unittest.TestCase):
         response = self.client.get("/api/foods/999")
 
         self.assertEqual(response.status_code, 404)
+
+
+class SupportedFoodsEndpointTests(unittest.TestCase):
+    """GET /api/foods — 설정 화면의 "지원 음식" 목록 (docs/specs/supported-foods.md).
+
+    사진을 찍기 전에 지원 여부를 확인하는 용도라, 일부만 추려 보내면 안 된다.
+    """
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    @patch.object(K_Menu_Talk, "get_foods")
+    def test_returns_every_registered_food(self, mock_get_foods):
+        """AC-01 · 등록된 음식을 전부 돌려준다."""
+        mock_get_foods.return_value = [
+            {"id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"},
+            {"id": 2, "name_kr": "불고기", "name_en": "Bulgogi"},
+            {"id": 3, "name_kr": "떡볶이", "name_en": "Tteokbokki"},
+        ]
+
+        response = self.client.get("/api/foods")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body), 3)
+        self.assertEqual(body[0], {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"})
+
+    @patch.object(K_Menu_Talk, "get_foods")
+    def test_sorts_by_english_name(self, mock_get_foods):
+        """AC-02 · 여행자가 영문으로 훑기 때문에 영문명 오름차순이어야 한다."""
+        mock_get_foods.return_value = [
+            {"id": 3, "name_kr": "떡볶이", "name_en": "Tteokbokki"},
+            {"id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"},
+            {"id": 2, "name_kr": "불고기", "name_en": "Bulgogi"},
+        ]
+
+        response = self.client.get("/api/foods")
+
+        self.assertEqual(
+            [food["name_en"] for food in response.json()],
+            ["Bibimbap", "Bulgogi", "Tteokbokki"],
+        )
+
+    @patch.object(K_Menu_Talk, "get_foods")
+    def test_returns_empty_list_instead_of_404(self, mock_get_foods):
+        """AC-03 · 등록된 음식이 없어도 오류가 아니다 — 프론트가 "아직 없음"으로 안내한다."""
+        mock_get_foods.return_value = []
+
+        response = self.client.get("/api/foods")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    @patch.object(K_Menu_Talk, "get_foods")
+    def test_does_not_leak_photo_or_spice_columns(self, mock_get_foods):
+        """이 화면의 질문은 "무엇을 지원하나"이지 "무엇을 먹을까"가 아니다 — 이름만 내보낸다."""
+        mock_get_foods.return_value = [
+            {
+                "id": 1,
+                "name_kr": "비빔밥",
+                "name_en": "Bibimbap",
+                "spice_level": 2,
+                "thumbnail_url": "https://example.com/bibimbap.jpg",
+            }
+        ]
+
+        response = self.client.get("/api/foods")
+
+        self.assertEqual(sorted(response.json()[0]), ["food_id", "name_en", "name_kr"])
+
+    def test_food_list_route_does_not_shadow_the_detail_route(self):
+        """/api/foods와 /api/foods/{id}가 공존해야 한다 — 목록 라우트가 상세를 가로채면 안 된다."""
+        with (
+            patch.object(K_Menu_Talk, "get_details", return_value={"DESCRIPTION": "설명"}),
+            patch.object(
+                K_Menu_Talk,
+                "get_food_info",
+                return_value={"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"},
+            ),
+            patch.object(
+                K_Menu_Talk,
+                "create_tts_response",
+                return_value={
+                    "narration_text": "설명입니다.",
+                    "style": "GUIDE",
+                    "narration_audio_path": None,
+                    "tts_status": "not_ready",
+                    "tts_latency_ms": 0.0,
+                },
+            ),
+        ):
+            response = self.client.get("/api/foods/1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["name_en"], "Bibimbap")
+
+
+class CartEndpointTests(unittest.TestCase):
+    """/api/cart — 담기/조회 어느 쪽이든 카트 전체 상태를 돌려주는 엔드포인트.
+
+    카트 로직 자체는 tests/test_cart.py가 검사한다. 여기서는 HTTP 계약만 본다:
+    헤더로 카트를 구분하는지, 응답 필드명이 프론트와 맞는지.
+    """
+
+    def setUp(self):
+        self.client = TestClient(app)
+        cart_store.clear_all()
+        self.headers = {"X-Cart-Id": "api-test-cart"}
+
+    def test_get_cart_returns_empty_cart_for_a_new_id(self):
+        response = self.client.get("/api/cart", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "cart_id": "api-test-cart",
+                "items": [],
+                "item_count": 0,
+                "total_krw": 0,
+                "total_krw_display": "₩0",
+                "has_unpriced_items": False,
+            },
+        )
+
+    def test_post_item_returns_the_whole_cart_with_a_total(self):
+        response = self.client.post(
+            "/api/cart/items",
+            headers=self.headers,
+            json={
+                "food_id": 1,
+                "name_kr": "비빔밥",
+                "name_en": "Bibimbap",
+                "price_krw": 9000,
+                "quantity_delta": 2,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["items"][0]["quantity"], 2)
+        self.assertEqual(body["items"][0]["line_total_display"], "₩18,000")
+        self.assertEqual(body["total_krw"], 18000)
+        self.assertEqual(body["total_krw_display"], "₩18,000")
+
+    def test_delete_cart_returns_the_emptied_cart(self):
+        self.client.post(
+            "/api/cart/items",
+            headers=self.headers,
+            json={
+                "food_id": 1,
+                "name_kr": "비빔밥",
+                "name_en": "Bibimbap",
+                "price_krw": 9000,
+                "quantity_delta": 2,
+            },
+        )
+
+        response = self.client.delete("/api/cart", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["items"], [])
+        self.assertEqual(body["total_krw"], 0)
+        # 서버에도 실제로 비워졌는지 (응답만 비어 보이는 게 아니라)
+        self.assertEqual(self.client.get("/api/cart", headers=self.headers).json()["items"], [])
+
+    def test_delete_cart_requires_the_cart_id_header(self):
+        self.assertEqual(self.client.delete("/api/cart").status_code, 422)
+
+    def test_cart_requires_the_cart_id_header(self):
+        """헤더가 없으면 남의 카트를 돌려주는 대신 422로 거절해야 한다."""
+        self.assertEqual(self.client.get("/api/cart").status_code, 422)
+
+    def test_cart_state_persists_between_requests_for_the_same_id(self):
+        """"매 요청마다 최신 전체 상태" — 두 번 담으면 두 번째 응답에 합쳐진 결과가 나온다."""
+        payload = {
+            "food_id": 1,
+            "name_kr": "비빔밥",
+            "name_en": "Bibimbap",
+            "price_krw": 9000,
+            "quantity_delta": 1,
+        }
+        self.client.post("/api/cart/items", headers=self.headers, json=payload)
+        self.client.post("/api/cart/items", headers=self.headers, json=payload)
+
+        body = self.client.get("/api/cart", headers=self.headers).json()
+        self.assertEqual(len(body["items"]), 1)
+        self.assertEqual(body["items"][0]["quantity"], 2)
 
 
 class PublishAudioTests(unittest.TestCase):

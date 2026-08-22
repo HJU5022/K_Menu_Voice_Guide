@@ -3,7 +3,11 @@
 base(파인튜닝 전)와 파인튜닝 모델을 같은 테스트셋·같은 전처리·같은 detection 박스로
 돌리고 인식(recognition) 모델만 바꿔가며 잰다.
 
-지표 3개를 낸다:
+숫자 지표는 정답 라벨이 음식명뿐이라 여기서 낼 수 없다. 대신 **숫자를 얼마나 가격답게
+읽었는지**를 대리 지표로 낸다(digit_token_rate·price_parse_rate). 정답 있는 숫자 정확도는
+eval/measure_digits.py 가 따로 잰다.
+
+지표를 낸다:
   match_recall — manifest의 match_count>=1인 이미지 중, 올바른 등록 음식 후보를
                  1개 이상 뽑아낸 비율. 기존 97.22%와 같은 축의 지표.
   label_hit    — 정답 라벨이 OCR 원문에 그대로 들어있는 비율.
@@ -30,6 +34,7 @@ from rapidfuzz.distance import Levenshtein
 
 from src.ocr import infer
 from src.ocr.match import match_food_candidates
+from src.ocr.price import find_prices
 
 
 def norm(text: str) -> str:
@@ -109,6 +114,11 @@ def measure(entry: dict, image_path: Path, recognize) -> dict:
             for target in targets
         )
 
+    # 숫자 관련 대리 지표. 정답 가격이 없으므로 "얼마나 가격답게 읽혔나"만 본다:
+    # 숫자가 섞인 토큰 중 가격 파서가 실제 금액으로 받아들이는 비율.
+    digit_tokens = [s for s in segments if any(c.isdigit() for c in s)]
+    parsed_tokens = [s for s in digit_tokens if find_prices(s)]
+
     return {
         "file_name": entry["file_name"],
         "category": entry["category"],
@@ -117,6 +127,8 @@ def measure(entry: dict, image_path: Path, recognize) -> dict:
         "label_hits": hits,
         "label_cers": cers,
         "correct_food": correct_food,
+        "digit_tokens": len(digit_tokens),
+        "parsed_price_tokens": len(parsed_tokens),
         "ocr_text": text,
     }
 
@@ -135,6 +147,10 @@ def summarize(rows: list) -> dict:
         cers = [c for r in group for c in r["label_cers"]]
         matchable = [r for r in group if r["match_count"] >= 1]
         correct = [r for r in matchable if r["correct_food"]]
+        # 숫자 대리 지표: 숫자가 섞인 토큰 중 가격 파서가 금액으로 받아들이는 비율.
+        # 낮다는 건 숫자를 읽긴 했는데 가격으로 쓸 수 없는 상태로 읽었다는 뜻이다.
+        digit_tokens = sum(r.get("digit_tokens", 0) for r in group)
+        parsed_tokens = sum(r.get("parsed_price_tokens", 0) for r in group)
         summary[name] = {
             "images": len(group),
             "labels": labels,
@@ -142,6 +158,8 @@ def summarize(rows: list) -> dict:
             "label_cer": round(sum(cers) / len(cers), 4) if cers else None,
             "matchable_images": len(matchable),
             "match_recall": round(len(correct) / len(matchable), 4) if matchable else None,
+            "digit_tokens": digit_tokens,
+            "price_parse_rate": round(parsed_tokens / digit_tokens, 4) if digit_tokens else None,
         }
     return summary
 
@@ -185,8 +203,8 @@ def main() -> None:
 
     print("\n저장: %s" % out_path)
     for name, s in result["summary"].items():
-        print("  %-16s match_recall=%s  label_hit=%s  label_cer=%s"
-              % (name, s["match_recall"], s["label_hit"], s["label_cer"]))
+        print("  %-16s match_recall=%s  label_hit=%s  label_cer=%s  price_parse_rate=%s"
+              % (name, s["match_recall"], s["label_hit"], s["label_cer"], s["price_parse_rate"]))
 
 
 if __name__ == "__main__":
