@@ -20,6 +20,16 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 from src.ocr import infer
+from src.ocr.preprocess import SourceMapping
+
+# recognize()는 좌표 되돌리기 정보를 그냥 흘려보내기만 한다(쓰는 쪽은 src/pipeline.py).
+# 그래서 아래 테스트들은 "안 건드리는 값"으로 이걸 넘긴다.
+IDENTITY_MAPPING = SourceMapping(
+    inverse_rotation=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
+    scale=1.0,
+    width=100,
+    height=100,
+)
 
 
 class OcrInferTests(unittest.TestCase):
@@ -37,9 +47,11 @@ class OcrInferTests(unittest.TestCase):
         ]
 
         with (
-            patch.object(infer, "preprocess_image", return_value=processed_image) as mock_preprocess,
+            patch.object(
+                infer, "preprocess_image_with_mapping", return_value=(processed_image, IDENTITY_MAPPING)
+            ) as mock_preprocess,
             patch.object(infer, "_load_det_engine", return_value=detector),
-            patch.object(infer, "_recognize_crop", return_value="비빔밥"),
+            patch.object(infer, "_recognize_crop_with_score", return_value=("비빔밥", 1.0)),
             patch.object(infer.cv2, "imread", return_value=raw_image) as mock_imread,
         ):
             result = infer.recognize("menu.jpg")
@@ -54,7 +66,9 @@ class OcrInferTests(unittest.TestCase):
     def test_recognize_propagates_preprocess_value_error(self):
         """전처리가 실패하면 거기서 멈추고 에러를 그대로 올려보낸다 — 무거운 모델을 안 띄우기 위해."""
         with (
-            patch.object(infer, "preprocess_image", side_effect=ValueError("이미지를 불러올 수 없습니다")),
+            patch.object(
+                infer, "preprocess_image_with_mapping", side_effect=ValueError("이미지를 불러올 수 없습니다")
+            ),
             patch.object(infer, "_load_det_engine") as mock_load_det_engine,
             patch.object(infer.cv2, "imread") as mock_imread,
         ):
@@ -95,7 +109,9 @@ class OcrInferTests(unittest.TestCase):
             return "wrong", 0.10
 
         with (
-            patch.object(infer, "preprocess_image", return_value=processed_image),
+            patch.object(
+                infer, "preprocess_image_with_mapping", return_value=(processed_image, IDENTITY_MAPPING)
+            ),
             patch.object(infer, "_load_det_engine", return_value=detector),
             patch.object(infer.cv2, "rotate", side_effect=fake_rotate),
             patch.object(infer.cv2, "imencode", side_effect=fake_imencode),
@@ -119,13 +135,165 @@ class OcrInferTests(unittest.TestCase):
         ]
 
         with (
-            patch.object(infer, "preprocess_image", return_value=processed_image),
+            patch.object(
+                infer, "preprocess_image_with_mapping", return_value=(processed_image, IDENTITY_MAPPING)
+            ),
             patch.object(infer, "_load_det_engine", return_value=detector),
-            patch.object(infer, "_recognize_crop", return_value="비빔밥") as mock_recognize_crop,
-            patch.object(infer, "_recognize_crop_with_score") as mock_with_score,
+            patch.object(
+                infer, "_recognize_crop_with_score", return_value=("비빔밥", 1.0)
+            ) as mock_with_score,
+            patch.object(infer.cv2, "rotate") as mock_rotate,
         ):
             result = infer.recognize("menu.jpg")
 
         self.assertEqual(result, "비빔밥")
-        mock_recognize_crop.assert_called_once()  # 그냥 한 번 읽고 끝
-        mock_with_score.assert_not_called()       # 회전·비교 경로는 안 탔어야 한다
+        mock_with_score.assert_called_once()  # 그냥 한 번 읽고 끝
+        mock_rotate.assert_not_called()       # 회전·비교 경로는 안 탔어야 한다
+
+
+class GroupBoxesIntoLinesTests(unittest.TestCase):
+    """group_boxes_into_lines() — 줄로 묶고 각 줄을 이름 영역/가격 영역으로 나눈다."""
+
+    def test_splits_a_line_into_name_and_price(self):
+        boxes = [
+            (600, 100, 140, 40, "9,000"),
+            (70, 102, 200, 40, "비빔밥"),
+        ]
+
+        lines = infer.group_boxes_into_lines(boxes)
+
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0].text, "비빔밥 9,000")
+        self.assertEqual([b[4] for b in lines[0].name_boxes], ["비빔밥"])
+        self.assertEqual([b[4] for b in lines[0].price_boxes], ["9,000"])
+
+    def test_keeps_separate_rows_apart(self):
+        boxes = [
+            (70, 100, 200, 40, "비빔밥"),
+            (600, 100, 140, 40, "9,000"),
+            (70, 260, 200, 40, "불고기"),
+            (600, 260, 150, 40, "12,000"),
+        ]
+
+        lines = infer.group_boxes_into_lines(boxes)
+
+        self.assertEqual([line.text for line in lines], ["비빔밥 9,000", "불고기 12,000"])
+
+    def test_tolerance_scales_with_box_height(self):
+        """허용 오차가 고정 픽셀이면, 글자가 큰 사진에서 같은 줄이 쪼개진다.
+
+        아래 두 상자는 세로 중심이 30px 어긋나 있다. 글자 높이가 40일 때는 다른 줄이고,
+        글자 높이가 200일 때는(고해상도 사진) 같은 줄이어야 한다.
+        """
+        small = [(70, 100, 200, 40, "비빔밥"), (600, 130, 140, 40, "9,000")]
+        large = [(70, 100, 400, 200, "비빔밥"), (600, 130, 300, 200, "9,000")]
+
+        self.assertEqual(len(infer.group_boxes_into_lines(small)), 2)
+        self.assertEqual(len(infer.group_boxes_into_lines(large)), 1)
+
+    def test_price_below_the_name_stays_on_its_own_line(self):
+        """사진형 메뉴판(이름 아래 가격)에서는 줄이 나뉜다.
+
+        그래서 이름-가격 연결을 줄 단위 좌우 규칙에만 맡기면 안 된다 — 실제 연결은
+        src/ocr/price.py의 match_prices_to_names()가 위·아래 배치까지 함께 본다.
+        """
+        boxes = [(70, 100, 200, 40, "비빔밥"), (72, 170, 140, 40, "9,000")]
+
+        lines = infer.group_boxes_into_lines(boxes)
+
+        self.assertEqual(len(lines), 2)
+        self.assertEqual([b[4] for b in lines[0].name_boxes], ["비빔밥"])
+        self.assertEqual([b[4] for b in lines[1].price_boxes], ["9,000"])
+
+    def test_returns_nothing_for_no_boxes(self):
+        self.assertEqual(infer.group_boxes_into_lines([]), [])
+
+
+class BetterReadingTests(unittest.TestCase):
+    """_better_reading() — 파인튜닝 인식기와 PaddleOCR 기본 인식기 중 하나를 고른다.
+
+    둘은 상보적이다(실측): 파인튜닝 모델은 한글 메뉴명을 1.00으로 읽지만 "9,000"을
+    "C.00"(0.65)으로 흘리고, 기본 모델은 "9,000"을 0.9999로 읽지만 "김치찌개"를
+    "召大|"(0.855)로 읽는다.
+    """
+
+    def test_takes_the_stock_reading_for_a_price(self):
+        """숫자 조각은 기본 인식기 쪽이 훨씬 확신하므로 그쪽을 쓴다."""
+        self.assertEqual(
+            infer._better_reading(("C.00", 0.65), ("9,000", 0.9999)), ("9,000", 0.9999)
+        )
+
+    def test_keeps_the_tuned_reading_for_a_korean_name(self):
+        """한글 조각은 파인튜닝 모델에 맡긴다 — 이쪽이 이 모델의 학습 목적이다."""
+        self.assertEqual(
+            infer._better_reading(("김치찌개", 1.0), ("", 0.0)), ("김치찌개", 1.0)
+        )
+
+    def test_never_lets_a_confident_stock_reading_overwrite_hangul(self):
+        """기본 인식기가 한글을 한자로 자신 있게 잘못 읽어도 넘겨주지 않는다.
+
+        점수만 비교하면 흐린 사진에서 파인튜닝 모델 신뢰도가 떨어질 때 이름이 통째로
+        엉뚱한 글자로 바뀐다. 한글이 섞인 결과는 조건 없이 파인튜닝 쪽을 쓴다.
+        """
+        self.assertEqual(
+            infer._better_reading(("김치찌개", 0.62), ("김大|", 0.98)), ("김치찌개", 0.62)
+        )
+
+    def test_ignores_an_empty_stock_reading(self):
+        self.assertEqual(infer._better_reading(("순대", 0.4), ("", 0.99)), ("순대", 0.4))
+
+
+class GroupBoxesIntoRowsTests(unittest.TestCase):
+    """group_boxes_into_rows() — 글자 상자를 실제 읽기 순서(줄 단위)로 되돌리는 함수.
+
+    detection이 상자를 돌려주는 순서는 읽기 순서가 아니다. 이 정렬이 없으면 음식명 옆에
+    엉뚱한 줄의 가격이 놓여서, 메뉴에 없는 금액이 붙는다(src/ocr/price.py).
+    """
+
+    def test_groups_boxes_on_the_same_line_and_sorts_left_to_right(self):
+        # 같은 줄(y=100)에 있지만 detection이 오른쪽(가격)을 먼저 돌려준 상황
+        boxes = [
+            (300, 100, 60, 20, "9,000"),
+            (10, 102, 80, 20, "비빔밥"),
+        ]
+        self.assertEqual(infer.group_boxes_into_rows(boxes), ["비빔밥 9,000"])
+
+    def test_splits_separate_lines_top_to_bottom(self):
+        """줄이 다르면 나눠야 한다 — 그래야 2번째 줄 가격이 1번째 음식에 안 붙는다."""
+        boxes = [
+            (10, 200, 80, 20, "불고기"),
+            (300, 100, 60, 20, "9,000"),
+            (300, 200, 60, 20, "12,000"),
+            (10, 100, 80, 20, "비빔밥"),
+        ]
+        self.assertEqual(
+            infer.group_boxes_into_rows(boxes),
+            ["비빔밥 9,000", "불고기 12,000"],
+        )
+
+    def test_keeps_slightly_misaligned_boxes_on_one_line(self):
+        """사진이 살짝 기울어 상자 높이가 조금씩 어긋나도 같은 줄로 봐야 한다."""
+        boxes = [
+            (10, 100, 80, 24, "비빔밥"),
+            (300, 106, 60, 18, "9,000"),
+        ]
+        self.assertEqual(infer.group_boxes_into_rows(boxes), ["비빔밥 9,000"])
+
+    def test_accepts_boxes_that_carry_a_confidence(self):
+        """recognize_boxes()는 신뢰도까지 붙인 6개짜리 상자를 준다 — 여기서 깨지면 안 된다.
+
+        회귀 방지: 좌표만 쓰는 자리들이 상자를 5개로 언패킹하고 있어서, 신뢰도가 붙는
+        순간 ValueError로 파이프라인 전체가 죽었다. 테스트가 5개짜리만 넘기고 있어
+        못 잡았던 케이스다.
+        """
+        boxes = [
+            (300, 100, 60, 20, "9,000", 0.91),
+            (10, 100, 80, 22, "비빔밥", 0.99),
+        ]
+
+        self.assertEqual(infer.group_boxes_into_rows(boxes), ["비빔밥 9,000"])
+
+    def test_drops_empty_text_boxes(self):
+        """아무 글자도 못 읽은 상자는 빈 줄을 만들지 않는다."""
+        boxes = [(10, 100, 80, 20, ""), (10, 200, 80, 20, "비빔밥")]
+        self.assertEqual(infer.group_boxes_into_rows(boxes), ["비빔밥"])
