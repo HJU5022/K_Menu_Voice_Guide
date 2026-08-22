@@ -180,6 +180,83 @@ class MatchFoodCandidatesTests(unittest.TestCase):
         self.assertEqual(result["name_kr"], "닭갈비")
 
 
+class MatchByLineTests(unittest.TestCase):
+    """match_food_candidates_by_line() — 메뉴판을 줄 단위로 보는 쪽.
+
+    통짜 텍스트로 보던 때의 두 가지 어긋남을 여기서 고정한다.
+      1. 같은 음식이 여러 줄에 있으면 줄마다 후보가 나와야 한다 (물만두 / 군만두)
+      2. 수식어는 그 줄에서만 뽑혀야 한다 (메뉴판 어딘가의 "해물"이 비빔밥에 붙으면 안 된다)
+    """
+
+    FOODS = _menu_foods("만두", "칼국수", "비빔밥")
+    MODIFIERS = [
+        {"keyword": "해물", "category": "ingredient", "keyword_en": "Seafood", "spice_tier": None},
+        {"keyword": "물", "category": "ingredient", "keyword_en": "Water", "spice_tier": None},
+    ]
+
+    # 한 줄에 이름과 가격이 같이 있는, 흔한 메뉴판 모양.
+    BOXES = [
+        (10, 10, 200, 30, "물만두 5,000", 0.99),
+        (10, 60, 200, 30, "군만두 6,000", 0.99),
+        (10, 110, 260, 30, "해물칼국수 8,000", 0.99),
+        (10, 160, 200, 30, "비빔밥 9,000", 0.99),
+    ]
+
+    def by_line(self, boxes=None):
+        with (
+            patch.object(cache, "get_foods", return_value=self.FOODS),
+            patch.object(cache, "get_modifiers", return_value=self.MODIFIERS),
+        ):
+            return match.match_food_candidates_by_line(boxes or self.BOXES)
+
+    def test_same_food_on_two_lines_yields_two_candidates(self):
+        """물만두와 군만두는 둘 다 "만두"지만 별개 메뉴다 — 하나로 합치면 하나가 사라진다."""
+        mandu = [c for c in self.by_line() if c["name_kr"] == "만두"]
+
+        self.assertEqual(len(mandu), 2)
+        self.assertEqual(
+            [c["menu_text"] for c in mandu],
+            ["물만두 5,000", "군만두 6,000"],
+        )
+
+    def test_each_line_keeps_its_own_price(self):
+        """가격이 줄에서 나오므로 옆 줄 가격을 가져오지 않는다."""
+        prices = {c["menu_text"]: c["price_krw"] for c in self.by_line()}
+
+        self.assertEqual(prices["물만두 5,000"], 5000)
+        self.assertEqual(prices["군만두 6,000"], 6000)
+        self.assertEqual(prices["비빔밥 9,000"], 9000)
+
+    def test_modifier_does_not_leak_to_another_line(self):
+        """메뉴판에 "해물"이 있어도 그 줄이 아니면 붙지 않는다.
+
+        통짜 텍스트로 보던 때는 수식어를 메뉴판 전체에서 찾아 모든 후보에 똑같이
+        붙였다. 실측에서 수식어 부착의 97%가 이렇게 엉뚱한 메뉴에 붙은 것이었다.
+        """
+        by_name = {c["name_kr"]: c for c in self.by_line()}
+
+        칼국수_mods = [m["keyword"] for m in by_name["칼국수"]["modifiers"]["ingredient"]]
+        비빔밥_mods = [m["keyword"] for m in by_name["비빔밥"]["modifiers"]["ingredient"]]
+
+        self.assertIn("해물", 칼국수_mods)
+        self.assertEqual(비빔밥_mods, [])
+
+    def test_candidates_follow_reading_order(self):
+        """화면 카드 순서가 메뉴판 순서와 같아야 눈으로 대조할 수 있다."""
+        self.assertEqual(
+            [c["menu_text"] for c in self.by_line()],
+            ["물만두 5,000", "군만두 6,000", "해물칼국수 8,000", "비빔밥 9,000"],
+        )
+
+    def test_one_line_does_not_produce_the_same_food_twice(self):
+        """줄 하나가 카드 하나다 — 같은 줄에서 같은 음식이 두 번 나오면 겹쳐 보인다."""
+        boxes = [(10, 10, 300, 30, "만두 만두 5,000", 0.99)]
+
+        result = self.by_line(boxes)
+
+        self.assertEqual([c["name_kr"] for c in result], ["만두"])
+
+
 class NonMenuTextTests(unittest.TestCase):
     """메뉴판에는 메뉴가 아닌 글자도 실린다 — 거기 들어있는 음식명을 메뉴로 잡으면 안 된다.
 

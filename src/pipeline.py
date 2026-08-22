@@ -18,7 +18,7 @@ from time import perf_counter
 from src.text_gen.narration import get_narration
 from src.ocr.infer import group_boxes_into_rows, recognize, recognize_boxes_with_mapping
 from src.ocr.preprocess import to_original_bbox
-from src.ocr.match import match_food, match_food_candidates
+from src.ocr.match import match_food, match_food_candidates_by_line
 from src.text_gen.detail import get_details
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -186,7 +186,11 @@ def analyze_image(image_path: str) -> dict:
     if not ocr_text:
         return {"status": "ocr_empty", "ocr_text": "", "candidates": []}
 
-    candidates = match_food_candidates(ocr_text, boxes=ocr_boxes)
+    # 줄 단위로 매칭한다 — 같은 음식이 여러 줄에 있으면 줄마다 후보가 나온다.
+    # 통짜 텍스트로 매칭하면 "물만두"와 "군만두"가 만두 후보 하나로 합쳐지고,
+    # 수식어도 메뉴판 전체에서 긁어와 엉뚱한 메뉴에 붙는다
+    # (match_food_candidates_by_line 설명 참고).
+    candidates = match_food_candidates_by_line(ocr_boxes)
     if not candidates:
         return {"status": "unsupported_food", "ocr_text": ocr_text, "candidates": []}
 
