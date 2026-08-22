@@ -22,6 +22,7 @@
 | `specs/ocr-candidate-results.md` | OCR 결과를 음식 후보 목록으로 돌려주는 계약 |
 | `specs/ocr-finetuning.md` | 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준 |
 | `specs/ocr-preprocess-runtime.md` | 추론 경로에 OpenCV 전처리 연결 |
+| `specs/streamlit-app.md` | HF Spaces 배포 진입점 `app.py` — 플랫폼 선정 근거·화면 구성 |
 | `specs/text-generation.md` | 카테고리 6개 조합 + spice_level→style 결정 로직 |
 | `specs/tts-finetuning.md` | TTS 파인튜닝 방식·목표 (실제 실험 결과는 [`eval/TTS_MODULE.md`](../eval/TTS_MODULE.md)) |
 
