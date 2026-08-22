@@ -37,6 +37,7 @@ import '../config.dart';
 import 'candidates_screen.dart';
 import 'detail_screen.dart';
 import 'settings_button.dart';
+import 'supported_foods_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -274,11 +275,20 @@ class _CameraScreenState extends State<CameraScreen> {
     // 글자는 읽혔지만 아는 음식이 없는 경우 — 위와 원인이 달라 문구도 다르다(EC-04).
     // 다시 찍어도 소용없는 상황이므로 재촬영을 권하지 않는다.
     if (result.isUnsupportedFood) {
+      // OCR 원문은 보여주지 않는다. 메뉴판이 아닌 것을 찍거나 사진이 흐리면
+      // 알아볼 수 없는 글자 덩어리가 화면을 채우는데, 사용자가 그걸로 할 수 있는
+      // 일이 없고 파일 경로 같은 게 섞여 나오기도 한다(실기기 확인 중 확인됨).
+      // 대신 지원 목록으로 보내준다 — "그럼 뭐가 되는데?"에 답해야 다음 행동이 나온다.
       return _MessagePanel(
         icon: Icons.search_off,
         title: 'Not in our guide yet',
-        body: 'We read the menu but none of these dishes are in our guide '
-            'of 50 Korean foods.\n\nWhat we read:\n${result.ocrText}',
+        body: 'We read this photo, but none of the dishes on it are among '
+            'the 50 Korean dishes this guide covers.',
+        actionLabel: 'See supported dishes',
+        onAction: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SupportedFoodsScreen()),
+        ),
       );
     }
 
@@ -328,6 +338,8 @@ class _MessagePanel extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.actionLabel,
+    this.onAction,
   });
 
   // final — 한 번 정해지면 안 바뀌는 값. 위젯이 받는 재료들이다.
@@ -335,10 +347,13 @@ class _MessagePanel extends StatelessWidget {
   final String title;
   final String body;
 
+  /// 안내로 끝나지 않고 다음 행동이 있는 경우에만 준다(둘 다 있어야 그려진다).
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
   @override
   Widget build(BuildContext context) {
-    // SingleChildScrollView — 내용이 화면보다 길면 스크롤되게 한다.
-    // unsupported_food 안내는 읽힌 글자를 통째로 붙이므로 길어질 수 있다.
+    // SingleChildScrollView — 작은 화면에서 안내가 잘리지 않도록 스크롤되게 한다.
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -355,6 +370,10 @@ class _MessagePanel extends StatelessWidget {
             style: const TextStyle(color: Colors.black54),
             textAlign: TextAlign.center,
           ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 16),
+            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
         ],
       ),
     );
