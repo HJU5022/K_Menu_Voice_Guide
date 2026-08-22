@@ -29,6 +29,7 @@ class OrderSummaryScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Show this to the staff')),
       body: Column(
         children: [
+          const _StaffNotice(),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -38,6 +39,41 @@ class OrderSummaryScreen extends StatelessWidget {
             ),
           ),
           _TotalBar(cart: cart),
+        ],
+      ),
+    );
+  }
+}
+
+/// 화면 맨 위 안내문 두 줄.
+///
+/// 한글은 **종업원이 읽는 문장**이라 크게, 영문은 여행자가 "내가 지금 뭘 보여주고
+/// 있는지" 확인하는 줄이라 작게 둔다. 아래 메뉴 목록과 같은 규칙이다.
+///
+/// "주문이 접수되었습니다"류의 문구는 쓰지 않는다 — 이 화면은 어디에도 주문을
+/// 보내지 않는다(`docs/specs/cart.md`). 여행자가 종업원에게 말을 거는 문장이라야
+/// 실제로 일어나는 일과 화면이 어긋나지 않는다.
+class _StaffNotice extends StatelessWidget {
+  const _StaffNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.grey.shade100,
+      padding: const EdgeInsets.all(16),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '이 메뉴로 주문할게요.',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'This says "I would like to order these." Show this screen to the staff.',
+            style: TextStyle(fontSize: 13, color: Colors.black54),
+          ),
         ],
       ),
     );
@@ -93,7 +129,17 @@ class _OrderLine extends StatelessWidget {
               if (line.lineTotalDisplay != null)
                 Text(
                   line.lineTotalDisplay!,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              // 2개 이상일 때만 한 개 가격을 덧붙인다 — 1개면 소계와 같은 값이라
+              // 같은 숫자를 두 번 적는 꼴이 된다.
+              if (line.priceDisplay != null && line.quantity > 1)
+                Text(
+                  '${line.priceDisplay!} each',
+                  style: const TextStyle(fontSize: 12, color: Colors.black45),
                 ),
             ],
           ),
