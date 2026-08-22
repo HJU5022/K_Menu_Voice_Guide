@@ -8,7 +8,17 @@
   1. 사용 장면 자체가 "식당에서 폰으로 메뉴판을 찍는" 것인데, 웹앱은 매번 브라우저를 열고 주소를 입력해 들어가야 한다.
   2. 카메라 촬영이 브라우저 파일 선택 흐름을 거쳐야 해서, 찍어서 바로 묻는 동작이 끊긴다.
   3. 홈 화면에 아이콘이 없어 재방문 경로가 남지 않는다.
-- **측정 지표**: 현재 미측정. 이번 범위에서는 지표 개선이 아니라 **동일 기능을 네이티브 앱 형태로 제공할 수 있는지**를 확인한다.
+- **측정 지표**: 사용자 지표는 현재 미측정. 이번 범위에서는 지표 개선이 아니라 **동일 기능을 네이티브 앱 형태로 제공할 수 있는지**를 확인한다.
+
+**서버 응답 시간 실측** (2026-08-22, macOS·CPU, TTS 사전 생성 캐시가 채워진 상태)
+
+| 요청 | 1회차 | 2회차 이후 |
+|---|---|---|
+| `POST /api/analyze` (OCR) | 10.0초 | **7.9초** |
+| `GET /api/foods/{id}` | 1.9초 | **0.018초** |
+| `/audio/*.wav` 다운로드 (876KB) | — | 0.011초 |
+
+1회차가 느린 것은 모델·DB를 메모리에 올리기 때문이다. 화면 설계 시 **OCR 약 8초**를 기준으로 로딩 표시를 만든다 — 이 구간이 전체 대기의 대부분이다. 상세 조회는 캐시 히트라 사실상 즉시다(캐시가 없으면 33초이므로 `static/tts_cache/`가 채워져 있어야 한다).
 
 ## Goal
 
@@ -42,7 +52,7 @@
 | EC-01 | 카메라 권한 거부 | 안내 문구 + 사진첩 선택으로 대체 경로 제공 |
 | EC-02 | 서버 연결 실패(주소 오류·서버 꺼짐·네트워크 없음) | "서버에 연결할 수 없습니다" + 재시도 버튼. 현재 `apiBaseUrl` 값을 함께 노출해 원인 파악을 돕는다 |
 | EC-03 | OCR 결과 없음 (`status = "ocr_empty"`) | 루트 README 9절 기준 문구 사용 — 조명·거리·각도 안내 후 재촬영 유도 |
-| EC-04 | 후보 0개 (등록되지 않은 음식) | 미지원 안내 + 재촬영 |
+| EC-04 | 등록되지 않은 음식 (`status = "unsupported_food"`) | 미지원 안내 + 재촬영. 읽힌 글자가 있으므로 EC-03과 다른 문구를 쓴다 |
 | EC-05 | TTS 실패 (`tts_status != "ok"` 또는 `narration_audio_path`가 null) | **상세 텍스트를 먼저 보여준다.** 음성 영역만 비활성 표시 (루트 README 9절 "TTS 생성 실패 → 상세 텍스트 우선 출력") |
 | EC-06 | 음성 파일 다운로드·재생 실패 | 텍스트는 유지하고 재생 버튼만 오류 표시 |
 | EC-07 | 응답 지연(첫 요청 시 서버 모델 로딩) | 로딩 표시를 유지하고 사용자 입력을 막는다. 타임아웃은 두지 않는다 |
@@ -56,13 +66,19 @@ POST /api/analyze
 요청: multipart/form-data, 필드명 "image" (JPEG)
 응답 200:
 {
-  "status": "ok" | "ocr_empty",
+  "status": "candidates_found" | "unsupported_food" | "ocr_empty",
   "ocr_text": string,
   "candidates": [
     { "food_id": int, "name_kr": string, "name_en": string,
       "score": int, "modifiers": object }
   ]
 }
+
+status 세 값의 의미 (src/pipeline.py analyze_image):
+  candidates_found  후보를 찾음 — candidates에 1개 이상
+  unsupported_food  글자는 읽었으나 등록된 50개 음식과 매칭 실패 — candidates 빈 배열
+  ocr_empty         글자를 전혀 읽지 못함 — ocr_text·candidates 모두 빈 값
+앱은 이 값으로 분기한다. 성공 값이 "ok"가 아님에 주의.
 
 GET /api/foods/{food_id}
 응답 200:

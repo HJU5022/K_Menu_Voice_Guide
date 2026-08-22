@@ -181,7 +181,9 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 
 ### 배포 전략
 
-`K_Menu_Talk.py`가 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출한다(Gradio 아님 — 프론트엔드가 별도 웹앱이라 API 계약이 필요해서 전환됨). 현재는 원격 데스크톱(RTX 3080 Ti)에서 백엔드·프론트를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 체크포인트 데모를 진행 중이며, Hugging Face Spaces(ZeroGPU) 배포는 아직 미착수 상태다.
+진입점이 두 개다. `K_Menu_Talk.py`는 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출하고(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨), `app.py`는 화면과 파이프라인을 한 프로세스에서 직접 연결하는 Streamlit 진입점이다. 후자는 HTTP 계약이 없으므로 API가 필요한 클라이언트를 대체하지 못한다.
+
+Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라 "FastAPI + 별도 React 정적 호스팅" 구조를 그대로 옮길 수 없어, 배포용으로 `app.py`(Streamlit SDK)를 따로 두었다. 하드웨어는 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고, Streamlit Community Cloud는 RAM이 약 1GB라 `paddlepaddle`+PaddleOCR이 올라가지 않는다(조사 2026-08-21, `docs/specs/streamlit-app.md`). 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 진행했다.
 
 모바일 앱(`mobile/`)도 같은 FastAPI를 호출한다. 앱은 JSON 계약이 있어야 붙을 수 있으므로, 화면과 계산을 한 프로세스에 두는 진입점(`app.py`)으로는 대체되지 않는다 — `K_Menu_Talk.py`는 앱을 위해 계속 유지된다. 앱이 서버를 가리키는 주소는 `mobile/lib/config.dart` 한 곳에만 두어, 로컬·터널·배포 환경을 한 줄 수정으로 전환한다(`docs/specs/flutter-mobile-app.md`).
 
@@ -191,11 +193,28 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 proj1-c/
 ├── README.md
 ├── AGENTS.md / CLAUDE.md
-├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, PERSO_API_KEY 등
+├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, OCR_RAW_DATA_ROOT,
+│                                   #   TTS_VENV_PYTHON(macOS·Linux는 필수), OCR_TEST_SET_ROOT,
+│                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
-├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, gradio, supabase, peft ...
+├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
+│                                     #   fastapi·uvicorn(API), streamlit(HF Spaces 배포 UI) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
-├── K_Menu_Talk.py                   # 배포 진입점 — Gradio 화면, src/pipeline.py만 호출
+│                                     #   gradio는 목록에 남아 있으나 미사용(2026-08-19 React 웹앱으로 대체)
+│
+├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
+│                                     #   화면을 갖지 않는다. 앱 등 별도 클라이언트가 붙는 쪽
+├── app.py                           # 배포 진입점 — Streamlit. 화면과 파이프라인을 한 프로세스에서 연결
+│                                     #   HF Spaces(Streamlit SDK)의 기본 진입점 이름이라 루트에 둔다
+│
+├── static/                          # 전체가 .gitignore 대상 — 저장소로 따라오지 않는다
+│   ├── audio/                       #   TTS가 요청마다 만든 wav — /audio/{파일명}으로 서빙
+│   └── tts_cache/                   #   사전 생성 캐시 food_{id}_{STYLE}.wav
+│                                    #   커밋되지 않으므로 새 컴퓨터에서는 비어 있다.
+│                                    #   `python -m src.tts.pregenerate`로 다시 만들거나 파일을 직접 옮겨야
+│                                    #   캐시 히트가 나고, 없으면 매 요청 라이브 생성으로 폴백한다
+│
+├── logs/                            # tts_worker.log 등 실행 로그 (*.log는 .gitignore 대상)
 │
 ├── .github/
 │   ├── PULL_REQUEST_TEMPLATE.md
@@ -273,10 +292,12 @@ proj1-c/
 │   ├── tts/                          # (내레이션 텍스트+스타일) ──▶ WAV
 │   │   ├── README.md
 │   │   ├── finetune.py               #   LoRA/PEFT 파인튜닝 — 학습 시에만 사용
-│   │   ├── infer.py                  #   추론 — 배포에서 실제로 쓰이는 쪽 (기본: 라이브 생성)
+│   │   ├── infer.py                  #   추론 — 캐시에 없는 조합만 처리하는 폴백 경로 (라이브 생성)
 │   │   ├── worker.py                 #   infer.py를 별도 프로세스에서 실행하는 진입점
 │   │   │                             #   (paddle과 torch를 한 프로세스에 못 올려서 분리, 아래 참고)
-│   │   ├── pregenerate.py            #   Plan B: TTFB 목표 초과 시 30~60개 조합 사전 생성·캐싱
+│   │   ├── pregenerate.py            #   사전 생성 배치 — 등록 음식 전체(50개×스타일)를 미리 만들어
+│   │   │                             #   static/tts_cache에 저장. 2026-08-21 Plan B 전환 결정으로
+│   │   │                             #   조건부가 아니라 기본 경로가 됐다 (src/tts/README.md 참고)
 │   │   └── perso_client.py           #   Perso.ai API 호출 — 동일 내레이션 텍스트 비교용 음성 생성
 │   │
 │   └── pipeline.py                   # 위 블록들을 입출력 계약대로 순서대로 연결

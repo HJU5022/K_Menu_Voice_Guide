@@ -6,8 +6,12 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- 홈 화면 아이콘 아래에 표시되는 이름. iOS는 약 12자를 넘으면 줄임표로
+	     자르므로 정식 명칭("K-Menu Voice Guide") 대신 짧은 형태를 쓴다.
+	     바로 아래 CFBundleName은 사용자에게 거의 노출되지 않는 내부 짧은 이름이라
+	     flutter create가 만든 값을 그대로 둔다. -->
 	<key>CFBundleDisplayName</key>
-	<string>Mobile</string>
+	<string>K-Menu</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,6 +30,24 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- 아래 NS* 키는 앱이 쓰는 민감 기능을 iOS에 선언하는 부분이다.
+	     선언이 없으면 해당 기능을 처음 쓰는 순간 앱이 경고 없이 종료된다.
+	     UsageDescription 문구는 권한 요청 팝업에 그대로 노출되므로,
+	     사용자(영어권 관광객) 기준으로 영어로 적는다. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- iOS는 https가 아닌 통신을 기본 차단한다. 개발·시연 단계의 서버가
+		     http://<맥 로컬 IP>:8000 이라 이 예외가 없으면 모든 API 호출이 실패한다.
+		     서버를 https(터널·HF Space)로 옮기면 이 항목을 제거한다. -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of the menu to identify Korean dishes.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to the K-Menu server running on your local network.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a menu photo from your library to identify Korean dishes.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
