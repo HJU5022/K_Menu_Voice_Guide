@@ -53,12 +53,18 @@ POST /api/analyze
       "name_en": string,
       "score": int,
       "modifiers": {...},
+      "menu_text": string | null,
       "thumbnail_url": string | null,
       "thumbnail_attribution": string | null
     }
   ]
 }
 ```
+
+**후보는 메뉴판 "줄" 단위다.** 같은 `food_id`가 여러 번 나올 수 있다 — 메뉴판에
+"물만두"와 "군만두"가 둘 다 있으면 후보도 둘이고, 둘 다 `food_id`는 같다.
+프론트는 `food_id`를 목록의 유일 키로 쓰면 안 되고, `menu_text`(그 줄에 인쇄된
+글자 그대로)로 구분해야 한다. 순서는 메뉴판을 읽는 순서(위→아래)다.
 
 ```
 GET /api/foods/{food_id}

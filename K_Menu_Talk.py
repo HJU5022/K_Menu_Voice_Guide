@@ -78,6 +78,10 @@ class Candidate(BaseModel):
     # (src/ocr/price.py) — DB나 임의 산정 값이 아니라 실제 사진에 적힌 가격이다.
     price_krw: int | None = None
     price_krw_display: str | None = None
+    # 이 후보가 나온 메뉴판 줄의 글자 그대로. 같은 음식이 여러 줄에 있으면 후보도
+    # 여러 개 나오는데(물만두/군만두 → 둘 다 "만두"), 그때 무엇이 다른지 알려주는
+    # 유일한 단서다. 종업원에게 보여줄 때도 등록 이름보다 이쪽이 정확하다.
+    menu_text: str | None = None
 
 
 class AnalyzeResponse(BaseModel):

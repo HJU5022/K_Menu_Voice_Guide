@@ -17,6 +17,7 @@ import statistics
 from rapidfuzz import fuzz
 
 from src.db import cache
+from src.ocr.infer import group_boxes_into_row_groups, row_text
 from src.ocr.price import (
     TextBox,
     box_confidence,
@@ -272,13 +273,21 @@ def _resolve_prices(normalized_text: str, names: list[str], boxes: list[TextBox]
     return match_prices_to_names(normalized_boxes, names)
 
 
-def match_food_candidates(text: str, boxes: list[TextBox] | None = None) -> list[dict]:
+def match_food_candidates(
+    text: str,
+    boxes: list[TextBox] | None = None,
+    all_boxes: list[TextBox] | None = None,
+) -> list[dict]:
     """Return every supported food candidate, ordered by match score.
 
     boxes(메뉴판 사진의 글자 상자 좌표)를 주면 가격을 사진 위 위치로 짝짓는다 — 가격이
     이름 오른쪽에 있든 아래 줄에 있든 찾아낸다. 좌표 없이 통짜 문자열만 보면 바로 옆에
     놓인 다른 메뉴의 가격이 붙기 쉬우므로, 가능하면 항상 boxes를 넘기는 게 맞다
     (src/pipeline.py의 analyze_image()가 그렇게 한다).
+
+    all_boxes는 **간판·안내문 판별에만** 쓴다. 줄 단위로 부를 때 boxes에는 그 줄의
+    상자만 들어오는데, "이 글자가 간판인가"는 사진 전체의 글자 크기와 비교해야 알 수
+    있기 때문이다. 안 주면 boxes를 그대로 쓴다(기존 호출부는 그대로 동작한다).
     """
     normalized_text = _normalize(text)
     foods = cache.get_foods()
@@ -301,7 +310,8 @@ def match_food_candidates(text: str, boxes: list[TextBox] | None = None) -> list
     # 메뉴가 아닌 문구(원산지 표시·홍보 문구·가게 이름)에서만 발견된 이름을 걸러낸다.
     # 좌표가 없으면 어느 상자에서 나왔는지 알 수 없어 이 검사를 건너뛴다.
     if boxes is not None:
-        scored = [entry for entry in scored if _appears_on_a_menu_line(boxes, entry[1])]
+        reference = all_boxes if all_boxes is not None else boxes
+        scored = [entry for entry in scored if _appears_on_a_menu_line(reference, entry[1])]
 
     # 메뉴판에 글자 그대로 적혀 있는 이름들. 퍼지 후보를 거를 기준이 된다.
     exact_names = [name for _food, name, _score in scored if name in normalized_text]
@@ -347,6 +357,55 @@ def match_food_candidates(text: str, boxes: list[TextBox] | None = None) -> list
         candidates,
         key=lambda candidate: (-candidate["score"], -len(candidate["name_kr"])),
     )
+
+
+def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
+    """메뉴판을 **줄 단위로** 매칭한다 — 줄 하나가 후보 하나가 된다.
+
+    ## 왜 줄 단위인가
+
+    [match_food_candidates]는 메뉴판 글자를 한 덩어리로 보고 "등록 음식 하나당 후보
+    하나"를 만든다. 그래서 두 가지가 어긋난다(2026-08-23 실측, 메뉴판 400장):
+
+    1. **메뉴가 사라진다.** "물만두"와 "군만두"가 둘 다 있어도 `만두` 후보 하나로
+       합쳐진다. 메뉴판의 32.8%에서 일어나고, 그렇게 사라지는 줄이 433개였다.
+    2. **수식어가 남의 메뉴에 붙는다.** 수식어를 글자 덩어리 전체에서 찾아 모든
+       후보에 똑같이 붙이기 때문에, 메뉴판 어딘가에 "해물"이 있으면 비빔밥에도
+       "해물"이 붙는다. 수식어 부착 8,067건 중 **97.0%가 그 줄에 없는 것**이었다.
+
+    줄로 잘라 넣으면 둘 다 사라진다. 정확도도 손해 보지 않는다 — 같은 표본에서
+    정밀도 97.7% → 98.6%로 오히려 올랐다. 줄이 짧아 남의 이름 조각에 걸릴 여지가
+    줄기 때문이다. (근거 스크립트: eval/measure_match_precision.py)
+
+    ## 반환값
+
+    [match_food_candidates]와 같은 모양에 `menu_text`(그 줄에 인쇄된 글자 그대로)가
+    붙는다. **같은 `food_id`가 여러 번 나올 수 있다** — 그게 이 함수의 목적이다.
+    호출하는 쪽은 food_id를 유일 키로 쓰면 안 된다.
+
+    순서는 메뉴판을 읽는 순서(위→아래)다. 점수순으로 섞으면 화면의 카드 순서가
+    실제 메뉴판과 어긋나서, 사용자가 눈으로 대조하기 어려워진다.
+    """
+    candidates = []
+    for row in group_boxes_into_row_groups(boxes):
+        line = row_text(row)
+        if not line:
+            continue
+
+        # 간판 판별에는 사진 전체를 넘긴다 — 글자 크기를 서로 견줘야 알 수 있다.
+        matches = match_food_candidates(line, boxes=row, all_boxes=boxes)
+
+        # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
+        # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
+        seen: dict[int, dict] = {}
+        for candidate in matches:
+            candidate["menu_text"] = line
+            kept = seen.get(candidate["food_id"])
+            if kept is None or candidate["score"] > kept["score"]:
+                seen[candidate["food_id"]] = candidate
+        candidates.extend(seen.values())
+
+    return candidates
 
 
 def match_food(text: str) -> dict | None:

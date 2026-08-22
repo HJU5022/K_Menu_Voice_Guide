@@ -21,7 +21,7 @@
 **Happy Path**
 
 1. `analyze_image(image_path)`가 OCR 텍스트를 읽는다.
-2. `match_food_candidates(text)`가 등록 음식 중 임계값 이상 후보를 수집한다.
+2. `match_food_candidates_by_line(boxes)`가 메뉴판을 줄로 나누고, 줄마다 임계값 이상 후보를 수집한다. 같은 음식이 여러 줄에 있으면 후보도 여러 개 나온다(물만두/군만두 → 둘 다 `만두`).
 3. 후보를 점수 내림차순, 동점 시 한글 음식명 길이 내림차순으로 정렬한다.
 4. `analyze_image()`가 `candidates_found`, OCR 텍스트, 후보 목록을 반환한다.
 

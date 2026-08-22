@@ -336,7 +336,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         mock_create_tts_response.assert_not_called()
         mock_get_details.assert_not_called()
 
-    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.match_food_candidates_by_line")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_ocr_empty_without_matching(self, mock_recognize_boxes_with_mapping, mock_match_candidates):
         """글자를 하나도 못 읽었으면(공백뿐) 매칭도 시도하지 않고 ocr_empty로 끝낸다."""
@@ -350,7 +350,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         )
         mock_match_candidates.assert_not_called()
 
-    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.match_food_candidates_by_line")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_unsupported_food_with_ocr_text(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates
@@ -370,11 +370,12 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
             result,
             {"status": "unsupported_food", "ocr_text": "미지원음식", "candidates": []},
         )
-        mock_match_candidates.assert_called_once_with("미지원음식", boxes=boxes)
+        # 줄 단위 매칭은 상자를 그대로 받는다 — 줄 나누기를 매칭 쪽이 한다.
+        mock_match_candidates.assert_called_once_with(boxes)
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
-    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.match_food_candidates_by_line")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_candidates_without_creating_response(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
@@ -409,14 +410,14 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
                 "candidates": [{**candidate, "source": None} for candidate in candidates],
             },
         )
-        # 좌표를 매칭 단계까지 그대로 넘겨야 가격을 위치로 짝지을 수 있다
-        mock_match_candidates.assert_called_once_with("닭갈비 9,000 갈비 12,000", boxes=boxes)
+        # 좌표를 매칭 단계까지 그대로 넘겨야 줄을 나누고 가격을 위치로 짝지을 수 있다
+        mock_match_candidates.assert_called_once_with(boxes)
         mock_get_details.assert_not_called()
         mock_synthesize.assert_not_called()
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
-    @patch("src.pipeline.match_food_candidates")
+    @patch("src.pipeline.match_food_candidates_by_line")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_converts_source_box_to_original_photo_ratios(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize

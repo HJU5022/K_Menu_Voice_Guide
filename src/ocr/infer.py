@@ -192,13 +192,13 @@ def _better_reading(tuned: tuple[str, float], stock: tuple[str, float]) -> tuple
 _ROW_CENTER_TOLERANCE = 0.6
 
 
-def group_boxes_into_rows(boxes: list[TextBox]) -> list[str]:
-    """(x, y, w, h, text) 글자 상자들을 줄 단위 문자열 목록으로 묶는다.
+def group_boxes_into_row_groups(boxes: list[TextBox]) -> list[list[TextBox]]:
+    """글자 상자들을 줄 단위로 묶되, **상자 그대로** 돌려준다.
 
-    detection이 돌려주는 상자 순서는 사람이 읽는 순서가 아니다. 그대로 이어붙이면
-    "비빔밥" 바로 옆에 엉뚱한 줄의 "12,000"이 놓여서, 가격을 음식명에 짝지을 때
-    다른 메뉴의 가격이 붙는다. 위→아래로 줄을 나누고 줄 안에서는 왼쪽→오른쪽으로
-    정렬해 실제 읽기 순서로 되돌린다.
+    [group_boxes_into_rows]가 문자열만 돌려주면 줄마다 가격·신뢰도·좌표를 다시 쓸 수
+    없다. 줄 단위 매칭(src/ocr/match.py의 match_food_candidates_by_line)이 그 정보를
+    필요로 해서 상자를 살린 버전을 따로 둔다. 줄을 나누는 규칙은 아래 문자열 버전과
+    같고, 실제로 그쪽이 이 함수를 감싼다 — 규칙이 두 벌로 갈라지지 않게 하기 위함이다.
     """
     rows: list[list[TextBox]] = []
     for box in sorted(boxes, key=lambda b: b[1] + b[3] / 2):
@@ -213,12 +213,25 @@ def group_boxes_into_rows(boxes: list[TextBox]) -> list[str]:
         else:
             rows.append([box])
 
-    lines = []
-    for row in rows:
-        line = " ".join(box[4] for box in sorted(row, key=lambda b: b[0]) if box[4])
-        if line:
-            lines.append(line)
-    return lines
+    # 줄 안에서는 왼쪽 → 오른쪽 순서로 되돌린다.
+    return [sorted(row, key=lambda b: b[0]) for row in rows]
+
+
+def row_text(row: list[TextBox]) -> str:
+    """줄 하나를 읽기 순서 그대로 이어붙인다."""
+    return " ".join(box[4] for box in row if box[4])
+
+
+def group_boxes_into_rows(boxes: list[TextBox]) -> list[str]:
+    """(x, y, w, h, text) 글자 상자들을 줄 단위 문자열 목록으로 묶는다.
+
+    detection이 돌려주는 상자 순서는 사람이 읽는 순서가 아니다. 그대로 이어붙이면
+    "비빔밥" 바로 옆에 엉뚱한 줄의 "12,000"이 놓여서, 가격을 음식명에 짝지을 때
+    다른 메뉴의 가격이 붙는다. 위→아래로 줄을 나누고 줄 안에서는 왼쪽→오른쪽으로
+    정렬해 실제 읽기 순서로 되돌린다.
+    """
+    lines = [row_text(row) for row in group_boxes_into_row_groups(boxes)]
+    return [line for line in lines if line]
 
 
 class MenuLine(NamedTuple):
