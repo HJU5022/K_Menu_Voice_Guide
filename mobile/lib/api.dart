@@ -72,6 +72,7 @@ class Candidate {
     required this.priceDisplay,
     required this.thumbnailUrl,
     required this.thumbnailAttribution,
+    required this.menuText,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> json) {
@@ -86,6 +87,7 @@ class Candidate {
       priceDisplay: json['price_krw_display'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
       thumbnailAttribution: json['thumbnail_attribution'] as String?,
+      menuText: json['menu_text'] as String?,
     );
   }
 
@@ -114,6 +116,16 @@ class Candidate {
   /// 사진 출처 표기. 프로젝트가 외부 사진을 쓰면서 출처를 남기기로 한 항목이라,
   /// 사진을 보여주는 자리에서는 이 값도 함께 보여준다.
   final String? thumbnailAttribution;
+
+  /// 메뉴판의 그 줄에 인쇄된 글자 그대로(예: "쌈싸먹는 꽁치김치찌개").
+  ///
+  /// 서버가 메뉴판을 줄 단위로 매칭하므로 **같은 foodId가 여러 번 올 수 있다** —
+  /// "물만두"와 "군만두"는 둘 다 만두다. 목록에서 후보를 구분하는 건 이 값이지
+  /// foodId가 아니다. 좌표 없이 매칭된 경우에는 null이다.
+  final String? menuText;
+
+  /// 장바구니에서 이 후보를 가리키는 신원. 서버의 묶는 기준과 같아야 한다.
+  String get lineKey => '\$foodId|\${menuText ?? ''}';
 
   /// 가격을 아는 후보인지. 화면에서 가격 자리를 그릴지 판단할 때 쓴다.
   bool get hasPrice => priceDisplay != null;
@@ -329,6 +341,7 @@ class CartLine {
     required this.quantity,
     required this.priceDisplay,
     required this.lineTotalDisplay,
+    required this.menuText,
   });
 
   factory CartLine.fromJson(Map<String, dynamic> json) {
@@ -339,6 +352,7 @@ class CartLine {
       quantity: json['quantity'] as int,
       priceDisplay: json['price_krw_display'] as String?,
       lineTotalDisplay: json['line_total_display'] as String?,
+      menuText: json['menu_text'] as String?,
     );
   }
 
@@ -352,6 +366,13 @@ class CartLine {
 
   /// 이 줄의 소계(한 개 가격 × 수량). 마찬가지로 못 읽었으면 null이다.
   final String? lineTotalDisplay;
+
+  /// 메뉴판에 인쇄된 그 줄 글자. 주문 확인 화면이 종업원에게 보여줄 때
+  /// 등록 이름("김치찌개")보다 이쪽("쌈싸먹는 꽁치김치찌개")이 정확하다.
+  final String? menuText;
+
+  /// 장바구니에서 이 줄을 가리키는 신원. [Candidate.lineKey]와 같은 규칙이다.
+  String get lineKey => '\$foodId|\${menuText ?? ''}';
 }
 
 /// 카트 전체 상태.
@@ -450,6 +471,8 @@ Future<CartState> changeCartItem(
         'name_kr': candidate.nameKr,
         'name_en': candidate.nameEn,
         'price_krw': candidate.priceKrw,
+        // 서버가 줄을 구분하는 기준. 안 보내면 물만두와 군만두가 한 줄로 합쳐진다.
+        'menu_text': candidate.menuText,
         'quantity_delta': quantityDelta,
       }),
     ),

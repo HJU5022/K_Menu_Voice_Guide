@@ -117,6 +117,9 @@ class CartItemChange(BaseModel):
     food_id: int
     name_kr: str
     name_en: str
+    # 메뉴판에 인쇄된 그 줄 글자(/api/analyze의 candidate.menu_text). 카트가 줄을
+    # 구분하는 기준이라, 안 보내면 같은 음식의 서로 다른 줄이 한 줄로 합쳐진다.
+    menu_text: str | None = None
     # 메뉴판 사진에서 읽은 가격을 프론트가 그대로 실어 보낸다 — 사진마다 값이 다르므로
     # 서버가 food_id로 되찾아올 수 있는 값이 아니다. 못 읽었으면 null.
     price_krw: int | None = None
@@ -127,6 +130,7 @@ class CartLine(BaseModel):
     food_id: int
     name_kr: str
     name_en: str
+    menu_text: str | None = None
     price_krw: int | None
     price_krw_display: str | None
     quantity: int
@@ -219,4 +223,5 @@ def change_cart_item(change: CartItemChange, x_cart_id: str = Header(..., alias=
         name_en=change.name_en,
         price_krw=change.price_krw,
         quantity_delta=change.quantity_delta,
+        menu_text=change.menu_text,
     )
