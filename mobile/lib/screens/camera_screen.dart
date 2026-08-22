@@ -36,7 +36,7 @@ import '../api.dart';
 import '../config.dart';
 import 'candidates_screen.dart';
 import 'detail_screen.dart';
-import 'settings_screen.dart';
+import 'settings_button.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -157,17 +157,7 @@ class _CameraScreenState extends State<CameraScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('K-Menu'),
-        actions: [
-          // 찍기 전에 "이 앱이 내 앞의 메뉴를 알아볼 수 있나"를 확인하는 자리.
-          IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
-            ),
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-          ),
-        ],
+        actions: const [SettingsButton()],
       ),
 
       // Padding — 안쪽 여백. 글자가 화면 가장자리에 붙지 않게 한다.
