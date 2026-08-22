@@ -29,6 +29,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import 'detail_screen.dart';
+import 'order_summary_screen.dart';
 
 class CandidatesScreen extends StatefulWidget {
   const CandidatesScreen({super.key, required this.candidates});
@@ -125,6 +126,12 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
             cart: _cart,
             errorMessage: _cartError,
             onClear: () => _runCartRequest(clearCart),
+            onOrder: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderSummaryScreen(cart: _cart!),
+              ),
+            ),
           ),
         ],
       ),
@@ -293,12 +300,14 @@ class _QuantityStepper extends StatelessWidget {
 
 /// 화면 아래에 붙어 있는 카트 요약.
 ///
-/// 카트가 비어 있으면 Clear는 비활성이다(EC-07).
+/// 카트가 비어 있으면 Order·Clear 둘 다 비활성이다 — 빈 주문 확인 화면으로
+/// 넘어가지 않게 하기 위함이다(EC-07).
 class _CartBar extends StatelessWidget {
   const _CartBar({
     required this.cart,
     required this.errorMessage,
     required this.onClear,
+    required this.onOrder,
   });
 
   /// 아직 못 받았으면 null. 그동안은 빈 카트와 같은 모양으로 둔다.
@@ -306,6 +315,7 @@ class _CartBar extends StatelessWidget {
 
   final String? errorMessage;
   final VoidCallback onClear;
+  final VoidCallback onOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -364,6 +374,11 @@ class _CartBar extends StatelessWidget {
                   TextButton(
                     onPressed: isEmpty ? null : onClear,
                     child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton(
+                    onPressed: isEmpty ? null : onOrder,
+                    child: const Text('Order'),
                   ),
                 ],
               ),
