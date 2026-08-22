@@ -13,6 +13,7 @@
 | `model_comparison.md` | OCR(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교 · Plan B 판단 정리 |
 | `measure_ocr.py` | OCR 동일 조건 비교 측정 스크립트 — base/로컬 체크포인트/최종(HF)을 같은 코드로 측정 (매칭 정확도·라벨일치·라벨 CER) |
 | `measure_ocr_final.json` | 최종(4차) 모델 실측 결과 원본 (2026-08-21, 매칭 91.67% · 라벨일치 66.67%) |
+| `measure_match_precision.py` | 매칭 **오탐** 측정 — `measure_ocr.py`가 재현율만 보는 사각지대를 메운다. AI Hub 관광 음식메뉴판 라벨을 정답으로 쓴다 (2026-08-23 추가) |
 | `tts_pregen_log.csv` | 사전 생성 배치의 항목별 생성 시간·음성 길이·RTF 기록 (배치 실행 시 생성) |
 | `perso_comparison/` | Perso.ai 비교 원본 오디오 4개 (ours/perso × guide/caution) |
 

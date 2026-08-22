@@ -34,6 +34,8 @@ REAL_OCR_MANGLED = "떡볶이 또4 보 4.500 3.500 00p"
 # (받침 탈락, 개/게 혼동). 유사도 허용 범위를 고정해두기 위한 회귀 케이스다.
 TYPO_MISSING_CHAR = "영업시간11:00 빔밥 9,000원"
 TYPO_WRONG_CHAR = "영업시간11:00 김치찌게 8,000원"
+# 긴 이름은 한 글자가 틀려도 임계값을 넘는다 — 짧은 이름과 다르게 취급되는 근거.
+TYPO_LONG_NAME = "영업시간11:00 콩나물국법 9,000원"
 
 
 def _menu_foods(*names):
@@ -75,9 +77,21 @@ class NameScoreTests(unittest.TestCase):
         """
         self.assertLess(match.name_score("떡볶이4,500원", "떡국"), match.MATCH_THRESHOLD)
 
-    def test_tolerates_one_missing_letter(self):
-        """글자 하나가 빠져도 알아본다 — 유사도 매칭을 쓰는 이유."""
+    def test_short_name_with_a_missing_letter_is_rejected(self):
+        """짧은 이름은 글자 하나가 빠지면 더 이상 받아주지 않는다.
+
+        3글자 중 두 글자가 맞으면 무조건 80점인데, 그 점수대에는 살리고 싶은
+        "빔밥→비빔밥"과 막고 싶은 "막국수→칼국수"가 같이 들어 있다. 실측에서
+        80점대는 정탐 1 : 오탐 38이었다(MATCH_THRESHOLD 주석 참고). 그래서
+        구제를 포기하고 오탐을 막는 쪽을 택했다.
+        """
         score = match.name_score(TYPO_MISSING_CHAR.replace(" ", ""), "비빔밥")
+        self.assertEqual(score, 80)
+        self.assertLess(score, match.MATCH_THRESHOLD)
+
+    def test_long_name_still_tolerates_one_wrong_letter(self):
+        """긴 이름은 한 글자가 틀려도 살린다 — 유사도 매칭이 아직 일하는 자리."""
+        score = match.name_score(TYPO_LONG_NAME.replace(" ", ""), "콩나물국밥")
         self.assertGreaterEqual(score, match.MATCH_THRESHOLD)
         self.assertLess(score, 100)
 
@@ -115,14 +129,17 @@ class MatchFoodCandidatesTests(unittest.TestCase):
         """
         self.assertEqual(self.match("영업시간 11:00-22:00 주차가능 포장가능"), [])
 
-    def test_exact_name_scores_full_and_typo_scores_less(self):
-        """점수가 실제로 정보를 담아야 한다 — 전부 100%면 화면에 띄울 이유가 없다."""
+    def test_exact_name_scores_full_and_short_typo_is_dropped(self):
+        """정확히 읽힌 이름은 100점, 짧은 이름의 한 글자 누락은 후보에서 빠진다.
+
+        점수가 100 일색이 되지 않는 근거는 인식 신뢰도 쪽으로 옮겼다
+        (ConfidenceWeightedScoreTests 참고) — 이름 점수만으로는 대부분 100이다.
+        """
         exact = self.match("비빔밥 9,000원")
         typo = self.match(TYPO_MISSING_CHAR)
 
         self.assertEqual(exact[0]["score"], 100)
-        self.assertEqual(typo[0]["name_kr"], "비빔밥")
-        self.assertLess(typo[0]["score"], 100)
+        self.assertEqual(typo, [])
 
     def test_recovers_a_name_with_a_wrong_letter(self):
         """개/게처럼 한 글자가 틀리게 읽혀도 후보로 살린다."""
@@ -363,19 +380,22 @@ class ConfidenceWeightedScoreTests(unittest.TestCase):
 
         self.assertEqual(result[0]["score"], 100)
 
-    def test_combines_both_factors(self):
-        """이름도 어긋나고 확신도 낮으면 둘 다 반영된다.
+    def test_confidence_lowers_the_score_below_the_threshold_value(self):
+        """확신이 낮으면 정확히 읽힌 이름도 점수가 깎인다.
+
+        신뢰도는 임계값 통과 **뒤에** 곱해진다. 그래서 결과 점수가 임계값보다
+        낮아도 후보에서 빠지지 않는다 — 이름은 맞게 읽었고, 다만 얼마나 확신하는지를
+        점수에 남기는 것이기 때문이다.
 
         채움말로 "영업시간"을 쓰지 않는다 — 안내 문구로 분류돼 후보가 통째로 걸러진다
         (NonMenuTextTests 참고). 메뉴 줄에 실제로 있을 법한 글자만 쓴다.
         """
-        boxes = [(40, 100, 90, 24, "빔밥 9,000", 0.80)]
+        boxes = [(40, 100, 90, 24, "비빔밥 9,000", 0.80)]
 
         result = self.match(boxes)
 
-        name_only = match.name_score("빔밥9,000", "비빔밥")
-        self.assertEqual(result[0]["score"], round(name_only * 0.80))
-        self.assertLess(result[0]["score"], name_only)
+        self.assertEqual(result[0]["score"], 80)
+        self.assertLess(result[0]["score"], match.MATCH_THRESHOLD)
 
 
 class FoodRowPassthroughTests(unittest.TestCase):
