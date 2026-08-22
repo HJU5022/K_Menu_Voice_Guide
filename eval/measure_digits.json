@@ -1,0 +1,923 @@
+{
+  "note": "같은 이미지·같은 detection 박스·같은 크롭을 두 인식 모델에 각각 먹인 결과",
+  "base": {
+    "samples": 36,
+    "digit_exact": 0.7778,
+    "digit_cer": 0.0344,
+    "price_parsed_ok": 1.0
+  },
+  "finetuned": {
+    "samples": 36,
+    "digit_exact": 0.0556,
+    "digit_cer": 0.3718,
+    "price_parsed_ok": 0.3056
+  },
+  "production": {
+    "samples": 36,
+    "digit_exact": 0.7778,
+    "digit_cer": 0.0344,
+    "price_parsed_ok": 1.0
+  },
+  "samples": [
+    {
+      "font": "malgun.ttf",
+      "blur": 0.0,
+      "size": 44,
+      "food": "비빔밥",
+      "truth": "9,000",
+      "base": "9,000",
+      "finetuned": "C0",
+      "production": "9,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.8,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 0.0,
+      "size": 44,
+      "food": "김치찌개",
+      "truth": "8000",
+      "base": "8000",
+      "finetuned": "80",
+      "production": "8000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 0.0,
+      "size": 44,
+      "food": "삼겹살",
+      "truth": "12,000",
+      "base": "12,000",
+      "finetuned": "12.00",
+      "production": "12,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 0.0,
+      "size": 44,
+      "food": "순대",
+      "truth": "4,500",
+      "base": "4,500",
+      "finetuned": "4.500",
+      "production": "4,500",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.0,
+      "size": 36,
+      "food": "불고기",
+      "truth": "16,000원",
+      "base": "16,000",
+      "finetuned": "16.0",
+      "production": "16,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5714285714285714,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.0,
+      "size": 36,
+      "food": "떡볶이",
+      "truth": "₩7,000",
+      "base": "#7,000",
+      "finetuned": "000",
+      "production": "#7,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.0,
+      "size": 36,
+      "food": "된장찌개",
+      "truth": "23,000",
+      "base": "23,000",
+      "finetuned": "235.000",
+      "production": "23,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2857142857142857,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.0,
+      "size": 36,
+      "food": "잡채",
+      "truth": "6.000",
+      "base": "6.000",
+      "finetuned": "6.00",
+      "production": "6.000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.8,
+      "size": 30,
+      "food": "비빔밥",
+      "truth": "9,000",
+      "base": "9,000",
+      "finetuned": "9000",
+      "production": "9,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.8,
+      "size": 30,
+      "food": "김치찌개",
+      "truth": "8000",
+      "base": "8000",
+      "finetuned": "8000",
+      "production": "8000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.8,
+      "size": 30,
+      "food": "삼겹살",
+      "truth": "12,000",
+      "base": "12,000",
+      "finetuned": "12.000",
+      "production": "12,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "malgun.ttf",
+      "blur": 1.8,
+      "size": 30,
+      "food": "순대",
+      "truth": "4,500",
+      "base": "4,500",
+      "finetuned": "4.500",
+      "production": "4,500",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "불고기",
+      "truth": "16,000원",
+      "base": "16,000",
+      "finetuned": "10.00원",
+      "production": "16,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.42857142857142855,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "떡볶이",
+      "truth": "₩7,000",
+      "base": "W7,000",
+      "finetuned": "F0T70",
+      "production": "W7,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.8333333333333334,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "된장찌개",
+      "truth": "23,000",
+      "base": "23,000",
+      "finetuned": "23.00",
+      "production": "23,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "잡채",
+      "truth": "6.000",
+      "base": "6.000",
+      "finetuned": "6.00",
+      "production": "6.000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "비빔밥",
+      "truth": "9,000",
+      "base": "9,000",
+      "finetuned": "C.0",
+      "production": "9,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.8,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "김치찌개",
+      "truth": "8000",
+      "base": "8000",
+      "finetuned": "80",
+      "production": "8000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "삼겹살",
+      "truth": "12,000",
+      "base": "12,000",
+      "finetuned": "12.0",
+      "production": "12,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "순대",
+      "truth": "4,500",
+      "base": "4,500",
+      "finetuned": "4.500",
+      "production": "4,500",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "불고기",
+      "truth": "16,000원",
+      "base": "16,000",
+      "finetuned": "1.00윙",
+      "production": "16,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5714285714285714,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "떡볶이",
+      "truth": "₩7,000",
+      "base": "W7,000",
+      "finetuned": "%7.0",
+      "production": "W7,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.6666666666666666,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "된장찌개",
+      "truth": "23,000",
+      "base": "23,000",
+      "finetuned": "23.00",
+      "production": "23,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "batang.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "잡채",
+      "truth": "6.000",
+      "base": "6.000",
+      "finetuned": "6.00",
+      "production": "6.000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "비빔밥",
+      "truth": "9,000",
+      "base": "9,000",
+      "finetuned": "C0O0",
+      "production": "9,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.6,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "김치찌개",
+      "truth": "8000",
+      "base": "8000",
+      "finetuned": "80",
+      "production": "8000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.5,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "삼겹살",
+      "truth": "12,000",
+      "base": "12,000",
+      "finetuned": "12.00",
+      "production": "12,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 0.0,
+      "size": 44,
+      "food": "순대",
+      "truth": "4,500",
+      "base": "4,500",
+      "finetuned": "4.500",
+      "production": "4,500",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "불고기",
+      "truth": "16,000원",
+      "base": "16,000",
+      "finetuned": "16.00",
+      "production": "16,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.42857142857142855,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.14285714285714285,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "떡볶이",
+      "truth": "₩7,000",
+      "base": "W7,000",
+      "finetuned": "07000",
+      "production": "W7,000",
+      "base_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": false,
+        "cer": 0.16666666666666666,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "된장찌개",
+      "truth": "23,000",
+      "base": "23,000",
+      "finetuned": "23.00",
+      "production": "23,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.0,
+      "size": 36,
+      "food": "잡채",
+      "truth": "6.000",
+      "base": "6.000",
+      "finetuned": "6.0",
+      "production": "6.000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.4,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "비빔밥",
+      "truth": "9,000",
+      "base": "9,000",
+      "finetuned": "9.000",
+      "production": "9,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "김치찌개",
+      "truth": "8000",
+      "base": "8000",
+      "finetuned": "8000",
+      "production": "8000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "삼겹살",
+      "truth": "12,000",
+      "base": "12,000",
+      "finetuned": "12~.00",
+      "production": "12,000",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.3333333333333333,
+        "parsed_ok": false
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    },
+    {
+      "font": "gulim.ttc",
+      "blur": 1.8,
+      "size": 30,
+      "food": "순대",
+      "truth": "4,500",
+      "base": "4,500",
+      "finetuned": "4.500",
+      "production": "4,500",
+      "base_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      },
+      "finetuned_score": {
+        "exact": false,
+        "cer": 0.2,
+        "parsed_ok": true
+      },
+      "production_score": {
+        "exact": true,
+        "cer": 0.0,
+        "parsed_ok": true
+      }
+    }
+  ]
+}
