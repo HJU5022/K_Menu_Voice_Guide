@@ -108,6 +108,24 @@ class _CameraScreenState extends State<CameraScreen> {
         // 간다. 웹앱(app.py)도 같게 동작한다(`streamlit-app.md` EC-03).
         // 뒤로가기를 누르면 이 촬영 화면으로 돌아온다 — 중간에 아무것도 안 고른
         // 선택 화면이 끼어 있으면 한 번 더 눌러야 해서 오히려 번거롭다.
+        // 새 메뉴판을 성공적으로 분석했으면 카트를 비운다 — 카트는 앱이 아니라
+        // "지금 이 식당"에 묶인다. 안 그러면 A식당에서 담아둔 메뉴가 B식당
+        // 메뉴판을 찍은 뒤에도 목록에 남는다(`cart.md` EC-09).
+        //
+        // 비우는 시점은 **분석 성공 하나뿐이다.** OCR 실패·미지원으로 되돌아온
+        // 경우는 새 식당이 아니라 실패한 시도이므로 건드리지 않는다(EC-10) —
+        // 흐리게 찍어 다시 찍는 흔한 흐름에서 담아둔 것을 잃지 않기 위해서다.
+        // 그래서 이 호출이 isSuccess 안에 있다.
+        try {
+          await clearCart();
+        } on ApiException {
+          // 비우기에 실패해도 촬영 흐름을 막지 않는다. 이전 식당 메뉴가 남는 건
+          // 불편하지만, 그것 때문에 안내를 아예 못 보게 하는 편이 더 나쁘다.
+          // 서버에 닿지 못한 상황이면 다음 화면이 카트를 조회하면서 같은 오류를
+          // 사용자에게 알린다(`cart.md` EC-06). 여기서 또 알릴 이유가 없다.
+        }
+        if (!mounted) return;
+
         final only = result.candidates.length == 1 ? result.candidates.first : null;
 
         await Navigator.push(
