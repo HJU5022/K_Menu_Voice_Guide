@@ -8,6 +8,7 @@
 ///   POST /api/analyze          이미지(multipart, 필드명 "image") ──▶ 음식 후보 목록
 ///   GET  /api/foods/{food_id}  음식 id ──▶ 상세 6개 카테고리 + 내레이션 음성 경로
 ///   GET  /api/foods            ──▶ 안내 가능한 음식 전체 목록 (설정 화면용)
+///   GET/POST/DELETE /api/cart… 장바구니 (X-Cart-Id 헤더 필수)
 ///
 /// ── 이 파일을 읽는 데 필요한 개념 ──────────────────────────────────
 ///
@@ -33,6 +34,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
@@ -66,6 +68,7 @@ class Candidate {
     required this.nameKr,
     required this.nameEn,
     required this.score,
+    required this.priceKrw,
     required this.priceDisplay,
     required this.thumbnailUrl,
     required this.thumbnailAttribution,
@@ -79,6 +82,7 @@ class Candidate {
       score: json['score'] as int,
       // 아래 셋은 서버가 못 채울 수 있어 null이 올 수 있다.
       // `as String?`의 `?`가 "없을 수도 있다"는 표시다.
+      priceKrw: json['price_krw'] as int?,
       priceDisplay: json['price_krw_display'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
       thumbnailAttribution: json['thumbnail_attribution'] as String?,
@@ -99,6 +103,10 @@ class Candidate {
   /// 이름이 메뉴판 다른 문구에 걸려서 잡혔거나 근처에 숫자가 없으면 null이다.
   /// 그때 화면은 가격 자리를 비워둔다 — 없는 가격을 지어내면 안 된다.
   final String? priceDisplay;
+
+  /// 위 값의 계산용 원본(원 단위 정수). 장바구니에 담을 때 서버로 실어 보낸다 —
+  /// 사진마다 값이 달라서 서버가 food_id로 되찾아올 수 있는 값이 아니다.
+  final int? priceKrw;
 
   /// 음식 대표 사진 주소. 서버가 완전한 URL로 준다(apiBaseUrl을 붙이지 않는다).
   final String? thumbnailUrl;
@@ -310,4 +318,145 @@ Future<List<SupportedFood>> fetchSupportedFoods() async {
   return rawFoods
       .map((item) => SupportedFood.fromJson(item as Map<String, dynamic>))
       .toList();
+}
+
+/// 장바구니에 담긴 한 줄.
+class CartLine {
+  CartLine({
+    required this.foodId,
+    required this.nameKr,
+    required this.nameEn,
+    required this.quantity,
+    required this.lineTotalDisplay,
+  });
+
+  factory CartLine.fromJson(Map<String, dynamic> json) {
+    return CartLine(
+      foodId: json['food_id'] as int,
+      nameKr: json['name_kr'] as String,
+      nameEn: json['name_en'] as String,
+      quantity: json['quantity'] as int,
+      lineTotalDisplay: json['line_total_display'] as String?,
+    );
+  }
+
+  final int foodId;
+  final String nameKr;
+  final String nameEn;
+  final int quantity;
+
+  /// 이 줄의 소계. 메뉴판에서 가격을 못 읽은 메뉴면 null이다.
+  final String? lineTotalDisplay;
+}
+
+/// 카트 전체 상태.
+///
+/// 담기·빼기·비우기 어느 요청이든 이 모양이 통째로 돌아온다 — 앱이 부분 갱신을
+/// 짜맞추지 않게 서버가 그렇게 정했다(`docs/specs/cart.md`).
+class CartState {
+  CartState({
+    required this.items,
+    required this.itemCount,
+    required this.totalDisplay,
+    required this.hasUnpricedItems,
+  });
+
+  factory CartState.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] as List<dynamic>;
+    return CartState(
+      items: rawItems
+          .map((item) => CartLine.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      itemCount: json['item_count'] as int,
+      totalDisplay: json['total_krw_display'] as String,
+      hasUnpricedItems: json['has_unpriced_items'] as bool,
+    );
+  }
+
+  final List<CartLine> items;
+
+  /// 줄 수가 아니라 수량의 합이다.
+  final int itemCount;
+
+  final String totalDisplay;
+
+  /// 가격을 못 읽은 메뉴가 담겨 있는지. true면 총계가 실제보다 싸 보이므로
+  /// 화면이 그 사실을 함께 알려야 한다(EC-03).
+  final bool hasUnpricedItems;
+
+  bool get isEmpty => items.isEmpty;
+}
+
+/// 이 앱 실행 동안 쓰는 카트 ID.
+///
+/// 로그인이 없는 서비스라 계정 대신 쓰는 최소 식별자다. 웹은 localStorage에
+/// 보관하지만 여기서는 앱을 켤 때 한 번 만들어 메모리에만 둔다 — 서버도 카트를
+/// 메모리에만 들고 있어 재시작하면 사라지고, 영속 저장은 Spec의 Out of Scope다.
+/// 앱을 껐다 켜면 카트가 비는데, 서버 재시작과 같은 수준의 동작이다.
+final String cartId = _newCartId();
+
+String _newCartId() {
+  final random = Random();
+  return List.generate(
+    4,
+    (_) => random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0'),
+  ).join();
+}
+
+/// 카트 요청 세 가지가 응답을 다루는 방식이 같아서 한 군데로 묶었다.
+Future<CartState> _cartRequest(Future<http.Response> Function() send) async {
+  final http.Response response;
+  try {
+    response = await send();
+  } on SocketException {
+    throw ApiException('서버에 연결할 수 없습니다.\n주소: $apiBaseUrl');
+  }
+
+  if (response.statusCode != 200) {
+    throw ApiException('장바구니를 갱신하지 못했습니다. (HTTP ${response.statusCode})');
+  }
+  return CartState.fromJson(_decodeJson(response));
+}
+
+/// 지금 카트 상태를 받는다. 처음 보는 카트 ID면 서버가 빈 카트를 준다(EC-05).
+Future<CartState> fetchCart() {
+  return _cartRequest(
+    () => http.get(
+      Uri.parse('$apiBaseUrl/api/cart'),
+      headers: {'X-Cart-Id': cartId},
+    ),
+  );
+}
+
+/// 음식 하나의 수량을 [quantityDelta]만큼 더하거나 뺀다(+1 / -1).
+///
+/// 가격을 같이 보내는 이유: 이 값은 DB가 아니라 **그 메뉴판 사진에서 읽은 값**이라
+/// 서버가 food_id만으로 되찾아올 수 없다.
+Future<CartState> changeCartItem(
+  Candidate candidate, {
+  required int quantityDelta,
+}) {
+  return _cartRequest(
+    () => http.post(
+      Uri.parse('$apiBaseUrl/api/cart/items'),
+      headers: {'X-Cart-Id': cartId, 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'food_id': candidate.foodId,
+        'name_kr': candidate.nameKr,
+        'name_en': candidate.nameEn,
+        'price_krw': candidate.priceKrw,
+        'quantity_delta': quantityDelta,
+      }),
+    ),
+  );
+}
+
+/// 카트를 비운다.
+Future<CartState> clearCart() {
+  return _cartRequest(
+    () => http.delete(
+      Uri.parse('$apiBaseUrl/api/cart'),
+      headers: {'X-Cart-Id': cartId},
+    ),
+  );
 }

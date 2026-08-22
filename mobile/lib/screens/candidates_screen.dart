@@ -29,18 +29,60 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import 'detail_screen.dart';
+import 'order_summary_screen.dart';
 
-class CandidatesScreen extends StatelessWidget {
+class CandidatesScreen extends StatefulWidget {
   const CandidatesScreen({super.key, required this.candidates});
 
   /// 촬영 화면이 넘겨준 후보 목록.
   ///
-  /// 화면을 만들 때 재료로 받는다 — 이 화면은 서버를 직접 부르지 않는다.
-  /// 이미 받아둔 결과를 보여주기만 하므로 다시 부를 이유가 없다.
+  /// 목록 자체는 이 화면에서 바뀌지 않는다 — 분석 결과를 다시 부를 이유가 없다.
+  /// 바뀌는 건 장바구니뿐이라, State가 드는 것도 장바구니뿐이다.
   final List<Candidate> candidates;
 
   @override
+  State<CandidatesScreen> createState() => _CandidatesScreenState();
+}
+
+class _CandidatesScreenState extends State<CandidatesScreen> {
+  /// 서버가 돌려준 카트 전체 상태. 응답을 통째로 갈아끼운다 — 부분 갱신을
+  /// 앱에서 짜맞추지 않는 게 이 API의 설계다(`docs/specs/cart.md`).
+  CartState? _cart;
+
+  /// 카트 요청이 실패했을 때만 채운다. 담긴 내용은 지우지 않는다(EC-06).
+  String? _cartError;
+
+  @override
+  void initState() {
+    super.initState();
+    _runCartRequest(fetchCart);
+  }
+
+  Future<void> _runCartRequest(Future<CartState> Function() request) async {
+    try {
+      final cart = await request();
+      if (!mounted) return;
+      setState(() {
+        _cart = cart;
+        _cartError = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _cartError = e.message);
+    }
+  }
+
+  /// 이 후보가 지금 카트에 몇 개 담겨 있는지. 안 담겨 있으면 0.
+  int _quantityOf(Candidate candidate) {
+    for (final line in _cart?.items ?? const <CartLine>[]) {
+      if (line.foodId == candidate.foodId) return line.quantity;
+    }
+    return 0;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final candidates = widget.candidates;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Which dish?'),
@@ -67,13 +109,28 @@ class CandidatesScreen extends StatelessWidget {
               // 여기서는 간격만 준다.
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
+                final candidate = candidates[index];
                 return _CandidateCard(
-                  candidate: candidates[index],
-                  // 카드를 누르면 실행될 동작을 넘겨준다.
+                  candidate: candidate,
+                  quantity: _quantityOf(candidate),
                   // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
-                  onTap: () => _openDetail(context, candidates[index]),
+                  onTap: () => _openDetail(context, candidate),
+                  onChangeQuantity: (delta) => _runCartRequest(
+                    () => changeCartItem(candidate, quantityDelta: delta),
+                  ),
                 );
               },
+            ),
+          ),
+          _CartBar(
+            cart: _cart,
+            errorMessage: _cartError,
+            onClear: () => _runCartRequest(clearCart),
+            onOrder: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderSummaryScreen(cart: _cart!),
+              ),
             ),
           ),
         ],
@@ -104,12 +161,23 @@ class CandidatesScreen extends StatelessWidget {
 /// 이 파일 안에서만 쓰므로 이름 앞에 `_`를 붙여 비공개로 둔다.
 /// 카드 한 장의 생김새가 제법 길어서, 목록 코드와 섞이지 않도록 분리했다.
 class _CandidateCard extends StatelessWidget {
-  const _CandidateCard({required this.candidate, required this.onTap});
+  const _CandidateCard({
+    required this.candidate,
+    required this.quantity,
+    required this.onTap,
+    required this.onChangeQuantity,
+  });
 
   final Candidate candidate;
 
+  /// 지금 카트에 담긴 개수. 0이면 아직 안 담긴 것이다.
+  final int quantity;
+
   /// 카드가 눌렸을 때 실행할 동작. 카드는 무엇을 할지 모르고 알리기만 한다.
   final VoidCallback onTap;
+
+  /// +/− 를 눌렀을 때. +1 또는 -1을 넘긴다.
+  final void Function(int delta) onChangeQuantity;
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +247,141 @@ class _CandidateCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.black38),
+              _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 카드 오른쪽의 담기/빼기.
+///
+/// 아직 안 담긴 메뉴에는 `+`만 보여준다 — 0인데 `−`가 있으면 누를 수 있어 보이지만
+/// 아무 일도 일어나지 않아서 고장처럼 읽힌다(EC-02).
+class _QuantityStepper extends StatelessWidget {
+  const _QuantityStepper({required this.quantity, required this.onChange});
+
+  final int quantity;
+  final void Function(int delta) onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    if (quantity == 0) {
+      return IconButton(
+        onPressed: () => onChange(1),
+        icon: const Icon(Icons.add_circle_outline),
+        tooltip: 'Add to cart',
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          onPressed: () => onChange(-1),
+          icon: const Icon(Icons.remove_circle_outline),
+          visualDensity: VisualDensity.compact,
+        ),
+        Text(
+          '$quantity',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        IconButton(
+          onPressed: () => onChange(1),
+          icon: const Icon(Icons.add_circle_outline),
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
+    );
+  }
+}
+
+/// 화면 아래에 붙어 있는 카트 요약.
+///
+/// 카트가 비어 있으면 Order·Clear 둘 다 비활성이다 — 빈 주문 확인 화면으로
+/// 넘어가지 않게 하기 위함이다(EC-07).
+class _CartBar extends StatelessWidget {
+  const _CartBar({
+    required this.cart,
+    required this.errorMessage,
+    required this.onClear,
+    required this.onOrder,
+  });
+
+  /// 아직 못 받았으면 null. 그동안은 빈 카트와 같은 모양으로 둔다.
+  final CartState? cart;
+
+  final String? errorMessage;
+  final VoidCallback onClear;
+  final VoidCallback onOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEmpty = cart?.isEmpty ?? true;
+
+    return Material(
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (errorMessage != null) ...[
+                Text(
+                  errorMessage!,
+                  style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                ),
+                const SizedBox(height: 8),
+              ],
+              // 총계가 실제보다 싸 보이는 상태를 말없이 두지 않는다(EC-03).
+              if (cart?.hasUnpricedItems ?? false) ...[
+                const Text(
+                  'Some dishes had no price on the menu, so the total is partial.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isEmpty ? 'Cart is empty' : '${cart!.itemCount} in cart',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        if (!isEmpty)
+                          Text(
+                            cart!.totalDisplay,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: isEmpty ? null : onClear,
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton(
+                    onPressed: isEmpty ? null : onOrder,
+                    child: const Text('Order'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
