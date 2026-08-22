@@ -25,12 +25,18 @@ class AnalyzeToFoodDetailFlowTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
+    @patch.object(K_Menu_Talk, "get_food_row")
     @patch.object(K_Menu_Talk, "create_tts_response")
     @patch.object(K_Menu_Talk, "get_food_info")
     @patch.object(K_Menu_Talk, "get_details")
     @patch.object(K_Menu_Talk, "analyze_image")
     def test_full_analyze_then_food_detail_flow(
-        self, mock_analyze_image, mock_get_details, mock_get_food_info, mock_create_tts_response
+        self,
+        mock_analyze_image,
+        mock_get_details,
+        mock_get_food_info,
+        mock_create_tts_response,
+        mock_get_food_row,
     ):
         """사진 업로드 → 후보 받기 → 그 후보로 상세 요청까지, 프론트와 같은 순서로 호출한다."""
         mock_analyze_image.return_value = {
@@ -41,6 +47,7 @@ class AnalyzeToFoodDetailFlowTests(unittest.TestCase):
             ],
         }
         mock_get_food_info.return_value = {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"}
+        mock_get_food_row.return_value = {"spice_level": 2}
         mock_get_details.return_value = {
             "DESCRIPTION": "설명",
             "PRONUNCIATION": "비빔밥",
@@ -77,6 +84,7 @@ class AnalyzeToFoodDetailFlowTests(unittest.TestCase):
         self.assertEqual(detail_res.status_code, 200)
         detail_body = detail_res.json()
         for field in (
+            "spice_level",
             "details",
             "narration_text",
             "style",

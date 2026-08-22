@@ -264,7 +264,36 @@ class _NameHeader extends StatelessWidget {
           food.nameKr,
           style: const TextStyle(fontSize: 16, color: Colors.black54),
         ),
+        const SizedBox(height: 8),
+        _SpiceGauge(level: food.spiceLevel),
       ],
+    );
+  }
+}
+
+/// 맵기 눈금 — 불꽃 5칸 중 spice_level 만큼 채운다.
+///
+/// 웹앱(app.py 결과 화면)이 "🌶️" × level + "·" × (5 - level)로 그리던 것과 같은 규칙이다.
+/// 상세 카드의 SPICY 텍스트가 설명이라면 이건 한눈에 보는 눈금이라, 둘 다 필요하다.
+/// 아이콘은 SPICY 카드가 이미 쓰고 있는 것을 그대로 재사용한다.
+class _SpiceGauge extends StatelessWidget {
+  const _SpiceGauge({required this.level});
+
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(5, (index) {
+        return Padding(
+          padding: const EdgeInsets.only(right: 2),
+          child: Icon(
+            Icons.local_fire_department,
+            size: 18,
+            color: index < level ? Colors.deepOrange : Colors.black26,
+          ),
+        );
+      }),
     );
   }
 }

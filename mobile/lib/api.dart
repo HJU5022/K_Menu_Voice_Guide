@@ -3,10 +3,11 @@
 /// 화면(screens/)은 http 패키지를 직접 쓰지 않고 이 파일의 함수만 부른다 —
 /// 엔드포인트 경로나 응답 모양이 바뀌었을 때 고칠 곳을 한 군데로 묶기 위함이다.
 ///
-/// 서버가 제공하는 것은 두 개뿐이다(`docs/specs/api-layer.md`):
+/// 이 앱이 쓰는 엔드포인트는 세 개다(`docs/specs/api-layer.md`):
 ///
 ///   POST /api/analyze          이미지(multipart, 필드명 "image") ──▶ 음식 후보 목록
 ///   GET  /api/foods/{food_id}  음식 id ──▶ 상세 6개 카테고리 + 내레이션 음성 경로
+///   GET  /api/foods            ──▶ 안내 가능한 음식 전체 목록 (설정 화면용)
 ///   GET/POST/DELETE /api/cart… 장바구니 (X-Cart-Id 헤더 필수)
 ///
 /// ── 이 파일을 읽는 데 필요한 개념 ──────────────────────────────────
@@ -162,12 +163,38 @@ class AnalyzeResult {
   bool get isOcrEmpty => status == 'ocr_empty';
 }
 
+/// `GET /api/foods`의 한 줄 — 설정 화면의 "지원 음식" 목록에 쓴다.
+///
+/// 상세 화면이 쓰는 [FoodDetail]과 달리 이름만 있다. 이 화면의 질문은 "무엇을
+/// 지원하나"이지 "무엇을 먹을까"가 아니라서, 서버가 사진·맵기·가격을 싣지 않는다
+/// (`docs/specs/supported-foods.md`).
+class SupportedFood {
+  SupportedFood({
+    required this.foodId,
+    required this.nameKr,
+    required this.nameEn,
+  });
+
+  factory SupportedFood.fromJson(Map<String, dynamic> json) {
+    return SupportedFood(
+      foodId: json['food_id'] as int,
+      nameKr: json['name_kr'] as String,
+      nameEn: json['name_en'] as String,
+    );
+  }
+
+  final int foodId;
+  final String nameKr;
+  final String nameEn;
+}
+
 /// `GET /api/foods/{food_id}`의 응답.
 class FoodDetail {
   FoodDetail({
     required this.foodId,
     required this.nameKr,
     required this.nameEn,
+    required this.spiceLevel,
     required this.details,
     required this.narrationText,
     required this.style,
@@ -185,6 +212,7 @@ class FoodDetail {
       foodId: json['food_id'] as int,
       nameKr: json['name_kr'] as String,
       nameEn: json['name_en'] as String,
+      spiceLevel: json['spice_level'] as int,
       details: rawDetails.map((key, value) => MapEntry(key, value as String)),
       narrationText: json['narration_text'] as String,
       style: json['style'] as String,
@@ -196,6 +224,9 @@ class FoodDetail {
   final int foodId;
   final String nameKr;
   final String nameEn;
+
+  /// 맵기 1~5. 상세 카드의 SPICY 텍스트가 설명이라면, 이 값은 한눈에 보는 눈금이다.
+  final int spiceLevel;
 
   /// 카테고리 6개. 키는 DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY /
   /// PRONUNCIATION / SPICY 이며, 화면에 보여줄 순서와 제목은 화면 쪽에서 정한다
@@ -264,6 +295,29 @@ Future<FoodDetail> fetchFood(int foodId) async {
     throw ApiException('음식 정보를 불러오지 못했습니다. (HTTP ${response.statusCode})');
   }
   return FoodDetail.fromJson(_decodeJson(response));
+}
+
+/// 안내할 수 있는 음식 전체를 받는다.
+///
+/// 서버가 영문명 오름차순으로 정렬해서 주므로 앱에서 다시 정렬하지 않는다.
+/// 빈 배열은 오류가 아니라 "아직 등록된 음식이 없음"이다 — 호출하는 화면이 그대로
+/// 알린다(`supported-foods.md` EC-03).
+Future<List<SupportedFood>> fetchSupportedFoods() async {
+  final http.Response response;
+  try {
+    response = await http.get(Uri.parse('$apiBaseUrl/api/foods'));
+  } on SocketException {
+    throw ApiException('서버에 연결할 수 없습니다.\n주소: $apiBaseUrl');
+  }
+
+  if (response.statusCode != 200) {
+    throw ApiException('지원 음식 목록을 불러오지 못했습니다. (HTTP ${response.statusCode})');
+  }
+  // 이 응답만 최상위가 객체가 아니라 배열이라 _decodeJson()을 쓸 수 없다.
+  final rawFoods = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+  return rawFoods
+      .map((item) => SupportedFood.fromJson(item as Map<String, dynamic>))
+      .toList();
 }
 
 /// 장바구니에 담긴 한 줄.

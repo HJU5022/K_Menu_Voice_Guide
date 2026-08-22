@@ -173,14 +173,17 @@ class FoodDetailEndpointTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
+    @patch.object(K_Menu_Talk, "get_food_row")
     @patch.object(K_Menu_Talk, "create_tts_response")
     @patch.object(K_Menu_Talk, "get_food_info")
     @patch.object(K_Menu_Talk, "get_details")
     def test_get_food_returns_details_and_narration(
-        self, mock_get_details, mock_get_food_info, mock_create_tts_response
+        self, mock_get_details, mock_get_food_info, mock_create_tts_response, mock_get_food_row
     ):
         """응답에 상세·이름·style·tts_status가 다 들어있는지 — 프론트 결과 화면이 쓰는 필드들."""
         mock_get_details.return_value = {"DESCRIPTION": "설명", "SPICY": "1단계"}
+        # 맵기는 cache에서 따로 읽어오므로 여기서도 막아준다 — 안 막으면 실제 Supabase를 부른다
+        mock_get_food_row.return_value = {"spice_level": 3}
         mock_get_food_info.return_value = {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"}
         mock_create_tts_response.return_value = {
             "narration_text": "설명입니다.",
@@ -200,23 +203,27 @@ class FoodDetailEndpointTests(unittest.TestCase):
         self.assertEqual(body["name_en"], "Bibimbap")
         self.assertEqual(body["style"], "GUIDE")
         self.assertEqual(body["tts_status"], "not_ready")
+        # 결과 화면 맵기 눈금이 쓰는 값 — 응답에서 빠지면 화면이 못 그린다
+        self.assertEqual(body["spice_level"], 3)
         self.assertIsNone(body["narration_audio_path"])
         # 세 함수 모두 같은 food_id로 딱 한 번씩 불렸는지 (중복 호출은 곧 중복 DB/GPU 비용)
         mock_get_details.assert_called_once_with(1)
         mock_get_food_info.assert_called_once_with(1)
         mock_create_tts_response.assert_called_once_with(1)
 
+    @patch.object(K_Menu_Talk, "get_food_row")
     @patch.object(K_Menu_Talk, "create_tts_response")
     @patch.object(K_Menu_Talk, "get_food_info")
     @patch.object(K_Menu_Talk, "get_details")
     def test_get_food_publishes_audio_under_audio_url(
-        self, mock_get_details, mock_get_food_info, mock_create_tts_response
+        self, mock_get_details, mock_get_food_info, mock_create_tts_response, mock_get_food_row
     ):
         """TTS가 만든 서버 파일경로가, 브라우저가 재생할 수 있는 /audio/ URL로 바뀌어 나가는지.
 
         이게 안 되면 프론트 <audio src>에 서버 디스크 경로가 그대로 들어가서 소리가 안 난다.
         """
         mock_get_details.return_value = {"DESCRIPTION": "설명"}
+        mock_get_food_row.return_value = {"spice_level": 1}
         mock_get_food_info.return_value = {"food_id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap"}
         # TTS가 임시폴더에 wav를 만든 상황을 흉내낸다 (실제 음성 생성은 안 함)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
