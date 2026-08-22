@@ -286,6 +286,13 @@ def match_food_candidates(text: str, boxes: list[TextBox] | None = None) -> list
     scored = []
     for food in foods:
         name = _normalize(food["name_kr"])
+        # 완전일치 부분문자열만 통과시키던 조건을 뺐다 — 그 조건을 통과한 이름은
+        # partial_ratio가 항상 100을 내서, 아래 임계값 검사가 한 번도 작동하지 않았다
+        # (OCR이 한 글자만 틀려도 후보에서 사라지는 문제).  — f4d8aa2
+        #
+        # 그 뒤 partial_ratio 자체도 name_score로 바꿨다. 게이트를 없애고 보니 이번엔
+        # 주변 글자 양에 따라 같은 이름의 점수가 요동쳐서(실측: 오탐 80 -> 31 -> 80),
+        # 임계값이 사진마다 다르게 작동했다. 자세한 내용은 name_score() 설명 참고.
         score = name_score(normalized_text, name, score_cutoff=MATCH_THRESHOLD)
         if score < MATCH_THRESHOLD:
             continue
