@@ -193,7 +193,9 @@ Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라 "FastAPI + �
 proj1-c/
 ├── README.md
 ├── AGENTS.md / CLAUDE.md
-├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, OCR_RAW_DATA_ROOT, PADDLE_PDX_CACHE_HOME
+├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, OCR_RAW_DATA_ROOT,
+│                                   #   TTS_VENV_PYTHON(macOS·Linux는 필수), OCR_TEST_SET_ROOT,
+│                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
 │                                     #   fastapi·uvicorn(API), streamlit(HF Spaces 배포 UI) ...
