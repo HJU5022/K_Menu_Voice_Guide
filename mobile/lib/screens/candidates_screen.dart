@@ -30,6 +30,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import 'detail_screen.dart';
 import 'order_summary_screen.dart';
+import 'settings_button.dart';
 
 class CandidatesScreen extends StatefulWidget {
   const CandidatesScreen({super.key, required this.candidates});
@@ -85,9 +86,10 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     final candidates = widget.candidates;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Which dish?'),
         // 뒤로가기 버튼은 Navigator.push로 열린 화면에 자동으로 붙는다.
         // 따로 만들 필요가 없다.
+        title: const Text('Which dish?'),
+        actions: const [SettingsButton()],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

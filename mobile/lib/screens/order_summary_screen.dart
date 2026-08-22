@@ -13,6 +13,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'settings_button.dart';
 
 class OrderSummaryScreen extends StatelessWidget {
   const OrderSummaryScreen({super.key, required this.cart});
@@ -26,7 +27,10 @@ class OrderSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Show this to the staff')),
+      appBar: AppBar(
+        title: const Text('Show this to the staff'),
+        actions: const [SettingsButton()],
+      ),
       body: Column(
         children: [
           const _StaffNotice(),
@@ -60,7 +64,9 @@ class _StaffNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: Colors.grey.shade100,
+      // 앱 전체가 따뜻한 주황 계열이라 회색을 쓰면 이 띠만 따로 논다.
+      // 테마에서 색을 받아오면 나중에 씨앗 색을 바꿔도 같이 따라온다.
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.all(16),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,

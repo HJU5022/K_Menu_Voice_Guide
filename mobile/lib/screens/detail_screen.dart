@@ -33,6 +33,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'settings_button.dart';
 
 /// 화면에 보여줄 카테고리 순서와 제목.
 ///
@@ -158,7 +159,10 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.nameEn)),
+      appBar: AppBar(
+        title: Text(widget.nameEn),
+        actions: const [SettingsButton()],
+      ),
       body: _buildBody(),
     );
   }
