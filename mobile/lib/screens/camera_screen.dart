@@ -35,6 +35,8 @@ import 'package:image_picker/image_picker.dart';
 import '../api.dart';
 import '../config.dart';
 import 'candidates_screen.dart';
+import 'detail_screen.dart';
+import 'settings_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -102,11 +104,18 @@ class _CameraScreenState extends State<CameraScreen> {
       // Navigator.push — 새 화면을 위에 얹는다. 뒤로가기는 자동으로 생기고,
       // 뒤로 오면 이 화면이 그대로 남아 있어 다시 찍기가 편하다.
       if (result.isSuccess) {
+        // 후보가 하나뿐이면 고를 것이 없으므로 선택 화면을 건너뛰고 바로 상세로
+        // 간다. 웹앱(app.py)도 같게 동작한다(`streamlit-app.md` EC-03).
+        // 뒤로가기를 누르면 이 촬영 화면으로 돌아온다 — 중간에 아무것도 안 고른
+        // 선택 화면이 끼어 있으면 한 번 더 눌러야 해서 오히려 번거롭다.
+        final only = result.candidates.length == 1 ? result.candidates.first : null;
+
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                CandidatesScreen(candidates: result.candidates),
+            builder: (context) => only != null
+                ? DetailScreen(foodId: only.foodId, nameEn: only.nameEn)
+                : CandidatesScreen(candidates: result.candidates),
           ),
         );
       }
@@ -128,7 +137,20 @@ class _CameraScreenState extends State<CameraScreen> {
     // Scaffold — 앱 화면의 기본 뼈대. 상단 바(appBar)와 본문(body) 자리를
     // 미리 잡아주고, 화면 크기·노치 같은 걸 알아서 처리해준다.
     return Scaffold(
-      appBar: AppBar(title: const Text('K-Menu')),
+      appBar: AppBar(
+        title: const Text('K-Menu'),
+        actions: [
+          // 찍기 전에 "이 앱이 내 앞의 메뉴를 알아볼 수 있나"를 확인하는 자리.
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            ),
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+          ),
+        ],
+      ),
 
       // Padding — 안쪽 여백. 글자가 화면 가장자리에 붙지 않게 한다.
       body: Padding(
