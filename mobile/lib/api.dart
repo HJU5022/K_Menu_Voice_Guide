@@ -65,6 +65,9 @@ class Candidate {
     required this.nameKr,
     required this.nameEn,
     required this.score,
+    required this.priceDisplay,
+    required this.thumbnailUrl,
+    required this.thumbnailAttribution,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> json) {
@@ -73,6 +76,11 @@ class Candidate {
       nameKr: json['name_kr'] as String,
       nameEn: json['name_en'] as String,
       score: json['score'] as int,
+      // 아래 셋은 서버가 못 채울 수 있어 null이 올 수 있다.
+      // `as String?`의 `?`가 "없을 수도 있다"는 표시다.
+      priceDisplay: json['price_krw_display'] as String?,
+      thumbnailUrl: json['thumbnail_url'] as String?,
+      thumbnailAttribution: json['thumbnail_attribution'] as String?,
     );
   }
 
@@ -83,6 +91,26 @@ class Candidate {
   /// OCR 문자열과의 유사도(0~100). 서버가 이 값 내림차순으로 정렬해서 주므로
   /// 앱에서 다시 정렬하지 않는다.
   final int score;
+
+  /// 메뉴판 사진에서 이 음식 근처에 적혀 있던 가격을 서버가 읽어 "₩8,000"
+  /// 형태로 만들어준 값. DB 값이 아니라 **그 사진에 실제로 적힌 가격**이다.
+  ///
+  /// 이름이 메뉴판 다른 문구에 걸려서 잡혔거나 근처에 숫자가 없으면 null이다.
+  /// 그때 화면은 가격 자리를 비워둔다 — 없는 가격을 지어내면 안 된다.
+  final String? priceDisplay;
+
+  /// 음식 대표 사진 주소. 서버가 완전한 URL로 준다(apiBaseUrl을 붙이지 않는다).
+  final String? thumbnailUrl;
+
+  /// 사진 출처 표기. 프로젝트가 외부 사진을 쓰면서 출처를 남기기로 한 항목이라,
+  /// 사진을 보여주는 자리에서는 이 값도 함께 보여준다.
+  final String? thumbnailAttribution;
+
+  /// 가격을 아는 후보인지. 화면에서 가격 자리를 그릴지 판단할 때 쓴다.
+  bool get hasPrice => priceDisplay != null;
+
+  /// 사진을 보여줄 수 있는지.
+  bool get hasThumbnail => thumbnailUrl != null;
 }
 
 /// `POST /api/analyze`의 응답.

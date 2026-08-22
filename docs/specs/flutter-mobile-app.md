@@ -41,7 +41,9 @@
 1. 사용자가 앱을 열면 촬영 화면이 뜬다.
 2. 카메라로 메뉴판을 촬영한다(또는 사진첩에서 고른다).
 3. 앱이 이미지를 `POST /api/analyze`로 보낸다.
-4. 서버가 돌려준 음식 후보 목록을 카드로 보여주고, 사용자가 하나를 고른다.
+4. 서버가 돌려준 음식 후보를 **음식 사진·영문명·한글명·가격** 카드로 보여주고, 사용자가 하나를 고른다.
+   - 가격은 DB 값이 아니라 **그 메뉴판 사진에 실제로 적혀 있던 값**을 서버가 읽어준 것이다.
+   - 사진이나 가격이 없는 후보는 그 자리를 비운다. 없는 값을 문구로 채우지 않는다.
 5. 앱이 `GET /api/foods/{food_id}`를 호출한다.
 6. 상세 6개 카테고리를 화면에 표시하고, `narration_audio_path`의 음성을 재생한다.
 
@@ -55,6 +57,8 @@
 | EC-04 | 등록되지 않은 음식 (`status = "unsupported_food"`) | 미지원 안내 + 재촬영. 읽힌 글자가 있으므로 EC-03과 다른 문구를 쓴다 |
 | EC-05 | TTS 실패 (`tts_status != "ok"` 또는 `narration_audio_path`가 null) | **상세 텍스트를 먼저 보여준다.** 음성 영역만 비활성 표시 (루트 README 9절 "TTS 생성 실패 → 상세 텍스트 우선 출력") |
 | EC-06 | 음성 파일 다운로드·재생 실패 | 텍스트는 유지하고 재생 버튼만 오류 표시 |
+| EC-08 | 후보 카드의 음식 사진을 못 받음 | 회색 자리표시(접시 아이콘)로 대체. 오류를 사용자에게 알리지 않는다 — 이름과 가격만으로도 고를 수 있다 |
+| EC-09 | 후보의 가격을 서버가 못 읽음 | 가격 자리를 비운다. "가격 미상" 같은 문구로 채우지 않는다 |
 | EC-07 | 응답 지연(첫 요청 시 서버 모델 로딩) | 로딩 표시를 유지하고 사용자 입력을 막는다. 타임아웃은 두지 않는다 |
 
 ## How
@@ -70,7 +74,11 @@ POST /api/analyze
   "ocr_text": string,
   "candidates": [
     { "food_id": int, "name_kr": string, "name_en": string,
-      "score": int, "modifiers": object }
+      "score": int, "modifiers": object,
+      "price_krw_display": string | null,      // 예 "₩8,000"
+      "thumbnail_url": string | null,          // 완전한 URL
+      "thumbnail_attribution": string | null,
+      "source": object | null }                // 사진 속 이름 위치(좌표)
   ]
 }
 
@@ -105,9 +113,12 @@ GET /api/foods/{food_id}
 
 | 환경 | 값 | 비고 |
 |---|---|---|
-| 개발 | `http://<맥 로컬 IP>:8000` | 맥에서 uvicorn 실행 + 폰이 같은 Wi-Fi. IP는 공유기 재할당 시 바뀐다 |
+| **시뮬레이터** | `http://localhost:8000` | **현재 기본값.** 시뮬레이터는 맥 안에서 돌아 맥의 IP 변동에 영향받지 않는다 |
+| 실제 기기 | `http://<맥 로컬 IP>:8000` | 폰이 맥과 같은 Wi-Fi. `ipconfig getifaddr en0`으로 확인 |
 | 시연 | `https://<...>.trycloudflare.com` | cloudflared 터널 |
 | 배포 | `https://<...>.hf.space` | 미확정 |
+
+**실제 아이폰에 설치할 때는 반드시 LAN IP로 바꿔야 한다** — 폰에게 `localhost`는 폰 자신이라 서버를 찾지 못한다. 이 값은 Wi-Fi를 옮기거나 공유기가 주소를 다시 할당하면 바뀌고, Wi-Fi가 끊기면 아예 없어진다. 앱이 "Can't reach the server"를 띄우면 여기부터 확인한다(실제로 개발 중 한 번 발생했고, 화면이 주소를 함께 보여준 덕에 즉시 원인을 특정했다).
 
 **패키지**
 
@@ -137,7 +148,7 @@ GET /api/foods/{food_id}
 **AC-01 · 촬영에서 후보까지**
 - GIVEN: 서버가 실행 중이고 `apiBaseUrl`이 올바르게 설정되어 있다
 - WHEN: 사용자가 등록된 음식이 적힌 메뉴판을 촬영한다
-- THEN: `POST /api/analyze` 응답의 `candidates`가 화면에 목록으로 표시되고, 각 항목에 `name_en`이 보인다
+- THEN: 후보 선택 화면으로 자동 전환되고, 각 후보가 음식 사진·`name_en`·`name_kr`·가격 카드로 표시된다. 사진이나 가격이 없는 후보는 그 자리만 비고 카드 자체는 정상 표시된다
 
 **AC-02 · 상세와 음성**
 - GIVEN: 후보 목록에서 항목 하나가 선택되었다

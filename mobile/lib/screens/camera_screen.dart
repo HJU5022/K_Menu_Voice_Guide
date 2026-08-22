@@ -34,6 +34,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../api.dart';
 import '../config.dart';
+import 'candidates_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -91,6 +92,24 @@ class _CameraScreenState extends State<CameraScreen> {
       // mounted는 "이 화면이 아직 붙어 있나"를 알려주는 Flutter 기본 값이다.
       if (!mounted) return;
       setState(() => _result = result);
+
+      // 후보를 찾았으면 곧바로 선택 화면으로 넘어간다.
+      //
+      // 이 화면에 목록을 그리지 않고 화면을 나누는 이유:
+      // 카드에 사진·가격까지 들어가면 촬영 버튼이 위로 밀려 화면이 좁아진다.
+      // 그리고 "찍는 일"과 "고르는 일"은 사용자에게도 별개의 단계다.
+      //
+      // Navigator.push — 새 화면을 위에 얹는다. 뒤로가기는 자동으로 생기고,
+      // 뒤로 오면 이 화면이 그대로 남아 있어 다시 찍기가 편하다.
+      if (result.isSuccess) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                CandidatesScreen(candidates: result.candidates),
+          ),
+        );
+      }
     } on ApiException catch (e) {
       // 서버에 닿지 못한 경우만 여기로 온다. api.dart가 그렇게 정해뒀다.
       // TTS 실패 같은 건 예외가 아니라 정상 응답 안의 상태값이다.
@@ -233,24 +252,38 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
-    // 성공. 다음 단계(후보 선택 화면)는 아직 없으므로 지금은 목록만 확인한다.
+    // 성공한 경우. 분석 직후에는 곧바로 후보 선택 화면으로 넘어가므로
+    // 이 부분은 **거기서 뒤로 돌아왔을 때** 보인다.
     //
-    // ListView.builder — 목록을 그리는 위젯. 화면에 보이는 항목만 실제로
-    // 만들기 때문에 항목이 많아도 느려지지 않는다.
-    return ListView.builder(
-      itemCount: result.candidates.length,
-      // 항목 하나를 그릴 때마다 Flutter가 이 함수를 부른다. index는 몇 번째인지.
-      itemBuilder: (context, index) {
-        final candidate = result.candidates[index];
-        // ListTile — 목록 한 줄에 흔히 쓰는 모양(왼쪽 아이콘·제목·부제·오른쪽 값).
-        return ListTile(
-          leading: CircleAvatar(child: Text('${index + 1}')),
-          // 사용자가 영어권이라 영어 이름을 제목으로, 한글은 보조로 둔다.
-          title: Text(candidate.nameEn),
-          subtitle: Text(candidate.nameKr),
-          trailing: Text('${candidate.score}'),
-        );
-      },
+    // 빈 화면으로 두면 "방금 그 결과는 어디 갔지?"가 되므로, 결과가 남아
+    // 있다는 것과 다시 열 수 있다는 것을 알려준다.
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle_outline,
+              size: 40, color: Colors.black38),
+          const SizedBox(height: 12),
+          Text(
+            result.candidates.length == 1
+                ? 'Found 1 dish on your last photo'
+                : 'Found ${result.candidates.length} dishes on your last photo',
+            style: const TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    CandidatesScreen(candidates: result.candidates),
+              ),
+            ),
+            icon: const Icon(Icons.list),
+            label: const Text('See the dishes again'),
+          ),
+        ],
+      ),
     );
   }
 }
