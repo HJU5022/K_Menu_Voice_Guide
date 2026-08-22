@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.cart.store import change_quantity, clear_cart, get_cart
-from src.db.cache import get_foods
+from src.db.cache import get_food as get_food_row, get_foods
 from src.pipeline import analyze_image, create_tts_response
 from src.text_gen.detail import get_details, get_food_info
 
@@ -90,6 +90,9 @@ class FoodDetailResponse(BaseModel):
     food_id: int
     name_kr: str
     name_en: str
+    # 맵기 1~5. 상세 텍스트(details["SPICY"])와 별개로, 결과 화면 위쪽에 눈금을 그리는 데 쓴다.
+    # get_food_info()가 이름 3개만 돌려주므로 아래 get_food()에서 cache를 한 번 더 읽어 채운다.
+    spice_level: int
     details: dict[str, str]
     narration_text: str
     style: str
@@ -183,9 +186,12 @@ def get_food(food_id: int):
     except ValueError:
         raise HTTPException(status_code=404, detail=f"food_id {food_id}를 찾을 수 없습니다.")
 
+    # 위 get_food_info()가 통과했으므로 이 food_id의 행은 반드시 있다.
+    spice_level = get_food_row(food_id)["spice_level"]
+
     tts_response = create_tts_response(food_id)
     tts_response["narration_audio_path"] = _publish_audio(tts_response["narration_audio_path"])
-    return {**food_info, "details": details, **tts_response}
+    return {**food_info, "spice_level": spice_level, "details": details, **tts_response}
 
 
 # 로그인이 없는 서비스라, 카트는 브라우저가 만들어 localStorage에 보관하는 UUID로 구분한다.

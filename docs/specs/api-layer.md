@@ -65,6 +65,7 @@ GET /api/foods/{food_id}
 
 응답 200:
 {
+  "spice_level": 1 | 2 | 3 | 4 | 5,
   "details": {"DESCRIPTION": string, "PRONUNCIATION": string, ...},
   "narration_text": string,
   "style": "GUIDE" | "CAUTION",
