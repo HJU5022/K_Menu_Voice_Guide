@@ -160,6 +160,7 @@ class FoodDetail {
     required this.foodId,
     required this.nameKr,
     required this.nameEn,
+    required this.spiceLevel,
     required this.details,
     required this.narrationText,
     required this.style,
@@ -177,6 +178,7 @@ class FoodDetail {
       foodId: json['food_id'] as int,
       nameKr: json['name_kr'] as String,
       nameEn: json['name_en'] as String,
+      spiceLevel: json['spice_level'] as int,
       details: rawDetails.map((key, value) => MapEntry(key, value as String)),
       narrationText: json['narration_text'] as String,
       style: json['style'] as String,
@@ -188,6 +190,9 @@ class FoodDetail {
   final int foodId;
   final String nameKr;
   final String nameEn;
+
+  /// 맵기 1~5. 상세 카드의 SPICY 텍스트가 설명이라면, 이 값은 한눈에 보는 눈금이다.
+  final int spiceLevel;
 
   /// 카테고리 6개. 키는 DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY /
   /// PRONUNCIATION / SPICY 이며, 화면에 보여줄 순서와 제목은 화면 쪽에서 정한다

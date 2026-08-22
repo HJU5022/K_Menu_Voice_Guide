@@ -94,6 +94,7 @@ GET /api/foods/{food_id}
 {
   "food_id": int,
   "name_kr": string, "name_en": string,
+  "spice_level": 1 | 2 | 3 | 4 | 5,
   "details": { "DESCRIPTION": string, "HOW_TO_EAT": string,
                "INGREDIENT": string, "ALLERGY": string,
                "PRONUNCIATION": string, "SPICY": string },
