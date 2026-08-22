@@ -96,6 +96,25 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     return 0;
   }
 
+  /// 목록 위에 두는 한 줄 안내.
+  ///
+  /// 사진 위에 상자가 안 붙은 후보가 있으면 그 수를 밝힌다. 상자가 2개인데 카드가
+  /// 6개면 "왜 4개는 표시가 없지?"가 되는데, 이름이 여러 글자 상자에 걸쳐 잘리면
+  /// 서버가 위치를 특정하지 못해 생기는 정상 동작이다. 말없이 두면 앱이 뭔가
+  /// 빠뜨린 것처럼 보인다.
+  String _summaryLine(List<Candidate> candidates) {
+    final dish = candidates.length == 1 ? 'dish' : 'dishes';
+    final found = 'We found ${candidates.length} $dish.';
+    if (widget.photo == null) return found;
+
+    final unpinned = candidates.where((c) => c.source == null).length;
+    if (unpinned == 0) return '$found Each box shows what we read there.';
+
+    final it = unpinned == 1 ? 'one' : '$unpinned';
+    return '$found Each box shows what we read there — '
+        'we could not pin $it to a spot on the photo.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final candidates = widget.candidates;
@@ -117,9 +136,7 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Text(
-              candidates.length == 1
-                  ? 'We found 1 dish. Each box shows what we read there.'
-                  : 'We found ${candidates.length} dishes. Each box shows what we read there.',
+              _summaryLine(candidates),
               style: const TextStyle(fontSize: 15, color: Colors.black54),
             ),
           ),
