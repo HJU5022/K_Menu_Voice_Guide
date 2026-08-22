@@ -1,20 +1,25 @@
-/// 설정 화면 — 지금은 "이 서비스가 안내할 수 있는 음식" 목록만 둔다.
+/// 설정 화면 — 앱 정보와 안내 항목을 한 줄씩 모아둔 자리.
 ///
-/// 왜 필요한가: 사진을 찍어 분석이 끝나야만 지원 여부를 알 수 있으면, 실패했을 때
-/// 그때까지 기다린 시간이 통째로 헛수고가 된다. 그리고 "Unsupported dish" 안내를
-/// 받아도 *무엇이* 지원되는지 모르면 다시 시도할지 판단할 근거가 없다. 찍기 전에
-/// 확인할 자리를 만든다 (`docs/specs/supported-foods.md`).
+/// 설정 화면은 **요약하는 자리**다. 긴 내용은 여기 깔지 않고 눌러서 들어가게 한다.
+/// 지원 음식 50개를 이 화면 본문에 그대로 두었더니 다른 항목이 아예 보이지 않아
+/// [SupportedFoodsScreen]으로 분리했다.
 ///
-/// 화면을 열 때마다 목록을 다시 불러온다 — 담당자가 그사이 DB에 음식을 추가했을 수
-/// 있기 때문이다(EC-04). 한 번 받아두고 재사용하지 않는다.
-///
-/// 목록에 사진·맵기·가격을 싣지 않는다. 이 화면의 질문은 "무엇을 지원하나"이지
-/// "무엇을 먹을까"가 아니다.
+/// 서버 주소를 노출하는 이유: 시연·개발 중 `apiBaseUrl`이 맥 IP와 어긋나 앱이
+/// 서버를 못 찾는 일이 반복됐다. 터미널을 보지 않고 폰에서 바로 확인할 수 있으면
+/// 원인을 훨씬 빨리 좁힌다.
 library;
 
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../config.dart';
+import 'supported_foods_screen.dart';
+
+/// 화면에 표시할 앱 버전. `mobile/pubspec.yaml`의 `version`과 맞춰야 한다.
+///
+/// 빌드 시점에 자동으로 읽어오려면 package_info_plus 의존성이 필요한데, 값 하나
+/// 때문에 패키지를 더하지 않았다. pubspec을 올릴 때 이 줄도 같이 올린다.
+const String _appVersion = '1.0.0';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,34 +29,37 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  /// 아직 못 받았으면 null. 빈 목록(`[]`)과 구분해야 한다 —
-  /// 빈 목록은 "등록된 음식이 없음"이라는 정상 응답이다(EC-03).
-  List<SupportedFood>? _foods;
+  /// 지원 음식 개수. 못 받았으면 null.
+  int? _dishCount;
 
-  String? _errorMessage;
-  bool _isLoading = true;
+  /// 서버에 닿지 못했을 때의 이유. 닿았으면 null.
+  String? _connectionError;
+
+  bool _isChecking = true;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _check();
   }
 
-  Future<void> _load() async {
+  /// 요청 한 번으로 두 가지를 동시에 안다 — 서버에 닿는지, 음식이 몇 개인지.
+  /// 같은 걸 두 번 물을 이유가 없어 목록 요청 하나로 연결 확인까지 겸한다.
+  Future<void> _check() async {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _isChecking = true;
+      _connectionError = null;
     });
 
     try {
       final foods = await fetchSupportedFoods();
       if (!mounted) return;
-      setState(() => _foods = foods);
+      setState(() => _dishCount = foods.length);
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _errorMessage = e.message);
+      setState(() => _connectionError = e.message);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isChecking = false);
     }
   }
 
@@ -59,70 +67,144 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Supported dishes',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      body: ListView(
+        children: [
+          const _AppHeader(),
+          const _SectionTitle('Guide'),
+          ListTile(
+            leading: const Icon(Icons.restaurant_menu),
+            title: const Text('Supported dishes'),
+            subtitle: const Text('Dishes this guide can explain'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 개수를 못 받았을 때 0을 쓰면 "지원 음식 없음"으로 읽힌다.
+                Text(
+                  _isChecking ? '…' : (_dishCount?.toString() ?? '—'),
+                  style: const TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.black38),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(_subtitle(), style: const TextStyle(color: Colors.black54)),
-            const SizedBox(height: 12),
-            // 목록만 스크롤한다 — 나중에 설정 항목이 늘어나도 제목이 밀려나지 않게.
-            Expanded(child: _buildList()),
-          ],
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SupportedFoodsScreen(),
+              ),
+            ),
+          ),
+          const _SectionTitle('Connection'),
+          _ConnectionTile(
+            isChecking: _isChecking,
+            errorMessage: _connectionError,
+            onRetry: _check,
+          ),
+          const _SectionTitle('Legal'),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('Open source licenses'),
+            trailing: const Icon(Icons.chevron_right, color: Colors.black38),
+            // Flutter가 기본으로 만들어주는 화면이다. 직접 만들 이유가 없다.
+            onTap: () => showLicensePage(
+              context: context,
+              applicationName: 'K-Menu Voice Guide',
+              applicationVersion: _appVersion,
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+/// 화면 맨 위의 앱 이름·버전·한 줄 소개.
+class _AppHeader extends StatelessWidget {
+  const _AppHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'K-Menu Voice Guide',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Photograph a Korean menu and hear what each dish is.',
+            style: TextStyle(fontSize: 14, color: Colors.black54),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Version $_appVersion',
+            style: const TextStyle(fontSize: 12, color: Colors.black38),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 항목 묶음의 제목. 목록이 길어졌을 때 눈이 쉬는 자리가 된다.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.black45,
+          letterSpacing: 0.6,
         ),
       ),
     );
   }
+}
 
-  String _subtitle() {
-    // 기다리는 동안 개수를 0으로 보여주면 "지원 음식 없음"처럼 읽힌다(EC-02).
-    if (_isLoading) return 'Loading…';
-    if (_errorMessage != null) return "Couldn't load the list";
-    return 'This guide covers ${_foods!.length} dishes.';
-  }
+/// 서버 연결 상태 한 줄.
+///
+/// 주소를 항상 보여주고, 닿았는지 여부만 오른쪽에 표시한다. 못 닿았을 때는
+/// 이 자리에서 바로 다시 시도할 수 있게 한다 — 화면을 나갔다 들어오게 만들면
+/// 원인을 좁히는 동안 같은 동작을 계속 반복해야 한다.
+class _ConnectionTile extends StatelessWidget {
+  const _ConnectionTile({
+    required this.isChecking,
+    required this.errorMessage,
+    required this.onRetry,
+  });
 
-  Widget _buildList() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  final bool isChecking;
+  final String? errorMessage;
+  final VoidCallback onRetry;
 
-    // 목록을 못 받아도 화면 자체는 살아 있어야 한다(EC-01).
-    // 나갔다 들어오게 만들지 말고 이 자리에서 다시 시도하게 한다.
-    if (_errorMessage != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_errorMessage!, style: const TextStyle(color: Colors.black54)),
-          const SizedBox(height: 12),
-          OutlinedButton(onPressed: _load, child: const Text('Try again')),
-        ],
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    final isConnected = !isChecking && errorMessage == null;
 
-    if (_foods!.isEmpty) {
-      return const Text(
-        'No dishes are registered yet.',
-        style: TextStyle(color: Colors.black54),
-      );
-    }
-
-    return ListView.separated(
-      itemCount: _foods!.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final food = _foods![index];
-        // 여행자는 영문으로 찾고 메뉴판에서는 한글로 대조하므로 둘 다 보여준다.
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(food.nameEn),
-          subtitle: Text(food.nameKr),
-        );
-      },
+    return ListTile(
+      leading: const Icon(Icons.dns_outlined),
+      title: const Text('Server'),
+      subtitle: Text(apiBaseUrl),
+      trailing: isChecking
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : isConnected
+          ? const Icon(Icons.check_circle, color: Colors.green)
+          : TextButton(onPressed: onRetry, child: const Text('Retry')),
     );
   }
 }
