@@ -327,6 +327,7 @@ class CartLine {
     required this.nameKr,
     required this.nameEn,
     required this.quantity,
+    required this.priceDisplay,
     required this.lineTotalDisplay,
   });
 
@@ -336,6 +337,7 @@ class CartLine {
       nameKr: json['name_kr'] as String,
       nameEn: json['name_en'] as String,
       quantity: json['quantity'] as int,
+      priceDisplay: json['price_krw_display'] as String?,
       lineTotalDisplay: json['line_total_display'] as String?,
     );
   }
@@ -345,7 +347,10 @@ class CartLine {
   final String nameEn;
   final int quantity;
 
-  /// 이 줄의 소계. 메뉴판에서 가격을 못 읽은 메뉴면 null이다.
+  /// 한 개 가격. 메뉴판에서 못 읽었으면 null이다.
+  final String? priceDisplay;
+
+  /// 이 줄의 소계(한 개 가격 × 수량). 마찬가지로 못 읽었으면 null이다.
   final String? lineTotalDisplay;
 }
 
