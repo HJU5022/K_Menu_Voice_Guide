@@ -17,11 +17,13 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from src.cart.store import change_quantity, clear_cart, get_cart
+from src.db.cache import get_foods
 from src.pipeline import analyze_image, create_tts_response
 from src.text_gen.detail import get_details, get_food_info
 
@@ -44,12 +46,38 @@ AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
 
 
+class CandidateSource(BaseModel):
+    """이 후보가 메뉴판 사진의 어디에서, 어떤 글자에서 나왔는지 — 추적용.
+
+    좌표는 **업로드한 원본 사진 기준 0~1 비율**이다(px가 아니다). 프론트가 사진을 어떤
+    크기로 그리든 그대로 얹을 수 있게 하기 위함이며, 서버 쪽 전처리(회전·크기 조정)는
+    이미 되돌린 값이다.
+    """
+
+    # OCR이 그 자리에서 실제로 읽은 글자. 음식명과 다를 수 있고(오인식·가격이 같이 붙음 등),
+    # 그 차이 자체가 "왜 이 후보가 나왔는지"를 보여주는 정보다.
+    text: str
+    left: float
+    top: float
+    width: float
+    height: float
+
+
 class Candidate(BaseModel):
     food_id: int
     name_kr: str
     name_en: str
     score: int
     modifiers: dict
+    thumbnail_url: str | None = None
+    thumbnail_attribution: str | None = None
+    # 이름이 여러 글자 상자에 걸쳐 잘리면 위치를 특정할 수 없어 null이 된다 —
+    # 그때 프론트는 사진 위 상자 없이 후보 카드만 보여준다.
+    source: CandidateSource | None = None
+    # 메뉴판 사진 OCR 텍스트에서 이 음식명 근처에 있던 "OOO원" 값을 읽어온 것이다
+    # (src/ocr/price.py) — DB나 임의 산정 값이 아니라 실제 사진에 적힌 가격이다.
+    price_krw: int | None = None
+    price_krw_display: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -68,6 +96,47 @@ class FoodDetailResponse(BaseModel):
     tts_status: str
     narration_audio_path: str | None
     tts_latency_ms: float
+
+
+class SupportedFood(BaseModel):
+    """설정 화면의 "이 서비스가 지원하는 음식" 목록에 쓰는 한 줄 (docs/specs/supported-foods.md)."""
+
+    food_id: int
+    name_kr: str
+    name_en: str
+
+
+class CartItemChange(BaseModel):
+    food_id: int
+    name_kr: str
+    name_en: str
+    # 메뉴판 사진에서 읽은 가격을 프론트가 그대로 실어 보낸다 — 사진마다 값이 다르므로
+    # 서버가 food_id로 되찾아올 수 있는 값이 아니다. 못 읽었으면 null.
+    price_krw: int | None = None
+    quantity_delta: int
+
+
+class CartLine(BaseModel):
+    food_id: int
+    name_kr: str
+    name_en: str
+    price_krw: int | None
+    price_krw_display: str | None
+    quantity: int
+    line_total_krw: int | None
+    line_total_display: str | None
+
+
+class CartResponse(BaseModel):
+    """카트 전체 상태 — 담기/빼기/조회 어느 요청이든 이 모양 그대로 돌려준다."""
+
+    cart_id: str
+    items: list[CartLine]
+    item_count: int
+    total_krw: int
+    total_krw_display: str
+    # 가격을 못 읽은 메뉴가 담겨 있으면 true — 총계가 일부만 반영된 값이라는 표시.
+    has_unpriced_items: bool
 
 
 def _publish_audio(local_path: str | None) -> str | None:
@@ -91,6 +160,21 @@ async def analyze(image: UploadFile = File(...)):
     return analyze_image(tmp_path)
 
 
+@app.get("/api/foods", response_model=list[SupportedFood])
+def list_foods():
+    """안내할 수 있는 음식 전체를 영문명 순으로 돌려준다.
+
+    사진을 찍기 전에 "내 앞의 메뉴를 이 앱이 알아볼 수 있나"를 확인하는 용도라, 일부만
+    추리지 않고 등록된 것을 전부 보낸다. 사진·맵기·가격은 싣지 않는다 — 이 화면의 질문은
+    "무엇을 지원하나"이지 "무엇을 먹을까"가 아니다.
+    """
+    foods = get_foods()
+    return sorted(
+        ({"food_id": food["id"], "name_kr": food["name_kr"], "name_en": food["name_en"]} for food in foods),
+        key=lambda food: food["name_en"],
+    )
+
+
 @app.get("/api/foods/{food_id}", response_model=FoodDetailResponse)
 def get_food(food_id: int):
     try:
@@ -102,3 +186,27 @@ def get_food(food_id: int):
     tts_response = create_tts_response(food_id)
     tts_response["narration_audio_path"] = _publish_audio(tts_response["narration_audio_path"])
     return {**food_info, "details": details, **tts_response}
+
+
+# 로그인이 없는 서비스라, 카트는 브라우저가 만들어 localStorage에 보관하는 UUID로 구분한다.
+# 처음 보는 ID면 빈 카트를 돌려준다 — 별도의 "카트 생성" 요청이 필요 없게.
+@app.get("/api/cart", response_model=CartResponse)
+def read_cart(x_cart_id: str = Header(..., alias="X-Cart-Id")):
+    return get_cart(x_cart_id)
+
+
+@app.delete("/api/cart", response_model=CartResponse)
+def empty_cart(x_cart_id: str = Header(..., alias="X-Cart-Id")):
+    return clear_cart(x_cart_id)
+
+
+@app.post("/api/cart/items", response_model=CartResponse)
+def change_cart_item(change: CartItemChange, x_cart_id: str = Header(..., alias="X-Cart-Id")):
+    return change_quantity(
+        x_cart_id,
+        food_id=change.food_id,
+        name_kr=change.name_kr,
+        name_en=change.name_en,
+        price_krw=change.price_krw,
+        quantity_delta=change.quantity_delta,
+    )

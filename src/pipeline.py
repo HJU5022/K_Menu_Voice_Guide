@@ -16,7 +16,8 @@ from pathlib import Path
 from time import perf_counter
 
 from src.text_gen.narration import get_narration
-from src.ocr.infer import recognize
+from src.ocr.infer import group_boxes_into_rows, recognize, recognize_boxes_with_mapping
+from src.ocr.preprocess import to_original_bbox
 from src.ocr.match import match_food, match_food_candidates
 from src.text_gen.detail import get_details
 
@@ -178,15 +179,47 @@ def create_tts_response(food_id: int) -> dict[str, object]:
 
 def analyze_image(image_path: str) -> dict:
     """Return OCR analysis status and food candidates without creating a response."""
-    ocr_text = recognize(image_path).strip()
+    # 좌표까지 살려서 받는다 — 가격이 음식명 아래 줄에 적혀 있어도 위치로 짝지어야 하고,
+    # 각 후보가 사진 어디에서 나왔는지도 표시해야 한다.
+    ocr_boxes, mapping = recognize_boxes_with_mapping(image_path)
+    ocr_text = " ".join(group_boxes_into_rows(ocr_boxes)).strip()
     if not ocr_text:
         return {"status": "ocr_empty", "ocr_text": "", "candidates": []}
 
-    candidates = match_food_candidates(ocr_text)
+    candidates = match_food_candidates(ocr_text, boxes=ocr_boxes)
     if not candidates:
         return {"status": "unsupported_food", "ocr_text": ocr_text, "candidates": []}
 
-    return {"status": "candidates_found", "ocr_text": ocr_text, "candidates": candidates}
+    return {
+        "status": "candidates_found",
+        "ocr_text": ocr_text,
+        "candidates": [_attach_source(candidate, mapping) for candidate in candidates],
+    }
+
+
+def _attach_source(candidate: dict, mapping) -> dict:
+    """후보의 글자 상자 좌표를 원본 사진 기준 비율로 옮겨 source 필드로 만든다.
+
+    match 단계의 좌표는 전처리(회전·크기 조정)를 거친 이미지 기준이라, 사용자가 올린
+    사진 위에 그대로 그리면 어긋난다. 비율(0~1)로 바꿔두면 프론트가 사진을 어떤 크기로
+    보여주든 그대로 얹을 수 있다.
+    """
+    source_text = candidate.pop("source_text", None)
+    source_box = candidate.pop("source_box", None)
+
+    if source_box is None or source_text is None:
+        candidate["source"] = None
+        return candidate
+
+    left, top, width, height = to_original_bbox(mapping, *source_box)
+    candidate["source"] = {
+        "text": source_text,
+        "left": left,
+        "top": top,
+        "width": width,
+        "height": height,
+    }
+    return candidate
 
 
 def run(image_path: str) -> dict:

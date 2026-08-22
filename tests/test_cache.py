@@ -58,7 +58,16 @@ class CacheTests(unittest.TestCase):
 
         # 실제 DB의 4개 테이블을 흉내낸 최소 데이터 (음식 1개짜리 축소판)
         self.tables = {
-            "foods": [{"id": 1, "name_kr": "비빔밥", "name_en": "Bibimbap", "spice_level": 1}],
+            "foods": [
+                {
+                    "id": 1,
+                    "name_kr": "비빔밥",
+                    "name_en": "Bibimbap",
+                    "spice_level": 1,
+                    "thumbnail_url": "https://example.com/bibimbap.jpg",
+                    "thumbnail_attribution": "Source: AI Hub",
+                }
+            ],
             "food_details": [
                 {"food_id": 1, "category": "DESCRIPTION", "detail_text": "Mixed rice."},
                 {"food_id": 1, "category": "ALLERGY", "detail_text": "Contains egg."},
@@ -91,6 +100,8 @@ class CacheTests(unittest.TestCase):
 
         self.assertEqual(result["name_kr"], "비빔밥")
         self.assertEqual(result["name_en"], "Bibimbap")
+        self.assertEqual(result["thumbnail_url"], "https://example.com/bibimbap.jpg")
+        self.assertEqual(result["thumbnail_attribution"], "Source: AI Hub")
 
     def test_get_food_returns_none_for_unknown_id(self):
         """없는 food_id면 예외를 던지지 말고 None을 줘야 한다 (호출 쪽에서 404로 처리)."""
