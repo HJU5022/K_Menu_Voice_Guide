@@ -134,7 +134,11 @@ class _CameraScreenState extends State<CameraScreen> {
           MaterialPageRoute(
             builder: (context) => only != null
                 ? DetailScreen(foodId: only.foodId, nameEn: only.nameEn)
-                : CandidatesScreen(candidates: result.candidates),
+                : CandidatesScreen(
+                    candidates: result.candidates,
+                    // 후보가 사진 어디에서 나왔는지 보여주려면 원본 사진이 필요하다.
+                    photo: File(picked.path),
+                  ),
           ),
         );
       }
