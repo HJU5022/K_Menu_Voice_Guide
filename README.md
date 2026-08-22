@@ -183,6 +183,8 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 
 `K_Menu_Talk.py`가 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출한다(Gradio 아님 — 프론트엔드가 별도 웹앱이라 API 계약이 필요해서 전환됨). 현재는 원격 데스크톱(RTX 3080 Ti)에서 백엔드·프론트를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 체크포인트 데모를 진행 중이며, Hugging Face Spaces(ZeroGPU) 배포는 아직 미착수 상태다.
 
+모바일 앱(`mobile/`)도 같은 FastAPI를 호출한다. 앱은 JSON 계약이 있어야 붙을 수 있으므로, 화면과 계산을 한 프로세스에 두는 진입점(`app.py`)으로는 대체되지 않는다 — `K_Menu_Talk.py`는 앱을 위해 계속 유지된다. 앱이 서버를 가리키는 주소는 `mobile/lib/config.dart` 한 곳에만 두어, 로컬·터널·배포 환경을 한 줄 수정으로 전환한다(`docs/specs/flutter-mobile-app.md`).
+
 ### 디렉토리 구조
 
 ```
@@ -224,6 +226,21 @@ proj1-c/
 │   │   └── deployment.md              # 프론트 배포 방법
 │   └── src/
 │       └── README.md                  # 프론트 소스 파일 역할·주석 원칙
+│
+├── mobile/                           # Flutter 모바일 앱 (iOS·Android)
+│   ├── README.md                      # 앱 구조·실행 방법·자주 겪는 문제
+│   ├── pubspec.yaml                   # image_picker(촬영) / http(API 호출) / audioplayers(음성 재생)
+│   ├── lib/
+│   │   ├── main.dart                  #   앱 시작점 + 화면 전환
+│   │   ├── config.dart                #   서버 주소 — 환경(개발/터널/배포)이 바뀌면 이 파일만 고친다
+│   │   ├── api.dart                   #   /api/analyze, /api/foods/{id} 호출 + 응답 파싱
+│   │   └── screens/
+│   │       ├── camera_screen.dart     #     ① 메뉴판 촬영 ──▶ POST /api/analyze
+│   │       ├── candidates_screen.dart #     ② 음식 후보 선택
+│   │       └── detail_screen.dart     #     ③ 상세 6개 카테고리 + 음성 재생 ──▶ GET /api/foods/{id}
+│   ├── ios/                           # Info.plist에 카메라 권한·ATS 설정 (없으면 앱이 즉시 종료된다)
+│   └── android/
+│                                      #   앱은 계산하지 않는다 — src/ 로직을 복제하지 않고 서버 응답만 표시한다
 │
 ├── data/
 │   └── README.md                     # AI Hub 신청 링크 + OCR 학습라벨(rec_gt_train.txt) 변환법
