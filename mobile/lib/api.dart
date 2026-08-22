@@ -125,7 +125,7 @@ class Candidate {
   final String? menuText;
 
   /// 장바구니에서 이 후보를 가리키는 신원. 서버의 묶는 기준과 같아야 한다.
-  String get lineKey => '\$foodId|\${menuText ?? ''}';
+  String get lineKey => '$foodId|${menuText ?? ''}';
 
   /// 가격을 아는 후보인지. 화면에서 가격 자리를 그릴지 판단할 때 쓴다.
   bool get hasPrice => priceDisplay != null;
@@ -372,7 +372,7 @@ class CartLine {
   final String? menuText;
 
   /// 장바구니에서 이 줄을 가리키는 신원. [Candidate.lineKey]와 같은 규칙이다.
-  String get lineKey => '\$foodId|\${menuText ?? ''}';
+  String get lineKey => '$foodId|${menuText ?? ''}';
 }
 
 /// 카트 전체 상태.
