@@ -79,8 +79,9 @@ def match_food_candidates(text: str) -> list[dict]:
     candidates = []
     for food in foods:
         name = _normalize(food["name_kr"])
-        if name not in normalized_text and normalized_text not in name:
-            continue
+        # 완전일치 부분문자열만 통과시키던 조건을 뺐다 — 그 조건을 통과한 이름은
+        # partial_ratio가 항상 100을 내서, 아래 임계값 검사가 한 번도 작동하지 않았다
+        # (OCR이 한 글자만 틀려도 후보에서 사라지는 문제).
         score = fuzz.partial_ratio(normalized_text, name)
         if score < MATCH_THRESHOLD:
             continue
