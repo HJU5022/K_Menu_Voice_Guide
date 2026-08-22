@@ -7,20 +7,204 @@
 ///
 ///   POST /api/analyze          이미지(multipart, 필드명 "image") ──▶ 음식 후보 목록
 ///   GET  /api/foods/{food_id}  음식 id ──▶ 상세 6개 카테고리 + 내레이션 음성 경로
-///
-/// 주의: 응답의 `narration_audio_path`는 `/audio/xxx.wav` 형태의 상대 경로다.
-/// 재생하려면 `apiBaseUrl`을 앞에 붙여 완전한 URL로 만들어야 한다.
-///
-/// TODO(구현 예정)
-///   - Candidate      : food_id, name_kr, name_en, score, modifiers
-///   - FoodDetail     : details(6개), narration_text, style,
-///                      tts_status, narration_audio_path, tts_latency_ms
-///   - analyze(File)  : POST /api/analyze
-///   - fetchFood(int) : GET /api/foods/{food_id}
-///
-/// 실패 처리 기준(`docs/specs/flutter-mobile-app.md` EC-02·EC-05):
-///   - 연결 실패는 예외를 던져 화면이 재시도 UI를 띄우게 한다.
-///   - TTS 실패(`tts_status != "ok"`)는 예외가 아니다. 상세 텍스트는 그대로 쓰고
-///     음성 영역만 비활성으로 표시한다.
-
 library;
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+
+import 'config.dart';
+
+/// 서버를 부르지 못했거나 서버가 오류를 돌려줬을 때 던진다.
+///
+/// 화면은 이 예외를 잡아 재시도 UI를 띄운다(`flutter-mobile-app.md` EC-02).
+/// TTS 실패는 여기 해당하지 않는다 — 그건 정상 응답 안의 상태값이라 예외가 아니다.
+class ApiException implements Exception {
+  ApiException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// 서버가 응답 본문을 UTF-8로 보내지만 Content-Type에 charset을 명시하지 않는다.
+/// 그 경우 http 패키지의 `response.body`는 latin1로 해석해서 한글이 깨진다
+/// (name_kr이 "김치찌개" 대신 "ê¹ì¹ì°ê°"처럼 나온다).
+/// 그래서 항상 바이트를 직접 UTF-8로 디코드한다.
+Map<String, dynamic> _decodeJson(http.Response response) {
+  return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+}
+
+/// OCR이 찾아낸 음식 후보 하나.
+class Candidate {
+  Candidate({
+    required this.foodId,
+    required this.nameKr,
+    required this.nameEn,
+    required this.score,
+  });
+
+  factory Candidate.fromJson(Map<String, dynamic> json) {
+    return Candidate(
+      foodId: json['food_id'] as int,
+      nameKr: json['name_kr'] as String,
+      nameEn: json['name_en'] as String,
+      score: json['score'] as int,
+    );
+  }
+
+  final int foodId;
+  final String nameKr;
+  final String nameEn;
+
+  /// OCR 문자열과의 유사도(0~100). 서버가 이 값 내림차순으로 정렬해서 주므로
+  /// 앱에서 다시 정렬하지 않는다.
+  final int score;
+}
+
+/// `POST /api/analyze`의 응답.
+class AnalyzeResult {
+  AnalyzeResult({
+    required this.status,
+    required this.ocrText,
+    required this.candidates,
+  });
+
+  factory AnalyzeResult.fromJson(Map<String, dynamic> json) {
+    final rawCandidates = json['candidates'] as List<dynamic>;
+    return AnalyzeResult(
+      status: json['status'] as String,
+      ocrText: json['ocr_text'] as String,
+      candidates: rawCandidates
+          .map((item) => Candidate.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  /// 서버가 돌려주는 값은 세 가지다(`src/pipeline.py`의 analyze_image).
+  /// 성공 값이 "ok"가 아니라 "candidates_found"임에 주의한다.
+  ///
+  ///   candidates_found  후보를 찾음 — candidates에 1개 이상
+  ///   unsupported_food  글자는 읽었으나 등록된 50개 음식과 매칭 실패
+  ///   ocr_empty         글자를 전혀 읽지 못함
+  final String status;
+
+  /// OCR이 읽어낸 원문. 실패 안내를 만들 때 참고용으로 쓴다.
+  final String ocrText;
+
+  final List<Candidate> candidates;
+
+  bool get isSuccess => status == 'candidates_found' && candidates.isNotEmpty;
+
+  /// 글자는 읽혔지만 등록된 음식이 없는 경우. 안내 문구가 ocrEmpty와 달라야 해서
+  /// 따로 구분한다(EC-03 vs EC-04).
+  bool get isUnsupportedFood => status == 'unsupported_food';
+
+  bool get isOcrEmpty => status == 'ocr_empty';
+}
+
+/// `GET /api/foods/{food_id}`의 응답.
+class FoodDetail {
+  FoodDetail({
+    required this.foodId,
+    required this.nameKr,
+    required this.nameEn,
+    required this.details,
+    required this.narrationText,
+    required this.style,
+    required this.ttsStatus,
+    required this.audioUrl,
+  });
+
+  factory FoodDetail.fromJson(Map<String, dynamic> json) {
+    final rawDetails = json['details'] as Map<String, dynamic>;
+    // 서버는 "/audio/xxx.wav" 같은 상대 경로를 준다. 재생하려면 서버 주소를
+    // 앞에 붙여 완전한 URL로 만들어야 하는데, 그 조립을 화면마다 반복하지 않도록
+    // 여기서 한 번만 한다.
+    final relativePath = json['narration_audio_path'] as String?;
+    return FoodDetail(
+      foodId: json['food_id'] as int,
+      nameKr: json['name_kr'] as String,
+      nameEn: json['name_en'] as String,
+      details: rawDetails.map((key, value) => MapEntry(key, value as String)),
+      narrationText: json['narration_text'] as String,
+      style: json['style'] as String,
+      ttsStatus: json['tts_status'] as String,
+      audioUrl: relativePath == null ? null : '$apiBaseUrl$relativePath',
+    );
+  }
+
+  final int foodId;
+  final String nameKr;
+  final String nameEn;
+
+  /// 카테고리 6개. 키는 DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY /
+  /// PRONUNCIATION / SPICY 이며, 화면에 보여줄 순서와 제목은 화면 쪽에서 정한다
+  /// (`frontend/docs/content-style.md`의 문구 기준을 따른다).
+  final Map<String, String> details;
+
+  final String narrationText;
+
+  /// 맵기 4단계 이상이면 CAUTION, 아니면 GUIDE. 서버가 정해서 준다.
+  final String style;
+
+  final String ttsStatus;
+
+  /// 재생 가능한 완전한 URL. TTS가 실패했으면 null이다.
+  final String? audioUrl;
+
+  /// 음성을 재생할 수 있는 상태인지.
+  ///
+  /// false여도 화면 전체를 실패로 처리하면 안 된다 — 상세 텍스트는 그대로
+  /// 보여주고 음성 영역만 비활성으로 표시한다(EC-05).
+  bool get hasAudio => ttsStatus == 'ok' && audioUrl != null;
+}
+
+/// 메뉴판 사진을 보내 음식 후보를 받는다.
+///
+/// 첫 요청은 서버가 OCR 모델을 메모리에 올리느라 오래 걸린다(실측 10초, 이후 약 8초).
+/// 호출하는 화면은 그동안 로딩 표시를 유지해야 한다(EC-07).
+Future<AnalyzeResult> analyze(File imageFile) async {
+  final request = http.MultipartRequest(
+    'POST',
+    Uri.parse('$apiBaseUrl/api/analyze'),
+  );
+  // 필드명 "image"는 서버가 정한 이름이라 바꾸면 안 된다
+  // (K_Menu_Talk.py의 `image: UploadFile = File(...)`).
+  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+  final http.Response response;
+  try {
+    response = await http.Response.fromStream(await request.send());
+  } on SocketException {
+    throw ApiException('서버에 연결할 수 없습니다.\n주소: $apiBaseUrl');
+  }
+
+  if (response.statusCode != 200) {
+    throw ApiException('사진 분석에 실패했습니다. (HTTP ${response.statusCode})');
+  }
+  return AnalyzeResult.fromJson(_decodeJson(response));
+}
+
+/// 음식 하나의 상세 텍스트와 내레이션 음성을 받는다.
+///
+/// 사전 생성 캐시가 있으면 사실상 즉시 돌아오지만(실측 0.018초), 캐시에 없는
+/// 조합이면 서버가 그 자리에서 음성을 만드느라 30초 이상 걸릴 수 있다.
+Future<FoodDetail> fetchFood(int foodId) async {
+  final http.Response response;
+  try {
+    response = await http.get(Uri.parse('$apiBaseUrl/api/foods/$foodId'));
+  } on SocketException {
+    throw ApiException('서버에 연결할 수 없습니다.\n주소: $apiBaseUrl');
+  }
+
+  if (response.statusCode == 404) {
+    throw ApiException('등록되지 않은 음식입니다. (food_id: $foodId)');
+  }
+  if (response.statusCode != 200) {
+    throw ApiException('음식 정보를 불러오지 못했습니다. (HTTP ${response.statusCode})');
+  }
+  return FoodDetail.fromJson(_decodeJson(response));
+}
