@@ -28,6 +28,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'detail_screen.dart';
 
 class CandidatesScreen extends StatelessWidget {
   const CandidatesScreen({super.key, required this.candidates});
@@ -82,15 +83,17 @@ class CandidatesScreen extends StatelessWidget {
 
   /// 고른 음식의 상세 화면을 연다.
   ///
-  /// 넘기는 것은 food_id 하나뿐이다 — 상세 화면은 그 번호로 서버에 다시 물어보므로
-  /// 후보 목록 전체를 들고 갈 이유가 없다.
+  /// 넘기는 것은 food_id와 이름뿐이다 — 상세 화면은 그 번호로 서버에 다시
+  /// 물어보므로 후보 목록 전체를 들고 갈 이유가 없다. 이름을 같이 넘기는 것은
+  /// 응답을 기다리는 동안 상단 제목을 비워두지 않기 위해서다.
   void _openDetail(BuildContext context, Candidate candidate) {
-    // TODO(다음 단계): 상세 화면이 만들어지면 그쪽으로 push한다.
-    // 지금은 화면이 없어서, 눌린 것이 확인되도록 하단 알림만 띄운다.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${candidate.nameEn} (food_id: ${candidate.foodId})'),
-        duration: const Duration(seconds: 1),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailScreen(
+          foodId: candidate.foodId,
+          nameEn: candidate.nameEn,
+        ),
       ),
     );
   }
@@ -155,6 +158,22 @@ class _CandidateCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).colorScheme.primary,
                         ),
+                      ),
+                    ],
+                    // 사진 출처 표기. 프로젝트가 외부 사진을 쓰면서 출처를 남기기로
+                    // 한 항목이라, **사진을 보여주는 자리에는 반드시 함께 둔다.**
+                    // 가격처럼 "있으면 좋은 것"이 아니라 지켜야 하는 조건이다.
+                    if (candidate.hasThumbnail &&
+                        candidate.thumbnailAttribution != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        candidate.thumbnailAttribution!,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.black38,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
