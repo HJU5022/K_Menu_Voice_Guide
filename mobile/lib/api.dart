@@ -467,7 +467,7 @@ class FoodDetail {
 
   /// 카테고리 6개. 키는 DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY /
   /// PRONUNCIATION / SPICY 이며, 화면에 보여줄 순서와 제목은 화면 쪽에서 정한다
-  /// (`frontend/docs/content-style.md`의 문구 기준을 따른다).
+  /// (`docs/content-style.md`의 문구 기준을 따른다).
   final Map<String, String> details;
 
   final String narrationText;

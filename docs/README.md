@@ -6,7 +6,7 @@
 |---|---|
 | `기획서.md` | 문제 정의·해결 방식·범위·성공 기준·일정 (현재 뼈대 상태 — 백엔드 완료 후 프론트 내용과 합쳐 정리 예정) |
 | `specs/` | 기능별 Spec 문서 |
-| [`../frontend/docs/`](../frontend/docs/) | 프론트 화면 흐름·영어 문구·API 클라이언트·배포 문서 |
+| [`content-style.md`](content-style.md) | 화면에 쓰는 영어 문구 기준 (Streamlit·앱 공통) |
 | [`../mobile/README.md`](../mobile/README.md) | Flutter 앱 구조·실행 방법(시뮬레이터/실기기)·자주 겪는 문제 |
 
 > 전체 파이프라인 흐름도는 루트 [`README.md`](../README.md)의 "시스템 아키텍처" 절에 Mermaid 다이어그램으로 들어있습니다(별도 이미지 파일 없음 — 텍스트라 수정이 쉽고 GitHub에서 바로 그림으로 보입니다).
@@ -25,8 +25,6 @@
 | `specs/streamlit-app.md` | HF Spaces 배포 진입점 `app.py` — 플랫폼 선정 근거·화면 구성 |
 | `specs/text-generation.md` | 카테고리 6개 조합 + spice_level→style 결정 로직 |
 | `specs/tts-finetuning.md` | TTS 파인튜닝 방식·목표 (실제 실험 결과는 [`eval/TTS_MODULE.md`](../eval/TTS_MODULE.md)) |
-
-React/Vite 화면 상태·API 경계·응답 변환 기준은 프론트엔드 전용 문서인 [`frontend/docs/ux-ui-integration.md`](../frontend/docs/ux-ui-integration.md)에서 관리합니다.
 
 ## Spec 작성 규칙
 

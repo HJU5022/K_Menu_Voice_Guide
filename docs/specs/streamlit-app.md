@@ -7,7 +7,7 @@
 - **문제**:
   1. Hugging Face Spaces는 **한 컨테이너에 한 앱**이 기본이라, "FastAPI + 별도 React 정적 호스팅 + 빌드타임 `VITE_API_BASE_URL` 주입" 구조를 그대로 옮길 수 없다.
   2. 배포 플랫폼 조사 결과(2026-08-21) 선택지가 좁혀졌다 — **ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고**, Streamlit Community Cloud는 RAM 약 1GB라 `paddlepaddle`+PaddleOCR이 들어가지 않는다. OCR·TTS를 모두 GPU로 돌리려면 **HF Spaces 전용 GPU(T4 small)** 가 필요하고, 팀은 SDK로 Streamlit을 택했다.
-  3. 두 프로세스 구조 때문에 CORS 설정, `frontend/.env` 위치 함정, 튜널 주소 재빌드 등 배포 실수가 반복돼 왔다.
+  3. 두 프로세스 구조 때문에 CORS 설정, 프론트 `.env` 위치 함정, 튜널 주소 재빌드 등 배포 실수가 반복돼 왔다.
 - **측정 지표**: 사진 업로드부터 음성 재생까지의 사용자 흐름이 **단일 프로세스에서** 끝까지 완주하는지, 아래 AC로 검증한다.
 
 ## Goal
@@ -17,10 +17,10 @@
   1. `streamlit run app.py` 하나로 서비스 전체가 뜬다 (백엔드·프론트 분리 실행 불필요).
   2. `src/` 아래 코드(`pipeline`·`text_gen`·`db`·`ocr`·`tts`)를 **한 줄도 수정하지 않고** 재사용한다.
   3. 화면이 재실행돼도 TTS가 다시 생성되지 않는다.
-  4. 카테고리 6개의 순서·영어 제목·예외 문구가 기존 React 화면과 동일하다(`frontend/docs/content-style.md` 기준 유지).
+  4. 카테고리 6개의 순서·영어 제목·예외 문구가 `docs/content-style.md` 기준을 지킨다(앱과 같은 문구를 쓴다).
 - **Out of Scope**:
-  - **디자인·CSS·테마** — 기존 `frontend/src/styles.css`를 Streamlit으로 이식하는 별도 작업(외부 도구에 의뢰 예정). 이 Spec은 그 CSS가 붙을 **골격**까지만 다룬다.
-  - `K_Menu_Talk.py`·`frontend/` **삭제** — Streamlit 배포가 검증될 때까지 폴백이자 디자인 원본으로 남긴다.
+  - **디자인·CSS·테마** — 별도 작업이다. 이 Spec은 그 CSS가 붙을 **골격**까지만 다룬다.
+  - `K_Menu_Talk.py` **삭제** — 모바일 앱이 쓰는 API 진입점이라 남긴다. (React 웹앱 `frontend/`는 2026-08-23에 제거했다 — 웹 화면은 이 Streamlit 하나다.)
   - **배포 전 이식성 수정 3건**(별도 작업): ① `.gitignore`가 `static/`을 통째로 제외해 사전 생성 TTS 캐시가 저장소에 없음 ② `src/pipeline.py`의 `_TTS_PYTHON` 기본값이 Windows 전용 경로 ③ `requirements.txt`에 `paddlepaddle` 미기재·버전 핀 없음.
   - HF Space 생성·하드웨어 설정·시크릿 등록, Flutter 클라이언트, 다국어.
 
@@ -65,7 +65,7 @@ session_state 계약
 - **`src/` 무수정 원칙**: 이 파일은 화면 구성과 상태 전환만 둔다. OCR·텍스트·TTS 로직은 `src/` 아래에 그대로 둔다 — `K_Menu_Talk.py`가 요청/응답 변환만 뒀던 것과 같은 원칙.
 - **`import torch`를 최상단에** 둔다. `src.pipeline`이 쓰는 `paddleocr`을 import하면 내부적으로 `paddlex → modelscope` 체인이 torch를 끌어오는데, 그 시점에 paddle이 로드해둔 네이티브 DLL과 얽혀 torch의 `shm.dll` 로딩이 깨진다(Windows, `OSError: [WinError 127]`). `K_Menu_Talk.py`와 같은 이유·같은 처방.
 - **오디오**: `st.audio()`가 로컬 파일 경로를 직접 받으므로, `K_Menu_Talk.py`의 `_publish_audio()`(임시 wav를 `static/audio`로 옮기고 URL로 노출)가 필요 없다.
-- **카테고리 6개의 순서·영어 제목**과 **예외 화면 문구**는 `frontend/src/App.tsx`의 `DETAIL_CARDS`·`ErrorPanel`에서 그대로 옮긴다. 새로 짓지 않는다.
+- **카테고리 6개의 순서·영어 제목**과 **예외 화면 문구**는 `docs/content-style.md` 기준을 따른다. 새로 짓지 않는다.
 - **후보의 `modifiers`** 는 화면에 표시하지 않는다 — 기존 React 화면도 받기만 하고 렌더링하지 않았으므로 동작을 맞춘다.
 - **맵기 표시**: `spice_level`(1~5)만큼 불꽃을 채운다(README 3절). `get_food_info()`는 `spice_level`을 돌려주지 않으므로 `cache.get_food()`에서 읽는다.
 

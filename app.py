@@ -1,14 +1,15 @@
 """Streamlit 진입점 — 화면과 파이프라인을 한 프로세스에서 직접 연결한다.
 
-배포를 Hugging Face Spaces(Streamlit SDK)로 옮기기로 하면서, 기존 배포 진입점
-`K_Menu_Talk.py`(FastAPI) + 별도 React 웹앱 구조를 이 파일 하나로 대신한다.
-HTTP 계약이 사라지므로 CORS·VITE_API_BASE_URL·오디오 정적 서빙이 모두 불필요하다.
+배포를 Hugging Face Spaces(Streamlit SDK)로 옮기기로 하면서, "FastAPI + 별도 웹앱"
+두 프로세스 구조를 이 파일 하나로 대신한다. HTTP 계약이 사라지므로 CORS·프론트
+빌드타임 주소 주입·오디오 정적 서빙이 모두 불필요하다.
+
+`K_Menu_Talk.py`(FastAPI)는 남아 있다 — 모바일 앱이 쓰는 API 진입점이다.
 
 `src/` 아래 로직(ocr·text_gen·db·tts·pipeline)은 그대로 재사용한다 — 이 파일에는
 화면 구성과 상태 전환만 둔다(`K_Menu_Talk.py`가 요청/응답 변환만 뒀던 것과 같은 원칙).
 
-디자인(CSS·테마)은 아직 입히지 않았다. `frontend/src/styles.css`를 Streamlit으로
-이식하는 작업이 별도로 진행 중이며, 이 파일은 그 CSS가 붙을 골격 역할을 한다.
+디자인(CSS·테마)은 아직 입히지 않았다. 이 파일은 그 CSS가 붙을 골격 역할을 한다.
 """
 
 # 다른 어떤 import보다도 먼저 torch를 로드해야 한다 — 아래 src.pipeline이 쓰는
@@ -25,8 +26,8 @@ from src.db import cache
 from src.pipeline import analyze_image, create_tts_response
 from src.text_gen.detail import get_details, get_food_info
 
-# 화면에 보여줄 카테고리 6개 — 순서와 영어 제목은 frontend/src/App.tsx의 DETAIL_CARDS를
-# 그대로 옮겼다(frontend/docs/content-style.md의 문구 통일 기준을 따르기 위함).
+# 화면에 보여줄 카테고리 6개 — 순서와 영어 제목은 docs/content-style.md의 문구 통일
+# 기준을 따른다. 앱(mobile/lib/screens/detail_screen.dart)도 같은 순서를 쓴다.
 DETAIL_CARDS = [
     ("DESCRIPTION", "Description", False),
     ("HOW_TO_EAT", "How to eat", False),
