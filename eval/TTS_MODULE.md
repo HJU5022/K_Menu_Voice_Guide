@@ -187,7 +187,7 @@ Qwen3-TTS 공식 문서 조사 중 `generate_custom_voice()`에 자연어로 톤
 
 ### 6-4. Perso.ai 비교 (1차, 2026-08-21)
 
-`src/tts/perso_client.py`로 Perso.ai Speech API(voice cloning) 연동. 같은 나레이션 화자(`제발.zip` 나레이션 샘플 5개, 화자 본인 동의 확인)로 Perso.ai 쪽 voice를 클로닝(`voice_id: psv-5fb5f0ee151cce710625a02fd6578184`)해서, 같은 문장을 우리 파인튜닝 모델(instruct-trained epoch-31)과 Perso.ai 양쪽에 넣어 UTMOS22로 채점.
+`src/tts/perso_client.py`로 Perso.ai Speech API(voice cloning) 연동. 같은 나레이션 화자(`제발.zip` 나레이션 샘플 5개, 화자 본인 동의 확인; 공개용 문서 예시는 `docs/legal/tts-voice-consent/` 참고)로 Perso.ai 쪽 voice를 클로닝(`voice_id: psv-5fb5f0ee151cce710625a02fd6578184`)해서, 같은 문장을 우리 파인튜닝 모델(instruct-trained epoch-31)과 Perso.ai 양쪽에 넣어 UTMOS22로 채점.
 
 | 스타일 | 문장 | 우리 모델 UTMOS | Perso.ai UTMOS | 비율 (기준 ≥85%) |
 |---|---|---|---|---|

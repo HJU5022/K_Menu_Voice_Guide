@@ -6,6 +6,7 @@
 |---|---|
 | `기획서.md` | 문제 정의·해결 방식·범위·성공 기준·일정 (현재 뼈대 상태 — 백엔드 완료 후 프론트 내용과 합쳐 정리 예정) |
 | `specs/` | 기능별 Spec 문서 |
+| `legal/` | 동의서·공개용 가림본 등 프로젝트 운영 문서 |
 | [`content-style.md`](content-style.md) | 화면에 쓰는 영어 문구 기준 (Streamlit·앱 공통) |
 | [`../mobile/README.md`](../mobile/README.md) | Flutter 앱 구조·실행 방법(시뮬레이터/실기기)·자주 겪는 문제 |
 
