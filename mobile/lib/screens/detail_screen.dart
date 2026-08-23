@@ -33,6 +33,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../korean_speaker.dart';
 import 'settings_button.dart';
 
 /// 화면에 보여줄 카테고리 순서와 제목.
@@ -103,6 +104,8 @@ class _DetailScreenState extends State<DetailScreen> {
     // 화면을 떠날 때 재생기를 정리한다. 이걸 빠뜨리면 뒤로 갔는데도
     // 소리가 계속 나고, 재생기가 메모리에 남는다.
     _player.dispose();
+    // 이름 발음도 같이 멈춘다 — 재생기와 달리 화면이 사라져도 계속 말한다.
+    koreanSpeaker.stop();
     super.dispose();
   }
 
@@ -264,9 +267,23 @@ class _NameHeader extends StatelessWidget {
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        Text(
-          food.nameKr,
-          style: const TextStyle(fontSize: 16, color: Colors.black54),
+        // 한글 이름 옆에 발음 버튼. 종업원에게 말할 때 쓰라고 두는 것이라,
+        // 영문명이 아니라 한글 쪽에 붙인다. 웹앱도 같은 자리에 있다.
+        Row(
+          children: [
+            Text(
+              food.nameKr,
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
+            ),
+            IconButton(
+              onPressed: () => koreanSpeaker.speak(food.nameKr),
+              icon: const Icon(Icons.volume_up_outlined, size: 20),
+              tooltip: 'Hear it in Korean',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.only(left: 4),
+              constraints: const BoxConstraints(),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         _SpiceGauge(level: food.spiceLevel),
