@@ -212,7 +212,11 @@ def _best_matching_box(boxes: list[TextBox], name: str) -> tuple[TextBox | None,
     return best_box, best_score
 
 
-def _appears_on_a_menu_line(boxes: list[TextBox], name: str) -> bool:
+def _appears_on_a_menu_line(
+    boxes: list[TextBox],
+    name: str,
+    reference: list[TextBox] | None = None,
+) -> bool:
     """음식명이 '메뉴 줄'로 볼 만한 상자에 한 번이라도 나타나는가.
 
     이름을 통째로 담은 상자가 여럿이면 그중 하나라도 메뉴 줄이면 통과다 — 간판에도 있고
@@ -222,14 +226,21 @@ def _appears_on_a_menu_line(boxes: list[TextBox], name: str) -> bool:
     여기 해당한다 — 실측: 원산지 표시 "돼지고기(국내산)..."이 "불고기"를 만들어냈는데,
     이름이 통째로 든 상자가 없다는 이유로 판단을 보류하면 그대로 새어나간다.
     근거 상자를 아예 못 찾을 때만 보류한다(이름이 여러 상자에 걸쳐 잘린 경우).
+
+    **판정 대상(boxes)과 견줄 기준(reference)을 나눠 받는다.** 줄 단위 매칭에서는
+    boxes에 그 줄의 상자만 들어와야 한다 — 사진 전체를 넘기면 간판 줄을 판정할 때도
+    "다른 곳에 진짜 메뉴 줄이 있다"는 이유로 위 any()가 통과시켜, 간판의 가게 이름이
+    메뉴로 올라온다(실측: "연정김치찌개" 간판이 김치찌개 후보가 됐다).
+    반면 "이 글자가 유난히 큰가"는 사진 전체와 견줘야 알 수 있어 reference를 쓴다.
     """
+    reference = reference if reference is not None else boxes
     hosts = [box for box in boxes if name in _normalize(box[4])]
     if not hosts:
         best_box, best_score = _best_matching_box(boxes, name)
         if best_box is None or best_score < MATCH_THRESHOLD:
             return True
         hosts = [best_box]
-    return any(not _is_non_menu_box(box, boxes) for box in hosts)
+    return any(not _is_non_menu_box(box, reference) for box in hosts)
 
 
 def _reading_confidence(boxes: list[TextBox] | None, name: str) -> float:
@@ -300,9 +311,10 @@ def match_food_candidates(
     놓인 다른 메뉴의 가격이 붙기 쉬우므로, 가능하면 항상 boxes를 넘기는 게 맞다
     (src/pipeline.py의 analyze_image()가 그렇게 한다).
 
-    all_boxes는 **간판·안내문 판별에만** 쓴다. 줄 단위로 부를 때 boxes에는 그 줄의
-    상자만 들어오는데, "이 글자가 간판인가"는 사진 전체의 글자 크기와 비교해야 알 수
-    있기 때문이다. 안 주면 boxes를 그대로 쓴다(기존 호출부는 그대로 동작한다).
+    all_boxes는 **간판 판정에서 "이 글자가 유난히 큰가"를 견줄 기준**으로만 쓴다.
+    줄 단위로 부를 때 boxes에는 그 줄의 상자만 들어오는데, 크기는 사진 전체와
+    비교해야 알 수 있기 때문이다. 판정 **대상**은 어디까지나 boxes(그 줄)다.
+    안 주면 boxes를 그대로 쓴다(기존 호출부는 그대로 동작한다).
     """
     normalized_text = _normalize(text)
     foods = cache.get_foods()
@@ -325,8 +337,12 @@ def match_food_candidates(
     # 메뉴가 아닌 문구(원산지 표시·홍보 문구·가게 이름)에서만 발견된 이름을 걸러낸다.
     # 좌표가 없으면 어느 상자에서 나왔는지 알 수 없어 이 검사를 건너뛴다.
     if boxes is not None:
-        reference = all_boxes if all_boxes is not None else boxes
-        scored = [entry for entry in scored if _appears_on_a_menu_line(reference, entry[1])]
+        # 판정 대상은 이 줄의 상자, 크기를 견줄 기준은 사진 전체다.
+        scored = [
+            entry
+            for entry in scored
+            if _appears_on_a_menu_line(boxes, entry[1], reference=all_boxes or boxes)
+        ]
 
     # 메뉴판에 글자 그대로 적혀 있는 이름들. 퍼지 후보를 거를 기준이 된다.
     exact_names = [name for _food, name, _score in scored if name in normalized_text]
