@@ -473,6 +473,21 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
     return candidates, unsupported
 
 
+# 이름으로 인정할 최소 한글 글자 수. 한 글자는 "원"·"소"·"대"처럼 값이나 크기 표시일
+# 수 있어 이름으로 보기 어렵다.
+_MIN_NAME_LETTERS = 2
+
+
+def _has_korean_name(line: str, prices: list[tuple[int, int, int]]) -> bool:
+    """가격 토큰을 뺀 자리에 한글 이름이 남아 있는가."""
+    remaining = list(line)
+    for start, end, _value in prices:
+        for index in range(start, min(end, len(remaining))):
+            remaining[index] = " "
+    letters = sum(1 for char in remaining if "가" <= char <= "힣")
+    return letters >= _MIN_NAME_LETTERS
+
+
 def _unsupported_menu_line(
     line: str,
     row: list[TextBox],
@@ -483,9 +498,15 @@ def _unsupported_menu_line(
 
     가격이 없으면 메뉴 줄로 보지 않는다(가게 이름·안내문·전화번호). 안내 문구·원산지
     표시로 이미 걸러지는 줄도 제외한다 — 그 판정은 [_is_non_menu_box]가 한다.
+
+    **가격을 뺀 자리에 한글 이름이 남아야 한다.** 숫자만 있는 줄은 메뉴가 아니다 —
+    실측에서 생맥주 용량 표기 "(500/1700/2700)"이 값 세 개로 읽혀 메뉴 카드로
+    올라왔다. 이름이 없는 메뉴는 존재하지 않으므로, 이름 유무가 가장 확실한 잣대다.
     """
     prices = find_prices(line)
     if not prices:
+        return None
+    if not _has_korean_name(line, prices):
         return None
     if all(_is_non_menu_box(box, boxes) for box in row):
         return None
