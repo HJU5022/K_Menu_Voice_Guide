@@ -1,30 +1,26 @@
-"""Streamlit 진입점 — 화면과 파이프라인을 한 프로세스에서 직접 연결한다.
+"""Streamlit 진입점 — 화면만 담당하고, 계산은 FastAPI(`K_Menu_Talk.py`)를 HTTP로 부른다.
 
-배포를 Hugging Face Spaces(Streamlit SDK)로 옮기기로 하면서, "FastAPI + 별도 웹앱"
-두 프로세스 구조를 이 파일 하나로 대신한다. HTTP 계약이 사라지므로 CORS·프론트
-빌드타임 주소 주입·오디오 정적 서빙이 모두 불필요하다.
+처음에는 화면과 파이프라인을 한 프로세스에 직접 연결했지만(이 파일의 이전 버전),
+GPU 실측(2026-08-23) 후 계산을 GPU Space 한 곳에 몰기로 하면서 이 파일은 무료 CPU
+Space에서 도는 화면 전용 클라이언트가 됐다 — `src/`를 임포트하지 않으므로 paddle·torch
+없이 뜬다. 결정 배경과 계약은 docs/specs/streamlit-app.md, docs/specs/api-layer.md 참고.
 
-`K_Menu_Talk.py`(FastAPI)는 남아 있다 — 모바일 앱이 쓰는 API 진입점이다.
-
-`src/` 아래 로직(ocr·text_gen·db·tts·pipeline)은 그대로 재사용한다 — 이 파일에는
-화면 구성과 상태 전환만 둔다(`K_Menu_Talk.py`가 요청/응답 변환만 뒀던 것과 같은 원칙).
+모바일 앱(`mobile/lib/api.dart`)과 같은 API·같은 계약을 쓴다. API 주소는 환경변수
+`API_BASE_URL`로 주입한다(앱의 `config.dart`와 같은 방식). 기본값은 로컬 개발용이다.
 
 디자인(CSS·테마)은 아직 입히지 않았다. 이 파일은 그 CSS가 붙을 골격 역할을 한다.
 """
 
-# 다른 어떤 import보다도 먼저 torch를 로드해야 한다 — 아래 src.pipeline이 쓰는
-# paddleocr을 import하면 내부적으로 paddlex -> modelscope로 이어지는 체인이 torch를
-# 끌어오는데, 그 시점에 paddle이 이미 로드해둔 네이티브 DLL과 얽혀 torch의 shm.dll
-# 로딩이 깨진다(Windows, OSError: [WinError 127]). K_Menu_Talk.py와 같은 이유·같은 처방.
-import torch  # noqa: F401
+import os
 
-import tempfile
-
+import requests
 import streamlit as st
 
-from src.db import cache
-from src.pipeline import analyze_image, create_tts_response
-from src.text_gen.detail import get_details, get_food_info
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+
+# 잠자던 Space가 깨어나는 동안도 기다릴 수 있게 넉넉히 둔다. 이 시간을 넘기면
+# EC-07(연결 실패)로 처리된다.
+REQUEST_TIMEOUT_SEC = 120
 
 # 화면에 보여줄 카테고리 6개 — 순서와 영어 제목은 docs/content-style.md의 문구 통일
 # 기준을 따른다. 앱(mobile/lib/screens/detail_screen.dart)도 같은 순서를 쓴다.
@@ -75,14 +71,19 @@ def screen_upload() -> None:
     if image is None:
         return
 
-    # analyze_image()는 파일 경로를 받으므로 업로드된 바이트를 임시 파일로 떨군다
-    # (K_Menu_Talk.py의 /api/analyze가 하던 것과 동일).
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
-        tmp_file.write(image.getvalue())
-        tmp_path = tmp_file.name
-
+    # 계약은 api-layer.md의 POST /api/analyze — multipart, 필드명 "image".
     with st.spinner("Reading the menu..."):
-        st.session_state["analysis"] = analyze_image(tmp_path)
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/api/analyze",
+                files={"image": (image.name or "menu.jpg", image.getvalue())},
+                timeout=REQUEST_TIMEOUT_SEC,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            _go("api_error")
+            st.rerun()
+    st.session_state["analysis"] = response.json()
     _go("select")
     st.rerun()
 
@@ -118,21 +119,23 @@ def screen_select() -> None:
 
 
 def _select_food(food_id: int) -> None:
-    """고른 음식의 설명·음성을 한 번만 만들어 session_state에 담는다.
+    """고른 음식의 설명·음성을 한 번만 받아 session_state에 담는다.
 
     Streamlit은 버튼 하나 누를 때마다 스크립트를 처음부터 다시 실행한다. 결과를 여기
-    담아두지 않으면 화면이 갱신될 때마다 TTS가 다시 돌아간다(캐시 미스면 요청당 33초).
+    담아두지 않으면 화면이 갱신될 때마다 서버가 TTS를 다시 돌린다(캐시 미스면 요청당 33초).
     """
-    food = cache.get_food(food_id)
+    # 계약은 api-layer.md의 GET /api/foods/{food_id} — 상세·나레이션·맵기가 한 응답에 다 있다.
     with st.spinner("Preparing your guide..."):
-        tts = create_tts_response(food_id)
+        try:
+            response = requests.get(
+                f"{API_BASE_URL}/api/foods/{food_id}", timeout=REQUEST_TIMEOUT_SEC
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            _go("api_error")
+            return
 
-    st.session_state["guide"] = {
-        **get_food_info(food_id),
-        "spice_level": food["spice_level"],
-        "details": get_details(food_id),
-        **tts,
-    }
+    st.session_state["guide"] = response.json()
     _go("result")
 
 
@@ -146,7 +149,8 @@ def screen_result() -> None:
     st.write("🌶️" * guide["spice_level"] + "·" * (5 - guide["spice_level"]))
 
     if guide["narration_audio_path"]:
-        st.audio(guide["narration_audio_path"])
+        # 응답의 경로는 상대 경로(/audio/...)다 — 파일은 API 서버에 있으므로 주소를 붙인다.
+        st.audio(f"{API_BASE_URL}{guide['narration_audio_path']}")
     else:
         # TTS가 실패해도 상세 텍스트는 그대로 보여준다(README 9절 위험 대응).
         st.warning("Audio guide is unavailable right now.")
@@ -161,6 +165,18 @@ def screen_result() -> None:
     st.button("Take a new photo", on_click=_reset)
 
 
-SCREENS = {"upload": screen_upload, "select": screen_select, "result": screen_result}
+def screen_api_error() -> None:
+    """예외 화면 — API 서버에 연결하지 못했다(EC-07). 잠자던 Space가 깨는 중일 수도 있다."""
+    st.subheader("We couldn't reach the service")
+    st.write("The server may be waking up. Please try again in a moment.")
+    st.button("Try again", on_click=_reset)
+
+
+SCREENS = {
+    "upload": screen_upload,
+    "select": screen_select,
+    "result": screen_result,
+    "api_error": screen_api_error,
+}
 
 SCREENS[st.session_state.setdefault("step", "upload")]()
