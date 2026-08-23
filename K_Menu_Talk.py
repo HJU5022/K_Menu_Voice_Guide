@@ -1,8 +1,10 @@
 """배포 진입점 — FastAPI로 analyze/foods API를 노출하고 src/pipeline.py만 호출한다.
 
-Gradio 대신 FastAPI를 쓴다: 프론트엔드가 별도 웹앱(React)이라 Gradio 화면이 아니라
-HTTP API 계약이 필요하기 때문이다(docs/specs/api-layer.md 참고). 이 파일에는
-요청/응답 변환만 두고, OCR·텍스트·TTS 로직은 그대로 src/ 아래에 둔다.
+화면을 갖지 않는다: 모바일 앱이 별도 클라이언트라 화면이 아니라 HTTP API 계약이
+필요하기 때문이다(docs/specs/api-layer.md 참고). 이 파일에는 요청/응답 변환만 두고,
+OCR·텍스트·TTS 로직은 그대로 src/ 아래에 둔다.
+
+웹 화면은 `app.py`(Streamlit)가 맡는다 — 그쪽은 이 API를 거치지 않고 src/를 직접 부른다.
 """
 
 # 다른 어떤 import보다도 먼저 torch를 로드해야 한다 — src/pipeline.py가 쓰는 paddleocr을

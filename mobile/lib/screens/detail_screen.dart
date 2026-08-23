@@ -6,7 +6,7 @@
 ///   3. narration_audio_path의 음성을 재생한다(audioplayers).
 ///
 /// 카테고리 6개와 화면 제목은 프론트엔드와 통일한다
-/// (`frontend/docs/content-style.md` 기준, app.py의 DETAIL_CARDS와 같은 순서):
+/// (`docs/content-style.md` 기준, app.py의 DETAIL_CARDS와 같은 순서):
 ///   DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY / PRONUNCIATION / SPICY
 ///
 /// TTS 실패는 화면 실패가 아니다 — tts_status가 "ok"가 아니거나

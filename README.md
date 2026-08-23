@@ -65,7 +65,7 @@
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: Flutter 앱 (최종 목표). 기능 동결(8/23) 전까지는 React 웹앱으로 체크포인트 데모 진행 중
+- 배포 형태: Flutter 앱 (최종 목표). 웹은 Streamlit(`app.py`) 하나로 간다 — React 웹앱은 2026-08-23에 제거했다
 
 ### 카테고리 구성
 
@@ -183,7 +183,7 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 
 진입점이 두 개다. `K_Menu_Talk.py`는 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출하고(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨), `app.py`는 화면과 파이프라인을 한 프로세스에서 직접 연결하는 Streamlit 진입점이다. 후자는 HTTP 계약이 없으므로 API가 필요한 클라이언트를 대체하지 못한다.
 
-Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라 "FastAPI + 별도 React 정적 호스팅" 구조를 그대로 옮길 수 없어, 배포용으로 `app.py`(Streamlit SDK)를 따로 두었다. 하드웨어는 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고, Streamlit Community Cloud는 RAM이 약 1GB라 `paddlepaddle`+PaddleOCR이 올라가지 않는다(조사 2026-08-21, `docs/specs/streamlit-app.md`). 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 진행했다.
+Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라 "FastAPI + 별도 정적 호스팅" 구조를 그대로 옮길 수 없어, 배포용으로 `app.py`(Streamlit SDK)를 따로 두었다. 하드웨어는 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고, Streamlit Community Cloud는 RAM이 약 1GB라 `paddlepaddle`+PaddleOCR이 올라가지 않는다(조사 2026-08-21, `docs/specs/streamlit-app.md`). 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 진행했다.
 
 모바일 앱(`mobile/`)도 같은 FastAPI를 호출한다. 앱은 JSON 계약이 있어야 붙을 수 있으므로, 화면과 계산을 한 프로세스에 두는 진입점(`app.py`)으로는 대체되지 않는다 — `K_Menu_Talk.py`는 앱을 위해 계속 유지된다. 앱이 서버를 가리키는 주소는 `mobile/lib/config.dart` 한 곳에만 두어, 로컬·터널·배포 환경을 한 줄 수정으로 전환한다(`docs/specs/flutter-mobile-app.md`).
 
@@ -200,7 +200,6 @@ proj1-c/
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
 │                                     #   fastapi·uvicorn(API), streamlit(HF Spaces 배포 UI) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
-│                                     #   gradio는 목록에 남아 있으나 미사용(2026-08-19 React 웹앱으로 대체)
 │
 ├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
 │                                     #   화면을 갖지 않는다. 앱 등 별도 클라이언트가 붙는 쪽
@@ -222,7 +221,8 @@ proj1-c/
 │
 ├── docs/
 │   ├── README.md
-│   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 프론트 내용과 합쳐 정리 예정
+│   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 화면 내용과 합쳐 정리 예정
+│   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (Streamlit·앱 공통)
 │   └── specs/
 │       ├── _example.md
 │       ├── api-layer.md              # FastAPI 엔드포인트 계약
@@ -232,19 +232,6 @@ proj1-c/
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
 │       └── tts-finetuning.md
-│
-├── frontend/                         # React + TypeScript 사용자 화면
-│   ├── README.md                      # 프론트 설치·실행·빌드·환경변수
-│   ├── docs/
-│   │   ├── README.md                  # 프론트 문서 목차
-│   │   ├── ux-ui-integration.md       # 화면 상태·API 경계·응답 변환 기준
-│   │   ├── ui-flow.md                 # 사용자 화면 흐름
-│   │   ├── screen-spec.md             # 화면별 요소·예외 처리
-│   │   ├── api-client.md              # API 호출 규칙
-│   │   ├── content-style.md           # 영어 문구·용어 통일 기준
-│   │   └── deployment.md              # 프론트 배포 방법
-│   └── src/
-│       └── README.md                  # 프론트 소스 파일 역할·주석 원칙
 │
 ├── mobile/                           # Flutter 모바일 앱 (iOS·Android)
 │   ├── README.md                      # 앱 구조·실행 방법·자주 겪는 문제
