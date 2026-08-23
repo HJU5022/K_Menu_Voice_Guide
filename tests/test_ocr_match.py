@@ -188,7 +188,7 @@ class MatchByLineTests(unittest.TestCase):
       2. 수식어는 그 줄에서만 뽑혀야 한다 (메뉴판 어딘가의 "해물"이 비빔밥에 붙으면 안 된다)
     """
 
-    FOODS = _menu_foods("만두", "칼국수", "비빔밥")
+    FOODS = _menu_foods("만두", "칼국수", "비빔밥", "김치찌개")
     MODIFIERS = [
         {"keyword": "해물", "category": "ingredient", "keyword_en": "Seafood", "spice_tier": None},
         {"keyword": "물", "category": "ingredient", "keyword_en": "Water", "spice_tier": None},
@@ -246,6 +246,28 @@ class MatchByLineTests(unittest.TestCase):
         self.assertEqual(
             [c["menu_text"] for c in self.by_line()],
             ["물만두 5,000", "군만두 6,000", "해물칼국수 8,000", "비빔밥 9,000"],
+        )
+
+    def test_shop_name_on_the_sign_is_not_a_menu_line(self):
+        """간판의 가게 이름은 후보가 되면 안 된다 — 같은 이름이 메뉴에도 있어도.
+
+        실기기 확인에서 나온 회귀다. "연정김치찌개" 간판이 걸린 메뉴판에서 김치찌개
+        후보가 셋(간판 + 메뉴 두 줄) 나왔다. 간판을 거르는 검사가 "이 이름을 담은
+        상자 중 하나라도 메뉴 줄이면 통과"라, 줄 단위로 부를 때 판정 대상까지 사진
+        전체로 넘기면 간판 줄이 **다른 줄 덕분에** 살아남는다.
+        """
+        boxes = [
+            # 간판: 유난히 크고, 사진 맨 위이고, 가격이 없다.
+            (10, 5, 400, 60, "연정김치찌개", 0.99),
+            (10, 120, 300, 24, "쌈싸먹는 김치찌개 7,000원", 0.99),
+            (10, 170, 300, 24, "쌈싸먹는 꽁치김치찌개 7,000원", 0.99),
+        ]
+
+        result = self.by_line(boxes)
+
+        self.assertEqual(
+            [c["menu_text"] for c in result],
+            ["쌈싸먹는 김치찌개 7,000원", "쌈싸먹는 꽁치김치찌개 7,000원"],
         )
 
     def test_one_line_does_not_produce_the_same_food_twice(self):
