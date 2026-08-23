@@ -94,8 +94,29 @@ class CandidateSource {
   final double height;
 }
 
+/// 장바구니에 담을 수 있는 것 — 안내 가능한 후보이든, 이름·가격만 아는 줄이든.
+///
+/// 담기 요청이 서버에 보내는 값이 같아서 하나로 묶었다. 등록되지 않은 메뉴는
+/// [foodId]가 null이고, 그때는 [menuText]가 유일한 신원이 된다.
+abstract interface class CartAddable {
+  int? get foodId;
+  String get cartNameKr;
+  String get cartNameEn;
+  int? get priceKrw;
+  String? get menuText;
+
+  /// 사진에서 이 줄이 나온 자리. 사진 위 상자를 그리는 데 쓴다.
+  CandidateSource? get source;
+
+  /// 메뉴판에서 위에서부터 센 줄 번호. 목록을 메뉴판 순서로 늘어놓을 때 쓴다.
+  int get lineNo;
+
+  /// 장바구니에서 이 줄을 가리키는 신원. 서버가 묶는 기준과 같아야 한다.
+  String get lineKey;
+}
+
 /// OCR이 찾아낸 음식 후보 하나.
-class Candidate {
+class Candidate implements CartAddable {
   Candidate({
     required this.foodId,
     required this.nameKr,
@@ -107,6 +128,7 @@ class Candidate {
     required this.thumbnailAttribution,
     required this.menuText,
     required this.source,
+    required this.rawLineNo,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> json) {
@@ -126,10 +148,13 @@ class Candidate {
       source: json['source'] == null
           ? null
           : CandidateSource.fromJson(json['source'] as Map<String, dynamic>),
+      rawLineNo: json['line_no'] as int?,
     );
   }
 
+  @override
   final int foodId;
+
   final String nameKr;
   final String nameEn;
 
@@ -146,6 +171,7 @@ class Candidate {
 
   /// 위 값의 계산용 원본(원 단위 정수). 장바구니에 담을 때 서버로 실어 보낸다 —
   /// 사진마다 값이 달라서 서버가 food_id로 되찾아올 수 있는 값이 아니다.
+  @override
   final int? priceKrw;
 
   /// 음식 대표 사진 주소. 서버가 완전한 URL로 준다(apiBaseUrl을 붙이지 않는다).
@@ -160,12 +186,27 @@ class Candidate {
   /// 서버가 메뉴판을 줄 단위로 매칭하므로 **같은 foodId가 여러 번 올 수 있다** —
   /// "물만두"와 "군만두"는 둘 다 만두다. 목록에서 후보를 구분하는 건 이 값이지
   /// foodId가 아니다. 좌표 없이 매칭된 경우에는 null이다.
+  @override
   final String? menuText;
 
   /// 사진에서 이 후보가 나온 자리. 위치를 특정 못 했으면 null이다.
+  @override
   final CandidateSource? source;
 
+  /// 서버가 준 줄 번호. 옛 응답에는 없어 null일 수 있다.
+  final int? rawLineNo;
+
+  @override
+  int get lineNo => rawLineNo ?? 0;
+
+  @override
+  String get cartNameKr => nameKr;
+
+  @override
+  String get cartNameEn => nameEn;
+
   /// 장바구니에서 이 후보를 가리키는 신원. 서버의 묶는 기준과 같아야 한다.
+  @override
   String get lineKey => '$foodId|${menuText ?? ''}';
 
   /// 가격을 아는 후보인지. 화면에서 가격 자리를 그릴지 판단할 때 쓴다.
@@ -175,21 +216,82 @@ class Candidate {
   bool get hasThumbnail => thumbnailUrl != null;
 }
 
+/// 등록 음식과 매칭되지 않은 메뉴 줄 — 설명은 없지만 이름·가격은 안다.
+///
+/// 등록 음식이 50개뿐이라 메뉴판의 대부분이 여기 해당한다(실측 22.9%만 매칭).
+/// 이걸 안 보여주면 여행자는 그 메뉴가 아예 없는 것처럼 본다. 주문 확인 화면의
+/// 목적(종업원에게 보여주기)은 설명 없이도 성립하므로, 담을 수 있게 한다.
+class UnsupportedMenuLine implements CartAddable {
+  UnsupportedMenuLine({
+    required this.lineNo,
+    required this.menuText,
+    required this.priceKrw,
+    required this.priceDisplay,
+    required this.source,
+  });
+
+  factory UnsupportedMenuLine.fromJson(Map<String, dynamic> json) {
+    return UnsupportedMenuLine(
+      lineNo: json['line_no'] as int,
+      menuText: json['menu_text'] as String,
+      priceKrw: json['price_krw'] as int,
+      priceDisplay: json['price_krw_display'] as String,
+      source: json['source'] == null
+          ? null
+          : CandidateSource.fromJson(json['source'] as Map<String, dynamic>),
+    );
+  }
+
+  @override
+  final int lineNo;
+
+  @override
+  final String menuText;
+
+  @override
+  final int? priceKrw;
+
+  final String priceDisplay;
+
+  @override
+  final CandidateSource? source;
+
+  /// 등록된 음식이 아니므로 번호가 없다.
+  @override
+  int? get foodId => null;
+
+  // 이름 자리에 메뉴판 글자를 그대로 쓴다. 주문 화면에서 종업원이 읽을 줄이라
+  // 지어낸 이름보다 인쇄된 글자가 정확하다.
+  @override
+  String get cartNameKr => menuText;
+
+  @override
+  String get cartNameEn => menuText;
+
+  @override
+  String get lineKey => '0|$menuText';
+}
+
 /// `POST /api/analyze`의 응답.
 class AnalyzeResult {
   AnalyzeResult({
     required this.status,
     required this.ocrText,
     required this.candidates,
+    required this.unsupportedLines,
   });
 
   factory AnalyzeResult.fromJson(Map<String, dynamic> json) {
     final rawCandidates = json['candidates'] as List<dynamic>;
+    final rawLines = (json['unsupported_lines'] as List<dynamic>?) ?? const [];
     return AnalyzeResult(
       status: json['status'] as String,
       ocrText: json['ocr_text'] as String,
       candidates: rawCandidates
           .map((item) => Candidate.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      unsupportedLines: rawLines
+          .map((item) => UnsupportedMenuLine.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -207,7 +309,22 @@ class AnalyzeResult {
 
   final List<Candidate> candidates;
 
-  bool get isSuccess => status == 'candidates_found' && candidates.isNotEmpty;
+  /// 안내는 못 하지만 이름·가격은 아는 줄들.
+  final List<UnsupportedMenuLine> unsupportedLines;
+
+  /// 화면에 늘어놓을 메뉴 줄 전체 — 메뉴판에 인쇄된 순서 그대로.
+  ///
+  /// 서버가 둘을 따로 보내는 건 웹앱이 candidates만 알기 때문이다. 앱은 둘을 합쳐
+  /// `line_no` 순으로 늘어놓아야 화면이 실제 메뉴판과 같은 순서가 된다.
+  List<CartAddable> get menuEntries {
+    final entries = <CartAddable>[...candidates, ...unsupportedLines];
+    entries.sort((a, b) => a.lineNo.compareTo(b.lineNo));
+    return entries;
+  }
+
+  /// 보여줄 줄이 하나라도 있으면 성공이다 — 설명을 못 하는 줄이라도 담을 수는 있다.
+  bool get isSuccess =>
+      candidates.isNotEmpty || unsupportedLines.isNotEmpty;
 
   /// 글자는 읽혔지만 등록된 음식이 없는 경우. 안내 문구가 ocrEmpty와 달라야 해서
   /// 따로 구분한다(EC-03 vs EC-04).
@@ -500,7 +617,7 @@ Future<CartState> fetchCart() {
 /// 가격을 같이 보내는 이유: 이 값은 DB가 아니라 **그 메뉴판 사진에서 읽은 값**이라
 /// 서버가 food_id만으로 되찾아올 수 없다.
 Future<CartState> changeCartItem(
-  Candidate candidate, {
+  CartAddable item, {
   required int quantityDelta,
 }) {
   return _cartRequest(
@@ -508,12 +625,12 @@ Future<CartState> changeCartItem(
       Uri.parse('$apiBaseUrl/api/cart/items'),
       headers: {'X-Cart-Id': cartId, 'Content-Type': 'application/json'},
       body: jsonEncode({
-        'food_id': candidate.foodId,
-        'name_kr': candidate.nameKr,
-        'name_en': candidate.nameEn,
-        'price_krw': candidate.priceKrw,
+        'food_id': item.foodId,
+        'name_kr': item.cartNameKr,
+        'name_en': item.cartNameEn,
+        'price_krw': item.priceKrw,
         // 서버가 줄을 구분하는 기준. 안 보내면 물만두와 군만두가 한 줄로 합쳐진다.
-        'menu_text': candidate.menuText,
+        'menu_text': item.menuText,
         'quantity_delta': quantityDelta,
       }),
     ),

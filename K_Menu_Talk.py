@@ -69,6 +69,8 @@ class Candidate(BaseModel):
     name_en: str
     score: int
     modifiers: dict
+    # 메뉴판에서 위에서부터 센 줄 번호. unsupported_lines와 섞어 정렬할 때 쓴다.
+    line_no: int | None = None
     thumbnail_url: str | None = None
     thumbnail_attribution: str | None = None
     # 이름이 여러 글자 상자에 걸쳐 잘리면 위치를 특정할 수 없어 null이 된다 —
@@ -84,10 +86,27 @@ class Candidate(BaseModel):
     menu_text: str | None = None
 
 
+class UnsupportedMenuLine(BaseModel):
+    """등록 음식과 매칭되지 않은 메뉴 줄 — 설명은 없지만 이름·가격은 보여줄 수 있다.
+
+    가격이 붙어 있는 줄만 담는다. 메뉴판에서 값이 적혀 있다는 건 "파는 것"이라는
+    가장 확실한 신호라, 가게 이름·전화번호·안내문을 걸러내는 기준이 된다.
+    """
+
+    line_no: int
+    menu_text: str
+    price_krw: int
+    price_krw_display: str
+    source: CandidateSource | None = None
+
+
 class AnalyzeResponse(BaseModel):
     status: str
     ocr_text: str
     candidates: list[Candidate]
+    # 안내 못 하는 메뉴 줄. candidates와 line_no로 순서를 맞춰 한 목록으로 늘어놓으면
+    # 메뉴판에 인쇄된 순서 그대로 보여줄 수 있다.
+    unsupported_lines: list[UnsupportedMenuLine] = []
 
 
 class FoodDetailResponse(BaseModel):
@@ -114,7 +133,8 @@ class SupportedFood(BaseModel):
 
 
 class CartItemChange(BaseModel):
-    food_id: int
+    # 등록되지 않은 메뉴는 food_id가 없다. 설명은 못 해도 담을 수는 있어야 한다.
+    food_id: int | None = None
     name_kr: str
     name_en: str
     # 메뉴판에 인쇄된 그 줄 글자(/api/analyze의 candidate.menu_text). 카트가 줄을
@@ -127,7 +147,7 @@ class CartItemChange(BaseModel):
 
 
 class CartLine(BaseModel):
-    food_id: int
+    food_id: int | None = None
     name_kr: str
     name_en: str
     menu_text: str | None = None

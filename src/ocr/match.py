@@ -417,8 +417,30 @@ def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
     순서는 메뉴판을 읽는 순서(위→아래)다. 점수순으로 섞으면 화면의 카드 순서가
     실제 메뉴판과 어긋나서, 사용자가 눈으로 대조하기 어려워진다.
     """
-    candidates = []
-    for row in group_boxes_into_row_groups(boxes):
+    return scan_menu_lines(boxes)[0]
+
+
+def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
+    """메뉴판을 줄 단위로 훑어 **안내 가능한 후보**와 **그러지 못한 메뉴 줄**을 함께 돌려준다.
+
+    등록 음식이 50개뿐이라 메뉴판 대부분은 매칭되지 않는다 — 실측(메뉴판 10,005장,
+    음료·주류 제외) 결과 안내 가능한 줄은 **22.9%**뿐이었다. 매칭 안 된 줄을 버리면
+    메뉴판의 대부분이 화면에서 사라져, 여행자는 그 메뉴가 존재하지 않는 것처럼 본다.
+
+    설명을 못 해도 **이름과 가격은 보여줄 수 있다.** 이 앱의 주문 확인 화면은
+    종업원에게 "이거 주세요"를 보여주는 자리이고, 그건 음식 설명 없이도 성립한다.
+
+    다만 메뉴판에는 가게 이름·전화번호·원산지 표시 같은 줄도 있다. 그런 걸 다 내보내면
+    목록이 쓰레기로 찬다. **가격이 붙어 있는 줄만** 메뉴로 본다 — 메뉴판에서 값이
+    적혀 있다는 건 "파는 것"이라는 가장 확실한 신호다.
+
+    반환: (후보 목록, 안내 못 하는 메뉴 줄 목록). 둘 다 `line_no`(위에서부터 센 줄
+    번호)를 달고 있어, 화면이 둘을 합쳐 메뉴판 순서대로 늘어놓을 수 있다.
+    """
+    candidates: list[dict] = []
+    unsupported: list[dict] = []
+
+    for line_no, row in enumerate(group_boxes_into_row_groups(boxes)):
         line = row_text(row)
         if not line:
             continue
@@ -431,12 +453,50 @@ def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
         seen: dict[int, dict] = {}
         for candidate in matches:
             candidate["menu_text"] = line
+            candidate["line_no"] = line_no
             kept = seen.get(candidate["food_id"])
             if kept is None or candidate["score"] > kept["score"]:
                 seen[candidate["food_id"]] = candidate
-        candidates.extend(seen.values())
 
-    return candidates
+        if seen:
+            candidates.extend(seen.values())
+            continue
+
+        line_only = _unsupported_menu_line(line, row, boxes, line_no)
+        if line_only is not None:
+            unsupported.append(line_only)
+
+    return candidates, unsupported
+
+
+def _unsupported_menu_line(
+    line: str,
+    row: list[TextBox],
+    boxes: list[TextBox],
+    line_no: int,
+) -> dict | None:
+    """매칭되지 않은 줄을 '안내 없는 메뉴'로 내보낼지 판단하고, 내보낼 모양으로 만든다.
+
+    가격이 없으면 메뉴 줄로 보지 않는다(가게 이름·안내문·전화번호). 안내 문구·원산지
+    표시로 이미 걸러지는 줄도 제외한다 — 그 판정은 [_is_non_menu_box]가 한다.
+    """
+    prices = find_prices(line)
+    if not prices:
+        return None
+    if all(_is_non_menu_box(box, boxes) for box in row):
+        return None
+
+    price_krw = prices[-1][2]  # 한 줄에 값이 여럿이면(小/大) 가장 뒤가 그 줄의 값이다
+    # 이름 쪽 상자를 위치 표시에 쓴다 — 가격 상자에 상자를 그리면 엉뚱한 곳을 가리킨다.
+    name_box = next((box for box in row if not find_prices(box[4])), row[0])
+    return {
+        "line_no": line_no,
+        "menu_text": line,
+        "price_krw": price_krw,
+        "price_krw_display": format_price_krw(price_krw),
+        "source_text": name_box[4],
+        "source_box": tuple(name_box[:4]),
+    }
 
 
 def match_food(text: str) -> dict | None:

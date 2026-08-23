@@ -67,7 +67,7 @@ def _build_state(cart_id: str, items: list[dict]) -> dict:
     }
 
 
-def _line_key(food_id: int, menu_text: str | None) -> tuple[int, str]:
+def _line_key(food_id: int | None, menu_text: str | None) -> tuple[int, str]:
     """카트에서 한 줄을 가리키는 신원.
 
     food_id만으로 묶으면 안 된다. 메뉴판에 "물만두 5,000"과 "군만두 6,000"이 따로
@@ -79,8 +79,11 @@ def _line_key(food_id: int, menu_text: str | None) -> tuple[int, str]:
 
     menu_text가 없으면(좌표 없이 매칭된 옛 경로) food_id만으로 묶는다 — 그 경우엔
     애초에 줄 구분 정보가 없으므로 예전과 같게 동작하는 게 맞다.
+
+    등록되지 않은 메뉴는 food_id가 없다(None). 설명은 못 해도 담을 수는 있어야 해서
+    받아주고, 그때는 menu_text가 유일한 신원이 된다 — 그래서 food_id 자리에 0을 둔다.
     """
-    return (food_id, menu_text or "")
+    return (food_id or 0, menu_text or "")
 
 
 def get_cart(cart_id: str) -> dict:
@@ -91,7 +94,7 @@ def get_cart(cart_id: str) -> dict:
 def change_quantity(
     cart_id: str,
     *,
-    food_id: int,
+    food_id: int | None,
     name_kr: str,
     name_en: str,
     price_krw: int | None,

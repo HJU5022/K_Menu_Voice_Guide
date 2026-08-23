@@ -164,7 +164,12 @@ class AnalyzeEndpointTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "ocr_empty", "ocr_text": "", "candidates": []})
+        self.assertEqual(
+            response.json(),
+            # unsupported_lines는 안내 못 하는 메뉴 줄을 담는 자리다. 글자를 아예
+            # 못 읽었으면 그것도 비어 있다.
+            {"status": "ocr_empty", "ocr_text": "", "candidates": [], "unsupported_lines": []},
+        )
 
 
 class FoodDetailEndpointTests(unittest.TestCase):
