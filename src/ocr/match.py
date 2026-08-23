@@ -104,7 +104,11 @@ def _extract_modifiers(normalized_text: str, matched_name: str) -> tuple[list[di
             continue
 
         if row["category"] == "spice":
-            spice_hits.append({"keyword": keyword, "tier": row["spice_tier"]})
+            # keyword_en을 같이 싣는다 — 화면에 보여줄 사람은 한국어를 못 읽는
+            # 여행자다. DB(menu_modifiers)에는 이미 있는데 여기서 버리고 있었다.
+            spice_hits.append(
+                {"keyword": keyword, "keyword_en": row["keyword_en"], "tier": row["spice_tier"]}
+            )
         else:
             ingredient_hits.append({"keyword": keyword, "keyword_en": row["keyword_en"]})
 
