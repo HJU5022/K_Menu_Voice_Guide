@@ -30,6 +30,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../korean_speaker.dart';
 import 'menu_photo_overlay.dart';
 import 'detail_screen.dart';
 import 'order_summary_screen.dart';
@@ -72,6 +73,13 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
   void initState() {
     super.initState();
     _runCartRequest(fetchCart);
+  }
+
+  @override
+  void dispose() {
+    // 안 멈추면 다음 화면으로 넘어간 뒤에도 계속 말한다.
+    koreanSpeaker.stop();
+    super.dispose();
   }
 
   Future<void> _runCartRequest(Future<CartState> Function() request) async {
@@ -295,6 +303,12 @@ class _CandidateCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
+                    // 메뉴판 이름 앞에 붙어 있던 재료·맵기. 같은 "김치찌개" 두 개를
+                    // 가르는 유일한 단서가 이것뿐일 때가 있다(꽁치김치찌개).
+                    if (candidate.modifiers.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _ModifierBadges(modifiers: candidate.modifiers),
+                    ],
                     // 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 —
                     // 없는 가격을 "가격 미상" 같은 문구로 채우면 화면만 시끄럽다.
                     if (candidate.hasPrice) ...[
@@ -327,6 +341,7 @@ class _CandidateCard extends StatelessWidget {
                   ],
                 ),
               ),
+              _SpeakButton(text: candidate.menuText ?? candidate.nameKr),
               _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
             ],
           ),
@@ -403,10 +418,62 @@ class _UnsupportedCard extends StatelessWidget {
                 ],
               ),
             ),
+            _SpeakButton(text: line.menuText),
             _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 메뉴판 글자를 한국어로 읽어주는 버튼.
+///
+/// 설명이 없는 메뉴에서 특히 값어치가 있다 — 두루치기가 무엇인지는 못 알려줘도
+/// "두루치기"라고 소리 내주면 종업원에게 말할 수 있다. 소리를 내는 건 우리
+/// TTS 모델이 아니라 기기 기본 음성이다([KoreanSpeaker] 설명 참고).
+class _SpeakButton extends StatelessWidget {
+  const _SpeakButton({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () => koreanSpeaker.speak(text),
+      icon: const Icon(Icons.volume_up_outlined),
+      tooltip: 'Hear it in Korean',
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+/// 수식어 배지들.
+class _ModifierBadges extends StatelessWidget {
+  const _ModifierBadges({required this.modifiers});
+
+  final List<Modifier> modifiers;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        for (final modifier in modifiers)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              modifier.label,
+              style: TextStyle(fontSize: 11, color: scheme.onSecondaryContainer),
+            ),
+          ),
+      ],
     );
   }
 }

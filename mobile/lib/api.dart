@@ -94,6 +94,33 @@ class CandidateSource {
   final double height;
 }
 
+/// 메뉴판 이름 앞에 붙어 있던 수식어 하나 (예: "꽁치김치찌개"의 `꽁치`).
+///
+/// 등록 음식은 50개뿐이라 "김치찌개"까지밖에 못 알아보는데, 메뉴판에는 그 앞에
+/// 재료나 맵기가 붙어 있는 일이 많다. 그 한 마디가 있어야 여행자가 같은 이름의 두
+/// 메뉴를 구분할 수 있다 — 실제 메뉴판에서 "쌈싸먹는 김치찌개"와 "쌈싸먹는
+/// 꽁치김치찌개"가 나란히 있었고 **가격도 둘 다 7,000원**이었다.
+///
+/// 줄 단위 매칭 전에는 이 값이 97% 틀린 메뉴에 붙어서 화면에 그릴 수 없었다.
+class Modifier {
+  Modifier({required this.keyword, required this.keywordEn});
+
+  factory Modifier.fromJson(Map<String, dynamic> json) {
+    return Modifier(
+      keyword: json['keyword'] as String,
+      keywordEn: json['keyword_en'] as String?,
+    );
+  }
+
+  /// 메뉴판에 인쇄된 한국어 그대로(`꽁치`).
+  final String keyword;
+
+  /// 영어 표기(`Saury`). 화면에 보여줄 사람은 한국어를 못 읽으므로 이쪽을 쓴다.
+  final String? keywordEn;
+
+  String get label => keywordEn ?? keyword;
+}
+
 /// 장바구니에 담을 수 있는 것 — 안내 가능한 후보이든, 이름·가격만 아는 줄이든.
 ///
 /// 담기 요청이 서버에 보내는 값이 같아서 하나로 묶었다. 등록되지 않은 메뉴는
@@ -129,7 +156,16 @@ class Candidate implements CartAddable {
     required this.menuText,
     required this.source,
     required this.rawLineNo,
+    required this.spiceModifiers,
+    required this.ingredientModifiers,
   });
+
+  static List<Modifier> _modifiers(Map<String, dynamic> json, String key) {
+    final raw = (json['modifiers'] as Map<String, dynamic>?)?[key] as List<dynamic>?;
+    return (raw ?? const [])
+        .map((item) => Modifier.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
 
   factory Candidate.fromJson(Map<String, dynamic> json) {
     return Candidate(
@@ -149,6 +185,8 @@ class Candidate implements CartAddable {
           ? null
           : CandidateSource.fromJson(json['source'] as Map<String, dynamic>),
       rawLineNo: json['line_no'] as int?,
+      spiceModifiers: _modifiers(json, 'spice'),
+      ingredientModifiers: _modifiers(json, 'ingredient'),
     );
   }
 
@@ -195,6 +233,15 @@ class Candidate implements CartAddable {
 
   /// 서버가 준 줄 번호. 옛 응답에는 없어 null일 수 있다.
   final int? rawLineNo;
+
+  /// 이 줄에 붙어 있던 맵기 수식어(`매운` → Hot).
+  final List<Modifier> spiceModifiers;
+
+  /// 이 줄에 붙어 있던 재료 수식어(`꽁치` → Saury).
+  final List<Modifier> ingredientModifiers;
+
+  /// 화면에 배지로 그릴 수식어. 맵기를 앞에 둔다 — 못 먹는 사람에게 더 급한 정보다.
+  List<Modifier> get modifiers => [...spiceModifiers, ...ingredientModifiers];
 
   @override
   int get lineNo => rawLineNo ?? 0;
