@@ -1,0 +1,73 @@
+# Spec — FastAPI Space 배포 (Dockerfile)
+
+## Why
+
+- **페르소나**: 배포를 맡은 정운, 그리고 이 API를 부르는 두 클라이언트 — 웹(Streamlit Space)과 모바일 앱(`mobile/lib/api.dart`).
+- **상황**: 배포 구조를 확정했다(2026-08-23) — 계산은 **FastAPI Space(GPU) 한 곳**에 몰고, 웹은 무료 CPU Space에서, 앱은 `config.dart` 주소만 바꿔 같은 API를 부른다. GPU 실측(RTX 3080 Ti)에서 OCR이 92상자 기준 CPU 22.8초 → GPU 0.8초로 확인돼 계산은 GPU가 필수다.
+- **문제**:
+  1. HF Spaces에 FastAPI 전용 SDK가 없다 — **Docker Space**로 올려야 하는데 저장소에 Dockerfile이 없다.
+  2. TTS 워커(`src/tts/worker.py`)는 Windows/맥의 paddle·torch DLL 충돌 때문에 **별도 가상환경의 파이썬**(`_TTS_PYTHON`, 기본값 `.venv-tts/Scripts/python.exe`)으로 뜨게 되어 있다. 리눅스 컨테이너에는 이 충돌이 없지만, 기본값이 Windows 경로라 그대로는 워커가 시작조차 못 한다.
+- **측정 지표**: Space에 올린 컨테이너에서 `/api/analyze`와 `/api/foods/{id}`가 GPU로 정상 응답하는지, 아래 AC로 검증한다.
+
+## Goal
+
+- **해결 목표**: 저장소 루트의 `Dockerfile`(+`.dockerignore`) 하나로 `K_Menu_Talk.py`가 HF Docker Space(T4 small)에서 뜨게 한다.
+- **성공 기준**:
+  1. `src/`와 `K_Menu_Talk.py`를 **한 줄도 수정하지 않는다** — 환경 차이는 전부 Dockerfile의 환경변수로 흡수한다.
+  2. 컨테이너 안에서 paddle이 GPU를 잡는다 (`paddle.device.get_device()` → `gpu:0`).
+  3. TTS 워커가 서버와 같은 파이썬으로 떠서 음성을 생성한다 (`tts_status: "ok"`).
+  4. 비밀값(Supabase 키)이 이미지에 들어가지 않는다 — Space **Secrets**로만 주입한다.
+- **Out of Scope**:
+  - **Streamlit Space 배포** — Streamlit SDK Space는 Dockerfile 없이 `requirements.txt`로 뜬다. `app.py`의 HTTP 전환은 `docs/specs/streamlit-app.md`가 다룬다.
+  - HF Space 생성·하드웨어 선택·Secrets 등록의 **수행 절차 자체** (이 Spec은 무엇이 필요한지만 명시한다).
+  - 모바일 `config.dart` 주소 변경, 모델 가중치 사전 캐싱(빌드타임 다운로드) 최적화, CI/CD.
+
+## What
+
+**Happy Path**
+
+1. Space(Docker SDK, T4 small)에 저장소를 푸시하면 Dockerfile로 이미지가 빌드된다.
+2. 컨테이너가 뜨고 uvicorn이 7860 포트에서 `K_Menu_Talk:app`을 서빙한다.
+3. 첫 부팅 때 모델을 허브에서 내려받는다 — OCR 기본 2종(PaddleX), 파인튜닝 OCR(`k-bite-team/K_Bite_OCR`), TTS(`Qwen/Qwen3-TTS-12Hz-1.7B-Base` + `k-bite-team/k-menu-qwen3-tts-lora`).
+4. 웹·앱이 `/api/analyze` → `/api/foods/{id}`를 호출해 결과와 음성 URL(`/audio/...`)을 받는다.
+
+**Edge Cases**
+
+| # | 상황 | 처리 방식 |
+|---|---|---|
+| EC-01 | Space Secrets에 Supabase 키가 등록 안 됨 | 음식 DB를 읽는 API가 5xx로 실패한다. Dockerfile은 관여하지 않는다 — 필요한 Secrets 목록을 How에 명시하고, Space 생성 시 등록한다 |
+| EC-02 | 잠자기에서 깨어나는 중(콜드스타트) | 빌드·모델 로딩이 끝날 때까지 응답하지 못한다. 시연 전에 미리 켜서 요청 한 번으로 웜업한다(운영 절차, 코드 아님) |
+| EC-03 | Space 재시작으로 모델 캐시 소실 | 허브에서 다시 내려받는다 — 부팅이 느려질 뿐 실패가 아니다. 영구 스토리지는 쓰지 않는다 |
+| EC-04 | TTS LoRA 저장소가 비공개로 전환됨 | 다운로드 401 → TTS만 `not_ready`로 내려앉는다(기존 텍스트 우선 동작). 이 경우 `HF_TOKEN`을 Secrets에 추가한다 |
+
+## How
+
+- **대상 파일**: 저장소 루트 `Dockerfile`, `.dockerignore`. 그 외 파일은 만들지도 고치지도 않는다.
+- **HF Docker Space 규칙**: 컨테이너는 **uid 1000 비루트**로 실행되고, 웹서버는 **7860 포트**를 서빙해야 한다. Space 저장소 README 메타데이터에 `sdk: docker`, `app_port: 7860`을 넣는다(Space 생성 단계).
+- **베이스 이미지**: `python:3.11-slim` — 로컬 개발 환경과 같은 3.11. GPU 라이브러리는 `requirements.txt`의 `paddlepaddle-gpu`(cu129)가 pip으로 함께 끌어오므로 CUDA 베이스 이미지가 필요 없다.
+- **시스템 패키지**: `libgl1`, `libglib2.0-0`, `libgomp1` — opencv가 slim 이미지에서 요구하는 것만.
+- **TTS 워커**: `ENV TTS_VENV_PYTHON=python3` — `src/pipeline.py`가 이 환경변수를 우선 읽으므로(31행) 코드 수정 없이 서버와 같은 파이썬으로 워커가 뜬다. 별도 venv는 Windows/맥 DLL 충돌 회피용이라 리눅스에선 불필요하다.
+- **Space Secrets**(이미지·저장소에 넣지 않는다): `SUPABASE_URL`, `SUPABASE_ANON_KEY`. TTS LoRA 저장소가 비공개면 `HF_TOKEN` 추가(EC-04).
+- **`.dockerignore`**: `.env`(비밀값 — 반드시), `.venv*`, `mobile/`, `docs/`, `tests/`, `logs/`, `static/`, git 메타 — 빌드 컨텍스트와 이미지에서 제외한다.
+
+## AC
+
+**AC-01 · GPU 인식**
+- GIVEN: T4 Space에서 컨테이너가 부팅을 마쳤다.
+- WHEN: 컨테이너 안에서 `paddle.device.get_device()`를 확인한다.
+- THEN: `gpu:0`이다.
+
+**AC-02 · 분석 API 정상 응답**
+- GIVEN: Secrets가 등록돼 있고 Space가 깨어 있다.
+- WHEN: 메뉴판 사진을 `POST /api/analyze`로 보낸다.
+- THEN: 응답 200과 `status: candidates_found`, 후보 목록을 받는다.
+
+**AC-03 · TTS 생성**
+- GIVEN: Space가 깨어 있다.
+- WHEN: `GET /api/foods/{food_id}`를 호출한다.
+- THEN: `tts_status: "ok"`이고 `narration_audio_path`의 `/audio/...` URL에서 음성이 재생된다.
+
+**AC-04 · 이미지에 비밀값 없음**
+- GIVEN: Dockerfile로 이미지를 빌드했다.
+- WHEN: 이미지 파일시스템에서 `.env`를 찾는다.
+- THEN: 존재하지 않는다 (`.dockerignore`가 제외).
