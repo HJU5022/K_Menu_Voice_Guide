@@ -160,7 +160,14 @@ def screen_result() -> None:
         with st.container(border=True):
             st.markdown(f"**{title}**")
             text = guide["details"].get(category, "")
-            st.warning(text) if is_warning else st.write(text)
+            # if문으로 쓴다 — 삼항 표현식으로 두면 Streamlit의 magic(한 줄에 남은 값을
+            # 자동 출력하는 기능)이 그 반환값까지 화면에 그린다. st.write()는 None이라
+            # "None" 배지가, st.warning()은 내부 객체라 Streamlit API 설명서 표가 통째로
+            # 카드 안에 렌더링됐다(실측 2026-08-24).
+            if is_warning:
+                st.warning(text)
+            else:
+                st.write(text)
 
     st.button("Take a new photo", on_click=_reset)
 
