@@ -51,7 +51,7 @@ class OcrInferTests(unittest.TestCase):
                 infer, "preprocess_image_with_mapping", return_value=(processed_image, IDENTITY_MAPPING)
             ) as mock_preprocess,
             patch.object(infer, "_load_det_engine", return_value=detector),
-            patch.object(infer, "_recognize_crop_with_score", return_value=("비빔밥", 1.0)),
+            patch.object(infer, "_recognize_crops", return_value=[("비빔밥", 1.0)]),
             patch.object(infer.cv2, "imread", return_value=raw_image) as mock_imread,
         ):
             result = infer.recognize("menu.jpg")
@@ -99,14 +99,11 @@ class OcrInferTests(unittest.TestCase):
         def fake_rotate(_crop, rotation_code):
             return cw_marker if rotation_code == infer.cv2.ROTATE_90_CLOCKWISE else ccw_marker
 
-        def fake_imencode(_ext, image):
-            return True, image  # 실제 cv2.imencode처럼 .tobytes()를 가진 버퍼를 돌려준다
-
-        def fake_recognize_with_score(image_bytes):
+        def fake_recognize_crops(crops):
             # 시계방향으로 돌린 쪽만 신뢰도를 높게 준다 — 그쪽이 채택돼야 한다
-            if image_bytes == cw_marker.tobytes():
-                return "삼겹살", 0.95
-            return "wrong", 0.10
+            return [
+                ("삼겹살", 0.95) if crop is cw_marker else ("wrong", 0.10) for crop in crops
+            ]
 
         with (
             patch.object(
@@ -114,8 +111,7 @@ class OcrInferTests(unittest.TestCase):
             ),
             patch.object(infer, "_load_det_engine", return_value=detector),
             patch.object(infer.cv2, "rotate", side_effect=fake_rotate),
-            patch.object(infer.cv2, "imencode", side_effect=fake_imencode),
-            patch.object(infer, "_recognize_crop_with_score", side_effect=fake_recognize_with_score),
+            patch.object(infer, "_recognize_crops", side_effect=fake_recognize_crops),
         ):
             result = infer.recognize("menu.jpg")
 
@@ -140,14 +136,15 @@ class OcrInferTests(unittest.TestCase):
             ),
             patch.object(infer, "_load_det_engine", return_value=detector),
             patch.object(
-                infer, "_recognize_crop_with_score", return_value=("비빔밥", 1.0)
-            ) as mock_with_score,
+                infer, "_recognize_crops", return_value=[("비빔밥", 1.0)]
+            ) as mock_recognize,
             patch.object(infer.cv2, "rotate") as mock_rotate,
         ):
             result = infer.recognize("menu.jpg")
 
         self.assertEqual(result, "비빔밥")
-        mock_with_score.assert_called_once()  # 그냥 한 번 읽고 끝
+        # 조각 하나만 넘어가야 한다 — 회전본까지 넣었으면 두 장이 된다
+        self.assertEqual(len(mock_recognize.call_args.args[0]), 1)
         mock_rotate.assert_not_called()       # 회전·비교 경로는 안 탔어야 한다
 
 
