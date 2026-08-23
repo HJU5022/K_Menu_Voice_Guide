@@ -1,6 +1,6 @@
 # K-Menu Voice Guide — TTS 모듈 (Qwen3-TTS 1.7B LoRA)
 
-담당: TTS 파트
+담당: 박민영
 베이스 모델: `Qwen/Qwen3-TTS-12Hz-1.7B-Base`
 최종 배포: [huggingface.co/k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora)
 
