@@ -1,5 +1,19 @@
 # 버전은 실제 설치 후 `pip freeze`로 고정할 것 (지금은 목록만)
 
+# Paddle 본체 — paddleocr이 이걸 자동으로 끌어오지 않는다(pip show paddleocr의 Requires에
+# 없음). 빠져 있으면 새 환경에서 `import paddle`부터 실패한다. 지금까지는 손으로 따로
+# 깔아서 돌아갔다.
+#
+# GPU 빌드는 PyPI에 없고 Paddle 자체 서버에서 CUDA 버전별로 받는다. cu129는 HF Spaces의
+# T4와 RTX 30/50번대 모두에 맞는다 — RTX 50번대(Blackwell)는 CUDA 12.8 미만을 지원하지
+# 않으므로 cu118·cu126을 쓰면 설치는 되지만 GPU를 잡지 못한다.
+#
+# 맥(darwin)에는 CUDA가 없어 GPU 빌드를 깔 수 없으므로 CPU 빌드로 갈린다.
+# 두 빌드를 같은 환경에 함께 깔면 안 된다 — 같은 `paddle` 자리에 겹쳐 GPU를 못 잡는다.
+--extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu129/
+paddlepaddle-gpu==3.3.1; sys_platform != "darwin"
+paddlepaddle==3.3.1; sys_platform == "darwin"
+
 # OCR
 opencv-python
 paddleocr

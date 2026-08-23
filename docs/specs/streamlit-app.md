@@ -21,7 +21,7 @@
 - **Out of Scope**:
   - **디자인·CSS·테마** — 별도 작업이다. 이 Spec은 그 CSS가 붙을 **골격**까지만 다룬다.
   - `K_Menu_Talk.py` **삭제** — 모바일 앱이 쓰는 API 진입점이라 남긴다. (React 웹앱 `frontend/`는 2026-08-23에 제거했다 — 웹 화면은 이 Streamlit 하나다.)
-  - **배포 전 이식성 수정 3건**(별도 작업): ① `.gitignore`가 `static/`을 통째로 제외해 사전 생성 TTS 캐시가 저장소에 없음 ② `src/pipeline.py`의 `_TTS_PYTHON` 기본값이 Windows 전용 경로 ③ `requirements.txt`에 `paddlepaddle` 미기재·버전 핀 없음.
+  - **배포 전 이식성 수정 3건**(별도 작업): ① `.gitignore`가 `static/`을 통째로 제외해 사전 생성 TTS 캐시가 저장소에 없음 ② `src/pipeline.py`의 `_TTS_PYTHON` 기본값이 Windows 전용 경로 ③ ~~`requirements.txt`에 `paddlepaddle` 미기재·버전 핀 없음~~ — 2026-08-23 해결. `paddlepaddle-gpu==3.3.1`(cu129, 맥은 CPU 빌드로 갈림)을 명시했다.
   - HF Space 생성·하드웨어 설정·시크릿 등록, Flutter 클라이언트, 다국어.
 
 ## What
