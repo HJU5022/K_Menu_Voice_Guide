@@ -315,6 +315,34 @@ class ScanMenuLinesTests(unittest.TestCase):
             [("여름막국수 6,000원", 6000), ("두루치기(小) 12,000원", 12000)],
         )
 
+    def test_a_line_of_only_numbers_is_not_a_menu(self):
+        """숫자만 있는 줄은 메뉴가 아니다.
+
+        실기기 확인에서 나온 회귀다. 생맥주 용량 표기 "(500/1700/2700)"이 값 세
+        개로 읽혀 메뉴 카드로 올라왔고, 가격까지 ₩2,700으로 붙었다. 이름 없는
+        메뉴는 존재하지 않으므로 이름 유무가 가장 확실한 잣대다.
+        """
+        boxes = [
+            (10, 10, 320, 24, "쌈싸먹는 김치찌개 7,000원", 0.99),
+            (10, 60, 320, 24, "(500/1700/2700)", 0.99),
+            (10, 110, 320, 24, "3.5/11.0/18.0", 0.99),
+        ]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(unsupported, [])
+
+    def test_a_thousand_abbreviated_price_is_read(self):
+        """"13.0"은 13,000원이다 — 한국 메뉴판에서 흔한 축약 표기."""
+        boxes = [(10, 10, 320, 24, "모듬전 13.0", 0.99)]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(line["menu_text"], line["price_krw"]) for line in unsupported],
+            [("모듬전 13.0", 13000)],
+        )
+
     def test_lines_without_a_price_are_dropped(self):
         """가격이 없는 줄은 메뉴가 아니다 — 지자체 표기·전화번호·안내문."""
         _candidates, unsupported = self.scan(self.BOXES)

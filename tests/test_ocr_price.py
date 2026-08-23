@@ -8,6 +8,32 @@ import unittest
 from src.ocr import price
 
 
+class ThousandAbbreviatedPriceTests(unittest.TestCase):
+    """"13.0" = 13,000원 — 한국 메뉴판에서 천 단위를 줄여 적는 표기.
+
+    실측(강원 칠판 메뉴판)에서 한 가게 메뉴가 전부 이 표기였는데, 정규식이 점 뒤에
+    세 자리를 요구해 하나도 못 읽었다. 값이 틀린 게 아니라 통째로 비어 보였다.
+    """
+
+    def cases(self, text):
+        return [value for _start, _end, value in price.find_prices(text)]
+
+    def test_reads_one_decimal_digit_as_thousands(self):
+        self.assertEqual(self.cases("모듬전 13.0"), [13000])
+        self.assertEqual(self.cases("서울생 3.5"), [3500])
+
+    def test_reads_every_price_on_a_line(self):
+        self.assertEqual(self.cases("생맥주 3.5/11.0/18.0"), [3500, 11000, 18000])
+
+    def test_european_style_thousands_still_work(self):
+        """"9.000"은 세 자리라 기존 규칙이 처리한다 — 9원이 아니라 9,000원이다."""
+        self.assertEqual(self.cases("비빔밥 9.000"), [9000])
+
+    def test_ordinary_prices_are_unaffected(self):
+        self.assertEqual(self.cases("김치찌개 7,000원"), [7000])
+        self.assertEqual(self.cases("갈비탕 15000"), [15000])
+
+
 class FindPricesTests(unittest.TestCase):
     def test_finds_comma_formatted_price(self):
         result = price.find_prices("비빔밥9,000원")
