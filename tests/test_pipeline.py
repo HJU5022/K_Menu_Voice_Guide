@@ -336,7 +336,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         mock_create_tts_response.assert_not_called()
         mock_get_details.assert_not_called()
 
-    @patch("src.pipeline.match_food_candidates_by_line")
+    @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_ocr_empty_without_matching(self, mock_recognize_boxes_with_mapping, mock_match_candidates):
         """글자를 하나도 못 읽었으면(공백뿐) 매칭도 시도하지 않고 ocr_empty로 끝낸다."""
@@ -350,7 +350,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         )
         mock_match_candidates.assert_not_called()
 
-    @patch("src.pipeline.match_food_candidates_by_line")
+    @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_unsupported_food_with_ocr_text(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates
@@ -362,20 +362,25 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         """
         boxes = [(0, 0, 100, 20, "미지원음식")]
         mock_recognize_boxes_with_mapping.return_value = (boxes, IDENTITY_MAPPING)
-        mock_match_candidates.return_value = []
+        mock_match_candidates.return_value = ([], [])
 
         result = pipeline.analyze_image("dummy.jpg")
 
         self.assertEqual(
             result,
-            {"status": "unsupported_food", "ocr_text": "미지원음식", "candidates": []},
+            {
+                "status": "unsupported_food",
+                "ocr_text": "미지원음식",
+                "candidates": [],
+                "unsupported_lines": [],
+            },
         )
         # 줄 단위 매칭은 상자를 그대로 받는다 — 줄 나누기를 매칭 쪽이 한다.
         mock_match_candidates.assert_called_once_with(boxes)
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
-    @patch("src.pipeline.match_food_candidates_by_line")
+    @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_candidates_without_creating_response(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
@@ -397,7 +402,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
             (10, 200, 60, 22, "갈비"),
         ]
         mock_recognize_boxes_with_mapping.return_value = (boxes, IDENTITY_MAPPING)
-        mock_match_candidates.return_value = candidates
+        mock_match_candidates.return_value = (candidates, [])
 
         result = pipeline.analyze_image("dummy.jpg")
 
@@ -408,6 +413,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
                 "ocr_text": "닭갈비 9,000 갈비 12,000",
                 # match가 위치를 못 붙인 후보는 source가 null이다 (여기선 match를 mock했으므로)
                 "candidates": [{**candidate, "source": None} for candidate in candidates],
+                "unsupported_lines": [],
             },
         )
         # 좌표를 매칭 단계까지 그대로 넘겨야 줄을 나누고 가격을 위치로 짝지을 수 있다
@@ -417,7 +423,7 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
-    @patch("src.pipeline.match_food_candidates_by_line")
+    @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_converts_source_box_to_original_photo_ratios(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
@@ -431,16 +437,19 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
             [(100, 200, 300, 80, "비빔밥 9,000")],
             IDENTITY_MAPPING,  # 1000x1000 원본, 배율 1, 회전 없음
         )
-        mock_match_candidates.return_value = [
-            {
-                "food_id": 1,
-                "name_kr": "비빔밥",
-                "score": 95,
-                "modifiers": {},
-                "source_text": "비빔밥 9,000",
-                "source_box": (100, 200, 300, 80),
-            }
-        ]
+        mock_match_candidates.return_value = (
+            [
+                {
+                    "food_id": 1,
+                    "name_kr": "비빔밥",
+                    "score": 95,
+                    "modifiers": {},
+                    "source_text": "비빔밥 9,000",
+                    "source_box": (100, 200, 300, 80),
+                }
+            ],
+            [],
+        )
 
         candidate = pipeline.analyze_image("dummy.jpg")["candidates"][0]
 

@@ -25,21 +25,37 @@
 ///   가벼운 위젯으로 만든다.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../korean_speaker.dart';
+import 'menu_photo_overlay.dart';
 import 'detail_screen.dart';
 import 'order_summary_screen.dart';
 import 'settings_button.dart';
 
 class CandidatesScreen extends StatefulWidget {
-  const CandidatesScreen({super.key, required this.candidates});
+  const CandidatesScreen({
+    super.key,
+    required this.entries,
+    this.photo,
+  });
 
-  /// 촬영 화면이 넘겨준 후보 목록.
+  /// 사용자가 방금 찍은(또는 고른) 메뉴판 사진. 후보가 사진 어디에서 나왔는지
+  /// 상자로 표시하는 데 쓴다. 없으면 그 영역을 통째로 생략한다.
+  final File? photo;
+
+  /// 촬영 화면이 넘겨준 메뉴 줄 목록 — **메뉴판에 인쇄된 순서 그대로**.
+  ///
+  /// 안내 가능한 후보([Candidate])와 이름·가격만 아는 줄([UnsupportedMenuLine])이
+  /// 섞여 있다. 등록 음식이 50개뿐이라 메뉴판의 대부분이 후자인데(실측 22.9%만
+  /// 매칭), 그걸 빼면 여행자는 그 메뉴가 아예 없는 것처럼 본다.
   ///
   /// 목록 자체는 이 화면에서 바뀌지 않는다 — 분석 결과를 다시 부를 이유가 없다.
   /// 바뀌는 건 장바구니뿐이라, State가 드는 것도 장바구니뿐이다.
-  final List<Candidate> candidates;
+  final List<CartAddable> entries;
 
   @override
   State<CandidatesScreen> createState() => _CandidatesScreenState();
@@ -59,6 +75,13 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     _runCartRequest(fetchCart);
   }
 
+  @override
+  void dispose() {
+    // 안 멈추면 다음 화면으로 넘어간 뒤에도 계속 말한다.
+    koreanSpeaker.stop();
+    super.dispose();
+  }
+
   Future<void> _runCartRequest(Future<CartState> Function() request) async {
     try {
       final cart = await request();
@@ -74,16 +97,39 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
   }
 
   /// 이 후보가 지금 카트에 몇 개 담겨 있는지. 안 담겨 있으면 0.
-  int _quantityOf(Candidate candidate) {
+  ///
+  /// foodId만으로 찾으면 안 된다 — 물만두와 군만두는 foodId가 같아서, 하나를 담으면
+  /// 다른 카드의 수량까지 같이 올라간 것처럼 보인다. 서버가 묶는 기준과 똑같이
+  /// (foodId + 메뉴판 줄 글자)로 찾는다.
+  int _quantityOf(CartAddable entry) {
     for (final line in _cart?.items ?? const <CartLine>[]) {
-      if (line.foodId == candidate.foodId) return line.quantity;
+      if (line.lineKey == entry.lineKey) return line.quantity;
     }
     return 0;
   }
 
+  /// 목록 위에 두는 한 줄 안내.
+  ///
+  /// 사진 위에 상자가 안 붙은 후보가 있으면 그 수를 밝힌다. 상자가 2개인데 카드가
+  /// 6개면 "왜 4개는 표시가 없지?"가 되는데, 이름이 여러 글자 상자에 걸쳐 잘리면
+  /// 서버가 위치를 특정하지 못해 생기는 정상 동작이다. 말없이 두면 앱이 뭔가
+  /// 빠뜨린 것처럼 보인다.
+  String _summaryLine(List<CartAddable> entries) {
+    final dish = entries.length == 1 ? 'dish' : 'dishes';
+    final found = 'We found ${entries.length} $dish.';
+    if (widget.photo == null) return found;
+
+    final unpinned = entries.where((e) => e.source == null).length;
+    if (unpinned == 0) return '$found Each box shows what we read there.';
+
+    final it = unpinned == 1 ? 'one' : '$unpinned';
+    return '$found Each box shows what we read there — '
+        'we could not pin $it to a spot on the photo.';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final candidates = widget.candidates;
+    final entries = widget.entries;
     return Scaffold(
       appBar: AppBar(
         // 뒤로가기 버튼은 Navigator.push로 열린 화면에 자동으로 붙는다.
@@ -94,32 +140,47 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.photo != null) ...[
+            const SizedBox(height: 8),
+            MenuPhotoOverlay(photo: widget.photo!, entries: entries),
+            const SizedBox(height: 4),
+          ],
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Text(
-              candidates.length == 1
-                  ? 'We found 1 dish on this menu.'
-                  : 'We found ${candidates.length} dishes on this menu.',
+              _summaryLine(entries),
               style: const TextStyle(fontSize: 15, color: Colors.black54),
             ),
           ),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: candidates.length,
+              itemCount: entries.length,
               // separatorBuilder — 항목 사이마다 끼워 넣을 위젯.
               // 여기서는 간격만 준다.
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final candidate = candidates[index];
-                return _CandidateCard(
-                  candidate: candidate,
-                  quantity: _quantityOf(candidate),
-                  // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
-                  onTap: () => _openDetail(context, candidate),
-                  onChangeQuantity: (delta) => _runCartRequest(
-                    () => changeCartItem(candidate, quantityDelta: delta),
-                  ),
+                final entry = entries[index];
+                void onChange(int delta) {
+                  _runCartRequest(() => changeCartItem(entry, quantityDelta: delta));
+                }
+
+                // 안내할 수 있는 줄과 이름·가격만 아는 줄은 카드 모양이 다르다.
+                if (entry is Candidate) {
+                  return _CandidateCard(
+                    candidate: entry,
+                    index: index,
+                    quantity: _quantityOf(entry),
+                    // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
+                    onTap: () => _openDetail(context, entry),
+                    onChangeQuantity: onChange,
+                  );
+                }
+                return _UnsupportedCard(
+                  line: entry as UnsupportedMenuLine,
+                  index: index,
+                  quantity: _quantityOf(entry),
+                  onChangeQuantity: onChange,
                 );
               },
             ),
@@ -165,12 +226,16 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
 class _CandidateCard extends StatelessWidget {
   const _CandidateCard({
     required this.candidate,
+    required this.index,
     required this.quantity,
     required this.onTap,
     required this.onChangeQuantity,
   });
 
   final Candidate candidate;
+
+  /// 목록에서의 자리. 사진 위 상자의 번호·색과 맞추는 데 쓴다.
+  final int index;
 
   /// 지금 카트에 담긴 개수. 0이면 아직 안 담긴 것이다.
   final int quantity;
@@ -195,7 +260,15 @@ class _CandidateCard extends StatelessWidget {
           // Row — 자식들을 가로로 나란히 놓는다. (사진 | 글자 | 화살표)
           child: Row(
             children: [
-              _Thumbnail(candidate: candidate),
+              // 사진 위 상자와 같은 번호·색. 어느 카드가 어느 자리인지 잇는다.
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CandidateBadge(index: index),
+                  const SizedBox(height: 6),
+                  _Thumbnail(candidate: candidate),
+                ],
+              ),
               const SizedBox(width: 12),
               // Expanded — 사진과 화살표를 뺀 나머지 가로 공간을 글자가 다 쓴다.
               // 이게 없으면 이름이 길 때 화면 밖으로 삐져나간다.
@@ -217,6 +290,25 @@ class _CandidateCard extends StatelessWidget {
                       candidate.nameKr,
                       style: const TextStyle(color: Colors.black54),
                     ),
+                    // 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 —
+                    // 같으면 같은 말을 두 번 적는 꼴이고, 다를 때가 정말 중요하다.
+                    // "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로 나왔는지 여기서 보인다.
+                    if (candidate.menuText != null &&
+                        candidate.menuText != candidate.nameKr) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Menu: ${candidate.menuText}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black45),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    // 메뉴판 이름 앞에 붙어 있던 재료·맵기. 같은 "김치찌개" 두 개를
+                    // 가르는 유일한 단서가 이것뿐일 때가 있다(꽁치김치찌개).
+                    if (candidate.modifiers.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _ModifierBadges(modifiers: candidate.modifiers),
+                    ],
                     // 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 —
                     // 없는 가격을 "가격 미상" 같은 문구로 채우면 화면만 시끄럽다.
                     if (candidate.hasPrice) ...[
@@ -249,11 +341,139 @@ class _CandidateCard extends StatelessWidget {
                   ],
                 ),
               ),
+              _SpeakButton(text: candidate.menuText ?? candidate.nameKr),
               _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 안내할 수 없는 메뉴 줄의 카드 — 메뉴판 글자와 가격만 보여준다.
+///
+/// 등록 음식이 50개뿐이라 메뉴판의 대부분이 여기 해당한다(실측 22.9%만 매칭).
+/// 설명을 못 한다고 화면에서 빼면 여행자는 그 메뉴가 아예 없는 것처럼 본다.
+/// 주문 확인 화면의 목적(종업원에게 보여주기)은 설명 없이도 성립하므로 담게 한다.
+///
+/// 누를 수 없게 둔다 — 열어봐야 보여줄 내용이 없다. 대신 왜 설명이 없는지 적는다.
+class _UnsupportedCard extends StatelessWidget {
+  const _UnsupportedCard({
+    required this.line,
+    required this.index,
+    required this.quantity,
+    required this.onChangeQuantity,
+  });
+
+  final UnsupportedMenuLine line;
+  final int index;
+  final int quantity;
+  final void Function(int delta) onChangeQuantity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      // 안내 가능한 카드와 눈에 띄게 달라야 한다 — 같아 보이면 눌러도 안 열리는
+      // 카드가 섞여 있는 것처럼 느껴진다.
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CandidateBadge(index: index),
+                const SizedBox(height: 6),
+                const Icon(Icons.help_outline, size: 40, color: Colors.black26),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 메뉴판에 인쇄된 글자 그대로. 우리가 아는 이름이 없으니 이게 전부다.
+                  Text(
+                    line.menuText,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    line.priceDisplay,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'No guide for this one — you can still add it to your order.',
+                    style: TextStyle(fontSize: 11, color: Colors.black45),
+                  ),
+                ],
+              ),
+            ),
+            _SpeakButton(text: line.menuText),
+            _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 메뉴판 글자를 한국어로 읽어주는 버튼.
+///
+/// 설명이 없는 메뉴에서 특히 값어치가 있다 — 두루치기가 무엇인지는 못 알려줘도
+/// "두루치기"라고 소리 내주면 종업원에게 말할 수 있다. 소리를 내는 건 우리
+/// TTS 모델이 아니라 기기 기본 음성이다([KoreanSpeaker] 설명 참고).
+class _SpeakButton extends StatelessWidget {
+  const _SpeakButton({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () => koreanSpeaker.speak(text),
+      icon: const Icon(Icons.volume_up_outlined),
+      tooltip: 'Hear it in Korean',
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+/// 수식어 배지들.
+class _ModifierBadges extends StatelessWidget {
+  const _ModifierBadges({required this.modifiers});
+
+  final List<Modifier> modifiers;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        for (final modifier in modifiers)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              modifier.label,
+              style: TextStyle(fontSize: 11, color: scheme.onSecondaryContainer),
+            ),
+          ),
+      ],
     );
   }
 }

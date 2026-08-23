@@ -188,7 +188,7 @@ class MatchByLineTests(unittest.TestCase):
       2. 수식어는 그 줄에서만 뽑혀야 한다 (메뉴판 어딘가의 "해물"이 비빔밥에 붙으면 안 된다)
     """
 
-    FOODS = _menu_foods("만두", "칼국수", "비빔밥")
+    FOODS = _menu_foods("만두", "칼국수", "비빔밥", "김치찌개")
     MODIFIERS = [
         {"keyword": "해물", "category": "ingredient", "keyword_en": "Seafood", "spice_tier": None},
         {"keyword": "물", "category": "ingredient", "keyword_en": "Water", "spice_tier": None},
@@ -248,6 +248,28 @@ class MatchByLineTests(unittest.TestCase):
             ["물만두 5,000", "군만두 6,000", "해물칼국수 8,000", "비빔밥 9,000"],
         )
 
+    def test_shop_name_on_the_sign_is_not_a_menu_line(self):
+        """간판의 가게 이름은 후보가 되면 안 된다 — 같은 이름이 메뉴에도 있어도.
+
+        실기기 확인에서 나온 회귀다. "연정김치찌개" 간판이 걸린 메뉴판에서 김치찌개
+        후보가 셋(간판 + 메뉴 두 줄) 나왔다. 간판을 거르는 검사가 "이 이름을 담은
+        상자 중 하나라도 메뉴 줄이면 통과"라, 줄 단위로 부를 때 판정 대상까지 사진
+        전체로 넘기면 간판 줄이 **다른 줄 덕분에** 살아남는다.
+        """
+        boxes = [
+            # 간판: 유난히 크고, 사진 맨 위이고, 가격이 없다.
+            (10, 5, 400, 60, "연정김치찌개", 0.99),
+            (10, 120, 300, 24, "쌈싸먹는 김치찌개 7,000원", 0.99),
+            (10, 170, 300, 24, "쌈싸먹는 꽁치김치찌개 7,000원", 0.99),
+        ]
+
+        result = self.by_line(boxes)
+
+        self.assertEqual(
+            [c["menu_text"] for c in result],
+            ["쌈싸먹는 김치찌개 7,000원", "쌈싸먹는 꽁치김치찌개 7,000원"],
+        )
+
     def test_one_line_does_not_produce_the_same_food_twice(self):
         """줄 하나가 카드 하나다 — 같은 줄에서 같은 음식이 두 번 나오면 겹쳐 보인다."""
         boxes = [(10, 10, 300, 30, "만두 만두 5,000", 0.99)]
@@ -255,6 +277,106 @@ class MatchByLineTests(unittest.TestCase):
         result = self.by_line(boxes)
 
         self.assertEqual([c["name_kr"] for c in result], ["만두"])
+
+
+class ScanMenuLinesTests(unittest.TestCase):
+    """scan_menu_lines() — 안내 가능한 후보와 그러지 못한 메뉴 줄을 함께 돌려준다.
+
+    등록 음식이 50개뿐이라 메뉴판의 대부분은 매칭되지 않는다(실측 22.9%만 매칭).
+    그 줄을 버리면 여행자는 그 메뉴가 아예 없는 것처럼 본다. 설명은 못 해도
+    이름과 가격은 보여줄 수 있다.
+    """
+
+    FOODS = _menu_foods("김치찌개", "동태찌개")
+
+    def scan(self, boxes):
+        with (
+            patch.object(cache, "get_foods", return_value=self.FOODS),
+            patch.object(cache, "get_modifiers", return_value=[]),
+        ):
+            return match.scan_menu_lines(boxes)
+
+    # 실제로 찍은 부산 메뉴판을 본뜬 배치 — 간판 + 메뉴 + 지자체 표기.
+    BOXES = [
+        (10, 5, 400, 60, "연정김치찌개", 0.99),
+        (10, 120, 320, 24, "쌈싸먹는 김치찌개 7,000원", 0.99),
+        (10, 170, 320, 24, "여름막국수 6,000원", 0.99),
+        (10, 220, 320, 24, "겨울동태찌개 8,000원", 0.99),
+        (10, 270, 320, 24, "두루치기(小) 12,000원", 0.99),
+        (10, 320, 320, 24, "부산광역시 강서구", 0.99),
+    ]
+
+    def test_unmatched_lines_with_a_price_are_kept(self):
+        """등록 음식이 아니어도 값이 적혀 있으면 메뉴로 본다."""
+        _candidates, unsupported = self.scan(self.BOXES)
+
+        self.assertEqual(
+            [(line["menu_text"], line["price_krw"]) for line in unsupported],
+            [("여름막국수 6,000원", 6000), ("두루치기(小) 12,000원", 12000)],
+        )
+
+    def test_a_line_of_only_numbers_is_not_a_menu(self):
+        """숫자만 있는 줄은 메뉴가 아니다.
+
+        실기기 확인에서 나온 회귀다. 생맥주 용량 표기 "(500/1700/2700)"이 값 세
+        개로 읽혀 메뉴 카드로 올라왔고, 가격까지 ₩2,700으로 붙었다. 이름 없는
+        메뉴는 존재하지 않으므로 이름 유무가 가장 확실한 잣대다.
+        """
+        boxes = [
+            (10, 10, 320, 24, "쌈싸먹는 김치찌개 7,000원", 0.99),
+            (10, 60, 320, 24, "(500/1700/2700)", 0.99),
+            (10, 110, 320, 24, "3.5/11.0/18.0", 0.99),
+        ]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(unsupported, [])
+
+    def test_a_thousand_abbreviated_price_is_read(self):
+        """"13.0"은 13,000원이다 — 한국 메뉴판에서 흔한 축약 표기."""
+        boxes = [(10, 10, 320, 24, "모듬전 13.0", 0.99)]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(line["menu_text"], line["price_krw"]) for line in unsupported],
+            [("모듬전 13.0", 13000)],
+        )
+
+    def test_lines_without_a_price_are_dropped(self):
+        """가격이 없는 줄은 메뉴가 아니다 — 지자체 표기·전화번호·안내문."""
+        _candidates, unsupported = self.scan(self.BOXES)
+
+        self.assertNotIn("부산광역시 강서구", [line["menu_text"] for line in unsupported])
+
+    def test_the_shop_sign_is_not_kept_either(self):
+        """간판은 가격이 없어 애초에 걸리지만, 후보로도 안 올라간다."""
+        candidates, unsupported = self.scan(self.BOXES)
+
+        texts = [c["menu_text"] for c in candidates] + [u["menu_text"] for u in unsupported]
+        self.assertNotIn("연정김치찌개", texts)
+
+    def test_line_numbers_let_the_screen_restore_menu_order(self):
+        """화면이 두 목록을 합쳐 메뉴판 순서대로 늘어놓을 수 있어야 한다."""
+        candidates, unsupported = self.scan(self.BOXES)
+
+        merged = sorted(candidates + unsupported, key=lambda item: item["line_no"])
+        self.assertEqual(
+            [item["menu_text"] for item in merged],
+            [
+                "쌈싸먹는 김치찌개 7,000원",
+                "여름막국수 6,000원",
+                "겨울동태찌개 8,000원",
+                "두루치기(小) 12,000원",
+            ],
+        )
+
+    def test_a_matched_line_is_not_repeated_as_unsupported(self):
+        """안내 가능한 줄은 후보 쪽에만 있어야 한다 — 양쪽에 나오면 카드가 두 개 뜬다."""
+        candidates, unsupported = self.scan(self.BOXES)
+
+        matched_texts = {c["menu_text"] for c in candidates}
+        self.assertTrue(matched_texts.isdisjoint({u["menu_text"] for u in unsupported}))
 
 
 class NonMenuTextTests(unittest.TestCase):

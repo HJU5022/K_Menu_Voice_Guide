@@ -18,7 +18,7 @@ from time import perf_counter
 from src.text_gen.narration import get_narration
 from src.ocr.infer import group_boxes_into_rows, recognize, recognize_boxes_with_mapping
 from src.ocr.preprocess import to_original_bbox
-from src.ocr.match import match_food, match_food_candidates_by_line
+from src.ocr.match import match_food, scan_menu_lines
 from src.text_gen.detail import get_details
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -190,14 +190,21 @@ def analyze_image(image_path: str) -> dict:
     # 통짜 텍스트로 매칭하면 "물만두"와 "군만두"가 만두 후보 하나로 합쳐지고,
     # 수식어도 메뉴판 전체에서 긁어와 엉뚱한 메뉴에 붙는다
     # (match_food_candidates_by_line 설명 참고).
-    candidates = match_food_candidates_by_line(ocr_boxes)
-    if not candidates:
-        return {"status": "unsupported_food", "ocr_text": ocr_text, "candidates": []}
+    candidates, unsupported = scan_menu_lines(ocr_boxes)
 
+    # 안내 못 하는 줄도 함께 내보낸다. 등록 음식이 50개뿐이라 메뉴판의 대부분이
+    # 매칭되지 않는데(실측 22.9%만 매칭), 그걸 버리면 여행자는 그 메뉴가 아예
+    # 없는 것처럼 본다. 설명은 못 해도 이름과 가격은 보여줄 수 있다.
+    unsupported_lines = [_attach_source(line, mapping) for line in unsupported]
+
+    # status는 예전 뜻 그대로 둔다 — candidates가 비면 unsupported_food다.
+    # 웹앱은 unsupported_lines를 모르므로, 바꾸면 그쪽 화면이 어긋난다.
+    status = "candidates_found" if candidates else "unsupported_food"
     return {
-        "status": "candidates_found",
+        "status": status,
         "ocr_text": ocr_text,
         "candidates": [_attach_source(candidate, mapping) for candidate in candidates],
+        "unsupported_lines": unsupported_lines,
     }
 
 

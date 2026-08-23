@@ -60,6 +60,18 @@ _NUMBER_TOKEN = re.compile(
     r"\s*(?P<won>원)?"
 )
 
+# 천 단위를 줄여 적은 표기 — "13.0"은 13,000원, "3.5"는 3,500원이다.
+#
+# 한국 메뉴판에서 꽤 흔한 방식인데(실측: 강원 칠판 메뉴판 한 장이 전부 이 표기),
+# 위 _NUMBER_TOKEN은 점 뒤에 **세 자리**를 요구해서 "13.0"을 아예 못 잡는다.
+# 그래서 가격이 통째로 비어 보이고, 메뉴 줄인지 판단하는 근거도 사라진다.
+#
+# 소수 한 자리만 받는다. "9.000"처럼 세 자리가 오는 유럽식 천 단위 표기는 위
+# _NUMBER_TOKEN이 이미 처리하므로 여기서 겹치지 않는다.
+_THOUSAND_TOKEN = re.compile(
+    r"(?<![0-9,.\-])(?P<whole>\d{1,3})[.](?P<tenth>\d)(?![0-9,.\-])"
+)
+
 # 통화 표시(₩ 또는 원)가 붙은 경우 허용 범위 — 100원짜리 사이드부터 99만원대 코스까지.
 _MARKED_MIN, _MARKED_MAX = 100, 999_999
 # 표시가 없는 맨숫자는 오탐 위험이 크므로 더 좁게 본다.
@@ -142,8 +154,10 @@ def find_prices(text: str) -> list[tuple[int, int, int]]:
     위치는 **원본 text 기준**이다. 숫자 오인식 복원은 글자 수를 바꾸지 않으므로
     복원본에서 찾은 위치를 그대로 쓸 수 있다.
     """
+    repaired = repair_digit_lookalikes(text)
+
     prices = []
-    for match in _NUMBER_TOKEN.finditer(repair_digit_lookalikes(text)):
+    for match in _NUMBER_TOKEN.finditer(repaired):
         digits = match.group("digits")
         has_separator = "," in digits or "." in digits
         has_currency_mark = bool(match.group("currency") or match.group("won"))
@@ -151,6 +165,16 @@ def find_prices(text: str) -> list[tuple[int, int, int]]:
         if not _is_price(value, has_currency_mark=has_currency_mark, has_separator=has_separator):
             continue
         prices.append((match.start("digits"), match.end(), value))
+
+    # "13.0" 같은 천 단위 축약 표기. 위 정규식은 점 뒤 세 자리를 요구해 이걸 못 잡는다.
+    for match in _THOUSAND_TOKEN.finditer(repaired):
+        value = int(match.group("whole")) * 1000 + int(match.group("tenth")) * 100
+        # 맨숫자와 같은 잣대로 본다 — 축약 표기에도 통화 표시가 붙는 일은 드물다.
+        if not _BARE_MIN <= value <= _BARE_MAX:
+            continue
+        prices.append((match.start(), match.end(), value))
+
+    prices.sort()
     return prices
 
 

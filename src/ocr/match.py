@@ -104,7 +104,11 @@ def _extract_modifiers(normalized_text: str, matched_name: str) -> tuple[list[di
             continue
 
         if row["category"] == "spice":
-            spice_hits.append({"keyword": keyword, "tier": row["spice_tier"]})
+            # keyword_en을 같이 싣는다 — 화면에 보여줄 사람은 한국어를 못 읽는
+            # 여행자다. DB(menu_modifiers)에는 이미 있는데 여기서 버리고 있었다.
+            spice_hits.append(
+                {"keyword": keyword, "keyword_en": row["keyword_en"], "tier": row["spice_tier"]}
+            )
         else:
             ingredient_hits.append({"keyword": keyword, "keyword_en": row["keyword_en"]})
 
@@ -212,7 +216,11 @@ def _best_matching_box(boxes: list[TextBox], name: str) -> tuple[TextBox | None,
     return best_box, best_score
 
 
-def _appears_on_a_menu_line(boxes: list[TextBox], name: str) -> bool:
+def _appears_on_a_menu_line(
+    boxes: list[TextBox],
+    name: str,
+    reference: list[TextBox] | None = None,
+) -> bool:
     """음식명이 '메뉴 줄'로 볼 만한 상자에 한 번이라도 나타나는가.
 
     이름을 통째로 담은 상자가 여럿이면 그중 하나라도 메뉴 줄이면 통과다 — 간판에도 있고
@@ -222,14 +230,21 @@ def _appears_on_a_menu_line(boxes: list[TextBox], name: str) -> bool:
     여기 해당한다 — 실측: 원산지 표시 "돼지고기(국내산)..."이 "불고기"를 만들어냈는데,
     이름이 통째로 든 상자가 없다는 이유로 판단을 보류하면 그대로 새어나간다.
     근거 상자를 아예 못 찾을 때만 보류한다(이름이 여러 상자에 걸쳐 잘린 경우).
+
+    **판정 대상(boxes)과 견줄 기준(reference)을 나눠 받는다.** 줄 단위 매칭에서는
+    boxes에 그 줄의 상자만 들어와야 한다 — 사진 전체를 넘기면 간판 줄을 판정할 때도
+    "다른 곳에 진짜 메뉴 줄이 있다"는 이유로 위 any()가 통과시켜, 간판의 가게 이름이
+    메뉴로 올라온다(실측: "연정김치찌개" 간판이 김치찌개 후보가 됐다).
+    반면 "이 글자가 유난히 큰가"는 사진 전체와 견줘야 알 수 있어 reference를 쓴다.
     """
+    reference = reference if reference is not None else boxes
     hosts = [box for box in boxes if name in _normalize(box[4])]
     if not hosts:
         best_box, best_score = _best_matching_box(boxes, name)
         if best_box is None or best_score < MATCH_THRESHOLD:
             return True
         hosts = [best_box]
-    return any(not _is_non_menu_box(box, boxes) for box in hosts)
+    return any(not _is_non_menu_box(box, reference) for box in hosts)
 
 
 def _reading_confidence(boxes: list[TextBox] | None, name: str) -> float:
@@ -300,9 +315,10 @@ def match_food_candidates(
     놓인 다른 메뉴의 가격이 붙기 쉬우므로, 가능하면 항상 boxes를 넘기는 게 맞다
     (src/pipeline.py의 analyze_image()가 그렇게 한다).
 
-    all_boxes는 **간판·안내문 판별에만** 쓴다. 줄 단위로 부를 때 boxes에는 그 줄의
-    상자만 들어오는데, "이 글자가 간판인가"는 사진 전체의 글자 크기와 비교해야 알 수
-    있기 때문이다. 안 주면 boxes를 그대로 쓴다(기존 호출부는 그대로 동작한다).
+    all_boxes는 **간판 판정에서 "이 글자가 유난히 큰가"를 견줄 기준**으로만 쓴다.
+    줄 단위로 부를 때 boxes에는 그 줄의 상자만 들어오는데, 크기는 사진 전체와
+    비교해야 알 수 있기 때문이다. 판정 **대상**은 어디까지나 boxes(그 줄)다.
+    안 주면 boxes를 그대로 쓴다(기존 호출부는 그대로 동작한다).
     """
     normalized_text = _normalize(text)
     foods = cache.get_foods()
@@ -325,8 +341,12 @@ def match_food_candidates(
     # 메뉴가 아닌 문구(원산지 표시·홍보 문구·가게 이름)에서만 발견된 이름을 걸러낸다.
     # 좌표가 없으면 어느 상자에서 나왔는지 알 수 없어 이 검사를 건너뛴다.
     if boxes is not None:
-        reference = all_boxes if all_boxes is not None else boxes
-        scored = [entry for entry in scored if _appears_on_a_menu_line(reference, entry[1])]
+        # 판정 대상은 이 줄의 상자, 크기를 견줄 기준은 사진 전체다.
+        scored = [
+            entry
+            for entry in scored
+            if _appears_on_a_menu_line(boxes, entry[1], reference=all_boxes or boxes)
+        ]
 
     # 메뉴판에 글자 그대로 적혀 있는 이름들. 퍼지 후보를 거를 기준이 된다.
     exact_names = [name for _food, name, _score in scored if name in normalized_text]
@@ -401,8 +421,30 @@ def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
     순서는 메뉴판을 읽는 순서(위→아래)다. 점수순으로 섞으면 화면의 카드 순서가
     실제 메뉴판과 어긋나서, 사용자가 눈으로 대조하기 어려워진다.
     """
-    candidates = []
-    for row in group_boxes_into_row_groups(boxes):
+    return scan_menu_lines(boxes)[0]
+
+
+def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
+    """메뉴판을 줄 단위로 훑어 **안내 가능한 후보**와 **그러지 못한 메뉴 줄**을 함께 돌려준다.
+
+    등록 음식이 50개뿐이라 메뉴판 대부분은 매칭되지 않는다 — 실측(메뉴판 10,005장,
+    음료·주류 제외) 결과 안내 가능한 줄은 **22.9%**뿐이었다. 매칭 안 된 줄을 버리면
+    메뉴판의 대부분이 화면에서 사라져, 여행자는 그 메뉴가 존재하지 않는 것처럼 본다.
+
+    설명을 못 해도 **이름과 가격은 보여줄 수 있다.** 이 앱의 주문 확인 화면은
+    종업원에게 "이거 주세요"를 보여주는 자리이고, 그건 음식 설명 없이도 성립한다.
+
+    다만 메뉴판에는 가게 이름·전화번호·원산지 표시 같은 줄도 있다. 그런 걸 다 내보내면
+    목록이 쓰레기로 찬다. **가격이 붙어 있는 줄만** 메뉴로 본다 — 메뉴판에서 값이
+    적혀 있다는 건 "파는 것"이라는 가장 확실한 신호다.
+
+    반환: (후보 목록, 안내 못 하는 메뉴 줄 목록). 둘 다 `line_no`(위에서부터 센 줄
+    번호)를 달고 있어, 화면이 둘을 합쳐 메뉴판 순서대로 늘어놓을 수 있다.
+    """
+    candidates: list[dict] = []
+    unsupported: list[dict] = []
+
+    for line_no, row in enumerate(group_boxes_into_row_groups(boxes)):
         line = row_text(row)
         if not line:
             continue
@@ -415,12 +457,71 @@ def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
         seen: dict[int, dict] = {}
         for candidate in matches:
             candidate["menu_text"] = line
+            candidate["line_no"] = line_no
             kept = seen.get(candidate["food_id"])
             if kept is None or candidate["score"] > kept["score"]:
                 seen[candidate["food_id"]] = candidate
-        candidates.extend(seen.values())
 
-    return candidates
+        if seen:
+            candidates.extend(seen.values())
+            continue
+
+        line_only = _unsupported_menu_line(line, row, boxes, line_no)
+        if line_only is not None:
+            unsupported.append(line_only)
+
+    return candidates, unsupported
+
+
+# 이름으로 인정할 최소 한글 글자 수. 한 글자는 "원"·"소"·"대"처럼 값이나 크기 표시일
+# 수 있어 이름으로 보기 어렵다.
+_MIN_NAME_LETTERS = 2
+
+
+def _has_korean_name(line: str, prices: list[tuple[int, int, int]]) -> bool:
+    """가격 토큰을 뺀 자리에 한글 이름이 남아 있는가."""
+    remaining = list(line)
+    for start, end, _value in prices:
+        for index in range(start, min(end, len(remaining))):
+            remaining[index] = " "
+    letters = sum(1 for char in remaining if "가" <= char <= "힣")
+    return letters >= _MIN_NAME_LETTERS
+
+
+def _unsupported_menu_line(
+    line: str,
+    row: list[TextBox],
+    boxes: list[TextBox],
+    line_no: int,
+) -> dict | None:
+    """매칭되지 않은 줄을 '안내 없는 메뉴'로 내보낼지 판단하고, 내보낼 모양으로 만든다.
+
+    가격이 없으면 메뉴 줄로 보지 않는다(가게 이름·안내문·전화번호). 안내 문구·원산지
+    표시로 이미 걸러지는 줄도 제외한다 — 그 판정은 [_is_non_menu_box]가 한다.
+
+    **가격을 뺀 자리에 한글 이름이 남아야 한다.** 숫자만 있는 줄은 메뉴가 아니다 —
+    실측에서 생맥주 용량 표기 "(500/1700/2700)"이 값 세 개로 읽혀 메뉴 카드로
+    올라왔다. 이름이 없는 메뉴는 존재하지 않으므로, 이름 유무가 가장 확실한 잣대다.
+    """
+    prices = find_prices(line)
+    if not prices:
+        return None
+    if not _has_korean_name(line, prices):
+        return None
+    if all(_is_non_menu_box(box, boxes) for box in row):
+        return None
+
+    price_krw = prices[-1][2]  # 한 줄에 값이 여럿이면(小/大) 가장 뒤가 그 줄의 값이다
+    # 이름 쪽 상자를 위치 표시에 쓴다 — 가격 상자에 상자를 그리면 엉뚱한 곳을 가리킨다.
+    name_box = next((box for box in row if not find_prices(box[4])), row[0])
+    return {
+        "line_no": line_no,
+        "menu_text": line,
+        "price_krw": price_krw,
+        "price_krw_display": format_price_krw(price_krw),
+        "source_text": name_box[4],
+        "source_box": tuple(name_box[:4]),
+    }
 
 
 def match_food(text: str) -> dict | None:
