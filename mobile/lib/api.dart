@@ -132,6 +132,13 @@ abstract interface class CartAddable {
   int? get priceKrw;
   String? get menuText;
 
+  /// 이름 자리에 보여줄 글자 — [menuText]에서 가격만 뗀 것(서버의 `name_text`).
+  ///
+  /// 카드는 가격을 이미 따로 큰 글씨로 보여준다. 거기에 줄 글자를 그대로 쓰면
+  /// "김치전/부추전 ₩7,000" 밑에 "₩7,000"이 또 붙어 같은 값이 두 번 보인다.
+  /// 줄을 구분하는 신원은 [menuText]가 계속 맡는다 — 이건 표시 전용이다.
+  String? get nameText;
+
   /// 사진에서 이 줄이 나온 자리. 사진 위 상자를 그리는 데 쓴다.
   CandidateSource? get source;
 
@@ -154,6 +161,7 @@ class Candidate implements CartAddable {
     required this.thumbnailUrl,
     required this.thumbnailAttribution,
     required this.menuText,
+    required this.nameText,
     required this.source,
     required this.rawLineNo,
     required this.spiceModifiers,
@@ -180,6 +188,7 @@ class Candidate implements CartAddable {
       thumbnailUrl: json['thumbnail_url'] as String?,
       thumbnailAttribution: json['thumbnail_attribution'] as String?,
       menuText: json['menu_text'] as String?,
+      nameText: json['name_text'] as String?,
       // 이름이 두 상자에 걸쳐 잘리면 위치를 특정할 수 없어 서버가 null을 준다.
       source: json['source'] == null
           ? null
@@ -227,6 +236,10 @@ class Candidate implements CartAddable {
   @override
   final String? menuText;
 
+  /// 위 글자에서 가격만 뗀 것. 카드가 가격을 따로 보여주는 자리에 쓴다.
+  @override
+  final String? nameText;
+
   /// 사진에서 이 후보가 나온 자리. 위치를 특정 못 했으면 null이다.
   @override
   final CandidateSource? source;
@@ -272,6 +285,7 @@ class UnsupportedMenuLine implements CartAddable {
   UnsupportedMenuLine({
     required this.lineNo,
     required this.menuText,
+    required this.nameText,
     required this.priceKrw,
     required this.priceDisplay,
     required this.source,
@@ -281,6 +295,8 @@ class UnsupportedMenuLine implements CartAddable {
     return UnsupportedMenuLine(
       lineNo: json['line_no'] as int,
       menuText: json['menu_text'] as String,
+      // 옛 서버는 이 값을 안 준다. 그때는 줄 글자를 그대로 쓴다(가격이 같이 보인다).
+      nameText: json['name_text'] as String? ?? json['menu_text'] as String,
       priceKrw: json['price_krw'] as int,
       priceDisplay: json['price_krw_display'] as String,
       source: json['source'] == null
@@ -294,6 +310,10 @@ class UnsupportedMenuLine implements CartAddable {
 
   @override
   final String menuText;
+
+  /// 위 글자에서 가격만 뗀 것. 카드가 가격을 따로 보여주는 자리에 쓴다.
+  @override
+  final String nameText;
 
   @override
   final int? priceKrw;
@@ -547,6 +567,7 @@ class CartLine {
     required this.priceDisplay,
     required this.lineTotalDisplay,
     required this.menuText,
+    required this.nameText,
   });
 
   factory CartLine.fromJson(Map<String, dynamic> json) {
@@ -558,6 +579,7 @@ class CartLine {
       priceDisplay: json['price_krw_display'] as String?,
       lineTotalDisplay: json['line_total_display'] as String?,
       menuText: json['menu_text'] as String?,
+      nameText: json['name_text'] as String?,
     );
   }
 
@@ -574,7 +596,13 @@ class CartLine {
 
   /// 메뉴판에 인쇄된 그 줄 글자. 주문 확인 화면이 종업원에게 보여줄 때
   /// 등록 이름("김치찌개")보다 이쪽("쌈싸먹는 꽁치김치찌개")이 정확하다.
+  ///
+  /// 줄을 구분하는 신원이기도 해서(lineKey) 표시용으로 바꾸지 않는다.
   final String? menuText;
+
+  /// 위 글자에서 가격만 뗀 것. 화면이 가격을 따로 보여주므로 이름 자리에 쓴다.
+  /// 옛 서버는 안 준다 — 그때는 [menuText]로 돌아간다.
+  final String? nameText;
 
   /// 장바구니에서 이 줄을 가리키는 신원. [Candidate.lineKey]와 같은 규칙이다.
   String get lineKey => '$foodId|${menuText ?? ''}';

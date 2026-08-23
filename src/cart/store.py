@@ -16,7 +16,7 @@ docs/specs/cart.md 참고. 규칙 네 가지가 이 파일의 전부다:
 만든 카트 ID(UUID)로 구분한다.
 """
 
-from src.ocr.price import format_price_krw
+from src.ocr.price import format_price_krw, strip_prices
 
 # {카트 ID: [담긴 줄, ...]} — 줄은 처음 담은 순서를 유지한다.
 _carts: dict[str, list[dict]] = {}
@@ -48,7 +48,12 @@ def _build_state(cart_id: str, items: list[dict]) -> dict:
                 "name_en": item["name_en"],
                 # 메뉴판에 인쇄된 그 줄 글자. 주문 확인 화면이 종업원에게 보여줄 때
                 # 등록 이름("김치찌개")보다 이쪽("쌈싸먹는 꽁치김치찌개")이 정확하다.
+                #
+                # 줄을 묶는 기준(_line_key)이므로 담을 때 받은 값을 그대로 둔다.
                 "menu_text": item.get("menu_text"),
+                # 같은 줄에서 가격만 뗀 것. 화면이 가격을 따로 보여주는 자리에서
+                # 이름까지 가격을 달고 있으면 같은 값이 두 번 보인다.
+                "name_text": strip_prices(item.get("menu_text") or "") or item.get("menu_text"),
                 "price_krw": price_krw,
                 "price_krw_display": format_price_krw(price_krw),
                 "quantity": quantity,

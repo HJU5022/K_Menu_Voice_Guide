@@ -25,6 +25,7 @@ from src.ocr.price import (
     find_prices,
     format_price_krw,
     match_prices_to_names,
+    strip_prices,
 )
 
 # 실측으로 정한 값 — AI Hub 관광 음식메뉴판 검증셋으로 스윕했다(eval/measure_match_precision.py).
@@ -454,9 +455,14 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
 
         # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
         # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
+        # 가격을 뗀 이름 쪽 글자. 화면이 가격을 따로 보여주므로 이름 자리에는 이걸 쓴다.
+        # 뗄 것이 없으면(가격 없는 줄) 줄 글자가 그대로 남는다.
+        name_text = strip_prices(line) or line
+
         seen: dict[int, dict] = {}
         for candidate in matches:
             candidate["menu_text"] = line
+            candidate["name_text"] = name_text
             candidate["line_no"] = line_no
             kept = seen.get(candidate["food_id"])
             if kept is None or candidate["score"] > kept["score"]:
@@ -554,6 +560,9 @@ def _unsupported_menu_line(
     return {
         "line_no": line_no,
         "menu_text": line,
+        # 가격을 뗀 이름 쪽 글자. 이 줄은 등록 음식이 아니라 이름 자리에 줄 글자를
+        # 그대로 쓰는데, 그러면 화면에 가격이 두 번 보인다.
+        "name_text": strip_prices(line) or line,
         "price_krw": price_krw,
         "price_krw_display": format_price_krw(price_krw),
         "source_text": name_box[4],

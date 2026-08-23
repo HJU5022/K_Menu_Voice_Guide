@@ -315,6 +315,23 @@ class ScanMenuLinesTests(unittest.TestCase):
             [("여름막국수 6,000원", 6000), ("두루치기(小) 12,000원", 12000)],
         )
 
+    def test_lines_carry_a_name_without_the_price(self):
+        """화면이 가격을 따로 보여주므로, 이름 자리에 쓸 글자에는 가격이 없어야 한다.
+
+        후보 줄과 안내 못 하는 줄 모두 필요하다 — 둘 다 카드에서 이름 자리에
+        줄 글자를 그대로 쓰기 때문이다.
+        """
+        candidates, unsupported = self.scan(self.BOXES)
+
+        self.assertEqual(
+            [line["name_text"] for line in unsupported],
+            ["여름막국수", "두루치기(小)"],
+        )
+        self.assertEqual(
+            [candidate["name_text"] for candidate in candidates],
+            ["쌈싸먹는 김치찌개", "겨울동태찌개"],
+        )
+
     def test_two_column_menu_splits_at_the_column_boundary(self):
         """2단 메뉴판에서 왼쪽 칸과 오른쪽 칸이 한 항목으로 뭉치면 안 된다.
 

@@ -84,6 +84,9 @@ class Candidate(BaseModel):
     # 여러 개 나오는데(물만두/군만두 → 둘 다 "만두"), 그때 무엇이 다른지 알려주는
     # 유일한 단서다. 종업원에게 보여줄 때도 등록 이름보다 이쪽이 정확하다.
     menu_text: str | None = None
+    # 같은 줄에서 가격만 뗀 것(src/ocr/price.py의 strip_prices). 화면은 가격을 이미
+    # 따로 보여주므로, 줄 글자를 그대로 쓰면 같은 값이 두 번 보인다.
+    name_text: str | None = None
 
 
 class UnsupportedMenuLine(BaseModel):
@@ -95,6 +98,9 @@ class UnsupportedMenuLine(BaseModel):
 
     line_no: int
     menu_text: str
+    # 같은 줄에서 가격만 뗀 것. 이 줄은 등록 음식이 아니라 이름 자리에 줄 글자를
+    # 그대로 쓰는데, 그러면 화면에 가격이 두 번 보인다.
+    name_text: str
     price_krw: int
     price_krw_display: str
     source: CandidateSource | None = None
@@ -151,6 +157,9 @@ class CartLine(BaseModel):
     name_kr: str
     name_en: str
     menu_text: str | None = None
+    # menu_text에서 가격만 뗀 것. 화면이 가격을 따로 보여주는 자리에서 이름까지
+    # 가격을 달고 있으면 같은 값이 두 번 보인다.
+    name_text: str | None = None
     price_krw: int | None
     price_krw_display: str | None
     quantity: int
