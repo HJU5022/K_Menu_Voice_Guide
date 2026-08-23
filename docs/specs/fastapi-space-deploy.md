@@ -39,14 +39,18 @@
 | EC-02 | 잠자기에서 깨어나는 중(콜드스타트) | 빌드·모델 로딩이 끝날 때까지 응답하지 못한다. 시연 전에 미리 켜서 요청 한 번으로 웜업한다(운영 절차, 코드 아님) |
 | EC-03 | Space 재시작으로 모델 캐시 소실 | 허브에서 다시 내려받는다 — 부팅이 느려질 뿐 실패가 아니다. 영구 스토리지는 쓰지 않는다 |
 | EC-04 | TTS LoRA 저장소가 비공개로 전환됨 | 다운로드 401 → TTS만 `not_ready`로 내려앉는다(기존 텍스트 우선 동작). 이 경우 `HF_TOKEN`을 Secrets에 추가한다 |
+| EC-05 | 저장소에 LFS 없는 바이너리(jpg·png·wav)가 있으면 Space 푸시가 거절된다 | `pre-receive hook declined` + "Please use xet to store binary files". 배포용으로는 히스토리 없는 스냅샷 커밋을 만들고 `mobile/`·`eval/`을 제외해서 푸시한다 |
 
 ## How
 
 - **대상 파일**: 저장소 루트 `Dockerfile`, `.dockerignore`. 그 외 파일은 만들지도 고치지도 않는다.
 - **HF Docker Space 규칙**: 컨테이너는 **uid 1000 비루트**로 실행되고, 웹서버는 **7860 포트**를 서빙해야 한다. Space 저장소 README 메타데이터에 `sdk: docker`, `app_port: 7860`을 넣는다(Space 생성 단계).
 - **베이스 이미지**: `python:3.11-slim` — 로컬 개발 환경과 같은 3.11. GPU 라이브러리는 `requirements.txt`의 `paddlepaddle-gpu`(cu129)가 pip으로 함께 끌어오므로 CUDA 베이스 이미지가 필요 없다.
-- **시스템 패키지**: `libgl1`, `libglib2.0-0`, `libgomp1` — opencv가 slim 이미지에서 요구하는 것만.
-- **TTS 워커**: `ENV TTS_VENV_PYTHON=python3` — `src/pipeline.py`가 이 환경변수를 우선 읽으므로(31행) 코드 수정 없이 서버와 같은 파이썬으로 워커가 뜬다. 별도 venv는 Windows/맥 DLL 충돌 회피용이라 리눅스에선 불필요하다.
+- **시스템 패키지**: `libgl1`, `libglib2.0-0`, `libgomp1`(opencv), `libsndfile1`(soundfile), `build-essential`.
+- **TTS는 별도 가상환경(`/home/user/venv-tts`)에 둔다.** `ENV TTS_VENV_PYTHON`이 그 파이썬을 가리키면 `src/pipeline.py`(31행)가 그것으로 워커를 띄우므로 코드 수정이 필요 없다. 아래 두 함정이 실측으로 확인됐다(2026-08-24, T4 Space).
+  - **한 환경에 합칠 수 없다.** `paddlepaddle-gpu`가 `nvidia-*-cu12` 패키지를 정확한 버전으로 고정하는데(cublas 12.9.0.13 등) 최신 torch도 같은 패키지를 다른 버전으로 고정한다. 함께 설치하면 pip이 충돌을 피해 torch를 계속 낮추다 cu11 시절인 **2.0.1**까지 내려가고, 그 torch는 numpy 2.x와 호환되지 않아 TTS가 로딩 단계에서 죽는다. 워커는 paddle을 임포트하지 않으므로(`src/tts/worker.py`) 환경을 가르면 해결된다 — 맥·Windows의 `.venv-tts`와 같은 구조다.
+  - **C 컴파일러가 있어야 한다.** torch가 GPU 커널 일부를 실행 시점에 Triton으로 즉석 컴파일하는데, slim 이미지에는 컴파일러가 없어 `RuntimeError: Failed to find C compiler`로 워커가 죽는다. 개발 PC(Windows)는 CPU 빌드 torch라 이 경로를 타지 않아 드러나지 않는다.
+- **진단 방법**: 워커의 stderr는 컨테이너 안 `logs/tts_worker.log`에만 남아 Space 로그 화면에서 보이지 않는다. 원인을 볼 때는 파이프를 거치지 않고 `TTS_VENV_PYTHON`으로 `src.tts.infer.synthesize`를 직접 실행해 종료 코드와 stderr를 확인하는 편이 빠르다.
 - **Space Secrets**(이미지·저장소에 넣지 않는다): `SUPABASE_URL`, `SUPABASE_ANON_KEY`. TTS LoRA 저장소가 비공개면 `HF_TOKEN` 추가(EC-04).
 - **`.dockerignore`**: `.env`(비밀값 — 반드시), `.venv*`, `mobile/`, `docs/`, `tests/`, `logs/`, `static/`, git 메타 — 빌드 컨텍스트와 이미지에서 제외한다.
 
