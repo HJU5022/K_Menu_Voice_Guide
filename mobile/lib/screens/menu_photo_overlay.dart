@@ -44,14 +44,15 @@ class MenuPhotoOverlay extends StatelessWidget {
   const MenuPhotoOverlay({
     super.key,
     required this.photo,
-    required this.candidates,
+    required this.entries,
     this.maxHeight = 260,
   });
 
   final File photo;
 
-  /// 후보 목록. **순서가 번호와 색을 정하므로** 카드 목록과 같은 순서여야 한다.
-  final List<Candidate> candidates;
+  /// 화면에 늘어놓는 메뉴 줄 전체(안내 가능한 것 + 그러지 못한 것).
+  /// **순서가 번호와 색을 정하므로** 카드 목록과 같은 순서여야 한다.
+  final List<CartAddable> entries;
 
   final double maxHeight;
 
@@ -79,11 +80,11 @@ class MenuPhotoOverlay extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) => Stack(
                       children: [
-                        for (final (index, candidate) in candidates.indexed)
-                          if (candidate.source != null)
+                        for (final (index, entry) in entries.indexed)
+                          if (entry.source != null)
                             ..._sourceMarkers(
                               index: index,
-                              source: candidate.source!,
+                              source: entry.source!,
                               area: constraints.biggest,
                             ),
                       ],

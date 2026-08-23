@@ -135,7 +135,8 @@ class _CameraScreenState extends State<CameraScreen> {
             builder: (context) => only != null
                 ? DetailScreen(foodId: only.foodId, nameEn: only.nameEn)
                 : CandidatesScreen(
-                    candidates: result.candidates,
+                    // 안내 가능한 후보와 이름·가격만 아는 줄을 메뉴판 순서로 합친 것.
+                    entries: result.menuEntries,
                     // 후보가 사진 어디에서 나왔는지 보여주려면 원본 사진이 필요하다.
                     photo: File(picked.path),
                   ),
@@ -320,7 +321,7 @@ class _CameraScreenState extends State<CameraScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) =>
-                    CandidatesScreen(candidates: result.candidates),
+                    CandidatesScreen(entries: result.menuEntries),
               ),
             ),
             icon: const Icon(Icons.list),
