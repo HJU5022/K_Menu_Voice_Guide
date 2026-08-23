@@ -25,15 +25,26 @@
 ///   가벼운 위젯으로 만든다.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'menu_photo_overlay.dart';
 import 'detail_screen.dart';
 import 'order_summary_screen.dart';
 import 'settings_button.dart';
 
 class CandidatesScreen extends StatefulWidget {
-  const CandidatesScreen({super.key, required this.candidates});
+  const CandidatesScreen({
+    super.key,
+    required this.candidates,
+    this.photo,
+  });
+
+  /// 사용자가 방금 찍은(또는 고른) 메뉴판 사진. 후보가 사진 어디에서 나왔는지
+  /// 상자로 표시하는 데 쓴다. 없으면 그 영역을 통째로 생략한다.
+  final File? photo;
 
   /// 촬영 화면이 넘겨준 후보 목록.
   ///
@@ -85,6 +96,25 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     return 0;
   }
 
+  /// 목록 위에 두는 한 줄 안내.
+  ///
+  /// 사진 위에 상자가 안 붙은 후보가 있으면 그 수를 밝힌다. 상자가 2개인데 카드가
+  /// 6개면 "왜 4개는 표시가 없지?"가 되는데, 이름이 여러 글자 상자에 걸쳐 잘리면
+  /// 서버가 위치를 특정하지 못해 생기는 정상 동작이다. 말없이 두면 앱이 뭔가
+  /// 빠뜨린 것처럼 보인다.
+  String _summaryLine(List<Candidate> candidates) {
+    final dish = candidates.length == 1 ? 'dish' : 'dishes';
+    final found = 'We found ${candidates.length} $dish.';
+    if (widget.photo == null) return found;
+
+    final unpinned = candidates.where((c) => c.source == null).length;
+    if (unpinned == 0) return '$found Each box shows what we read there.';
+
+    final it = unpinned == 1 ? 'one' : '$unpinned';
+    return '$found Each box shows what we read there — '
+        'we could not pin $it to a spot on the photo.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final candidates = widget.candidates;
@@ -98,12 +128,15 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.photo != null) ...[
+            const SizedBox(height: 8),
+            MenuPhotoOverlay(photo: widget.photo!, candidates: candidates),
+            const SizedBox(height: 4),
+          ],
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Text(
-              candidates.length == 1
-                  ? 'We found 1 dish on this menu.'
-                  : 'We found ${candidates.length} dishes on this menu.',
+              _summaryLine(candidates),
               style: const TextStyle(fontSize: 15, color: Colors.black54),
             ),
           ),
@@ -118,6 +151,7 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
                 final candidate = candidates[index];
                 return _CandidateCard(
                   candidate: candidate,
+                  index: index,
                   quantity: _quantityOf(candidate),
                   // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
                   onTap: () => _openDetail(context, candidate),
@@ -169,12 +203,16 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
 class _CandidateCard extends StatelessWidget {
   const _CandidateCard({
     required this.candidate,
+    required this.index,
     required this.quantity,
     required this.onTap,
     required this.onChangeQuantity,
   });
 
   final Candidate candidate;
+
+  /// 목록에서의 자리. 사진 위 상자의 번호·색과 맞추는 데 쓴다.
+  final int index;
 
   /// 지금 카트에 담긴 개수. 0이면 아직 안 담긴 것이다.
   final int quantity;
@@ -199,7 +237,15 @@ class _CandidateCard extends StatelessWidget {
           // Row — 자식들을 가로로 나란히 놓는다. (사진 | 글자 | 화살표)
           child: Row(
             children: [
-              _Thumbnail(candidate: candidate),
+              // 사진 위 상자와 같은 번호·색. 어느 카드가 어느 자리인지 잇는다.
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CandidateBadge(index: index),
+                  const SizedBox(height: 6),
+                  _Thumbnail(candidate: candidate),
+                ],
+              ),
               const SizedBox(width: 12),
               // Expanded — 사진과 화살표를 뺀 나머지 가로 공간을 글자가 다 쓴다.
               // 이게 없으면 이름이 길 때 화면 밖으로 삐져나간다.
@@ -221,6 +267,19 @@ class _CandidateCard extends StatelessWidget {
                       candidate.nameKr,
                       style: const TextStyle(color: Colors.black54),
                     ),
+                    // 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 —
+                    // 같으면 같은 말을 두 번 적는 꼴이고, 다를 때가 정말 중요하다.
+                    // "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로 나왔는지 여기서 보인다.
+                    if (candidate.menuText != null &&
+                        candidate.menuText != candidate.nameKr) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Menu: ${candidate.menuText}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black45),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     // 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 —
                     // 없는 가격을 "가격 미상" 같은 문구로 채우면 화면만 시끄럽다.
                     if (candidate.hasPrice) ...[

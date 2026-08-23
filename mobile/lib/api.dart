@@ -61,6 +61,39 @@ Map<String, dynamic> _decodeJson(http.Response response) {
   return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
 }
 
+/// 후보가 사진의 어디에서 나왔는지 — 사진 위에 상자를 그리기 위한 값.
+///
+/// 좌표는 **업로드한 원본 사진 기준 0~1 비율**이다(px가 아니다). 화면이 사진을 어떤
+/// 크기로 그리든 그대로 얹을 수 있게 서버가 비율로 바꿔서 준다.
+class CandidateSource {
+  CandidateSource({
+    required this.text,
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  factory CandidateSource.fromJson(Map<String, dynamic> json) {
+    return CandidateSource(
+      text: json['text'] as String,
+      left: (json['left'] as num).toDouble(),
+      top: (json['top'] as num).toDouble(),
+      width: (json['width'] as num).toDouble(),
+      height: (json['height'] as num).toDouble(),
+    );
+  }
+
+  /// OCR이 그 자리에서 **실제로 읽은 글자**. 음식명과 다를 수 있고, 그 차이 자체가
+  /// "왜 이 후보가 나왔는지"를 설명한다.
+  final String text;
+
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+}
+
 /// OCR이 찾아낸 음식 후보 하나.
 class Candidate {
   Candidate({
@@ -73,6 +106,7 @@ class Candidate {
     required this.thumbnailUrl,
     required this.thumbnailAttribution,
     required this.menuText,
+    required this.source,
   });
 
   factory Candidate.fromJson(Map<String, dynamic> json) {
@@ -88,6 +122,10 @@ class Candidate {
       thumbnailUrl: json['thumbnail_url'] as String?,
       thumbnailAttribution: json['thumbnail_attribution'] as String?,
       menuText: json['menu_text'] as String?,
+      // 이름이 두 상자에 걸쳐 잘리면 위치를 특정할 수 없어 서버가 null을 준다.
+      source: json['source'] == null
+          ? null
+          : CandidateSource.fromJson(json['source'] as Map<String, dynamic>),
     );
   }
 
@@ -123,6 +161,9 @@ class Candidate {
   /// "물만두"와 "군만두"는 둘 다 만두다. 목록에서 후보를 구분하는 건 이 값이지
   /// foodId가 아니다. 좌표 없이 매칭된 경우에는 null이다.
   final String? menuText;
+
+  /// 사진에서 이 후보가 나온 자리. 위치를 특정 못 했으면 null이다.
+  final CandidateSource? source;
 
   /// 장바구니에서 이 후보를 가리키는 신원. 서버의 묶는 기준과 같아야 한다.
   String get lineKey => '$foodId|${menuText ?? ''}';
