@@ -25,6 +25,7 @@ from src.ocr.price import (
     find_prices,
     format_price_krw,
     match_prices_to_names,
+    strip_prices,
 )
 
 # 실측으로 정한 값 — AI Hub 관광 음식메뉴판 검증셋으로 스윕했다(eval/measure_match_precision.py).
@@ -444,7 +445,7 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
     candidates: list[dict] = []
     unsupported: list[dict] = []
 
-    for line_no, row in enumerate(group_boxes_into_row_groups(boxes)):
+    for line_no, row in enumerate(_menu_entries(boxes)):
         line = row_text(row)
         if not line:
             continue
@@ -454,9 +455,14 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
 
         # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
         # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
+        # 가격을 뗀 이름 쪽 글자. 화면이 가격을 따로 보여주므로 이름 자리에는 이걸 쓴다.
+        # 뗄 것이 없으면(가격 없는 줄) 줄 글자가 그대로 남는다.
+        name_text = strip_prices(line) or line
+
         seen: dict[int, dict] = {}
         for candidate in matches:
             candidate["menu_text"] = line
+            candidate["name_text"] = name_text
             candidate["line_no"] = line_no
             kept = seen.get(candidate["food_id"])
             if kept is None or candidate["score"] > kept["score"]:
@@ -488,6 +494,43 @@ def _has_korean_name(line: str, prices: list[tuple[int, int, int]]) -> bool:
     return letters >= _MIN_NAME_LETTERS
 
 
+def _looks_like_a_name(text: str) -> bool:
+    """이 상자가 '메뉴 이름'을 담고 있는가 — 가격을 뺀 자리에 한글이 남는가."""
+    return _has_korean_name(text, find_prices(text))
+
+
+def _menu_entries(boxes: list[TextBox]) -> list[list[TextBox]]:
+    """글자 상자를 **메뉴 항목 단위**로 묶는다.
+
+    [group_boxes_into_row_groups]는 세로 위치만 보고 줄을 나눈다. 1단 메뉴판에서는
+    그게 곧 메뉴 하나지만, **2단 메뉴판에서는 왼쪽 칸과 오른쪽 칸이 같은 높이라
+    한 줄로 뭉친다.** 그러면 한 항목에 이름과 가격이 두 벌씩 들어가, 어느 가격을
+    집어도 틀린다(실측 예: "김치김밥 3,500 퍼퍼00 5,000 다 슬 기 9,").
+
+    가로로 훑다가 **가격이 이미 나온 뒤에 또 이름이 나오면** 거기를 칸 경계로 본다.
+    1단에서는 이름 뒤에 가격이 오고 끝나므로 쪼개지지 않고, 2단에서는
+    [이름][가격][이름][가격]이라 정확히 사이에서 갈린다.
+
+    칸이 셋 이상이어도 같은 규칙이 그대로 적용된다.
+    """
+    entries: list[list[TextBox]] = []
+    for row in group_boxes_into_row_groups(boxes):
+        current: list[TextBox] = []
+        seen_price = False
+        for box in row:
+            text = box[4]
+            if seen_price and _looks_like_a_name(text):
+                entries.append(current)
+                current = []
+                seen_price = False
+            current.append(box)
+            if find_prices(text):
+                seen_price = True
+        if current:
+            entries.append(current)
+    return entries
+
+
 def _unsupported_menu_line(
     line: str,
     row: list[TextBox],
@@ -517,6 +560,9 @@ def _unsupported_menu_line(
     return {
         "line_no": line_no,
         "menu_text": line,
+        # 가격을 뗀 이름 쪽 글자. 이 줄은 등록 음식이 아니라 이름 자리에 줄 글자를
+        # 그대로 쓰는데, 그러면 화면에 가격이 두 번 보인다.
+        "name_text": strip_prices(line) or line,
         "price_krw": price_krw,
         "price_krw_display": format_price_krw(price_krw),
         "source_text": name_box[4],

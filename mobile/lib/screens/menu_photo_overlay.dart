@@ -67,29 +67,22 @@ class MenuPhotoOverlay extends StatelessWidget {
           // 디코드 전에는 자리만 잡아둔다. 목록이 위아래로 덜컥이지 않게 하기 위함.
           return SizedBox(height: maxHeight, child: const Center(child: CircularProgressIndicator()));
         }
+        final aspectRatio = image.width / image.height;
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
-            child: AspectRatio(
-              aspectRatio: image.width / image.height,
+            // 목록 안의 사진은 작아서 번호 상자가 메뉴 글자를 덮는다(실측: 메뉴 24개짜리
+            // 메뉴판에서 상자가 이름을 거의 다 가렸다). 눌러서 크게 볼 수 있게 한다.
+            child: GestureDetector(
+              onTap: () => _openFullScreen(context, aspectRatio),
               child: Stack(
-                fit: StackFit.expand,
                 children: [
-                  Image.file(photo, fit: BoxFit.fill),
-                  // AspectRatio 덕분에 이 영역이 곧 사진 영역이라, 비율을 그대로 곱한다.
-                  LayoutBuilder(
-                    builder: (context, constraints) => Stack(
-                      children: [
-                        for (final (index, entry) in entries.indexed)
-                          if (entry.source != null)
-                            ..._sourceMarkers(
-                              index: index,
-                              source: entry.source!,
-                              area: constraints.biggest,
-                            ),
-                      ],
-                    ),
+                  _PhotoWithMarkers(
+                    photo: photo,
+                    entries: entries,
+                    aspectRatio: aspectRatio,
                   ),
+                  const Positioned(right: 6, bottom: 6, child: _ZoomHint()),
                 ],
               ),
             ),
@@ -99,8 +92,133 @@ class MenuPhotoOverlay extends StatelessWidget {
     );
   }
 
+  void _openFullScreen(BuildContext context, double aspectRatio) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _FullScreenPhoto(
+          photo: photo,
+          entries: entries,
+          aspectRatio: aspectRatio,
+        ),
+      ),
+    );
+  }
+
   static Future<ui.Image> _decode(File file) async {
     return decodeImageFromList(await file.readAsBytes());
+  }
+}
+
+/// 사진 한 장과 그 위의 번호 상자. 목록 안과 전체 화면이 같은 그림을 써야
+/// 번호·색이 어긋나지 않으므로 위젯 하나로 두고 양쪽에서 쓴다.
+class _PhotoWithMarkers extends StatelessWidget {
+  const _PhotoWithMarkers({
+    required this.photo,
+    required this.entries,
+    required this.aspectRatio,
+  });
+
+  final File photo;
+  final List<CartAddable> entries;
+  final double aspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: aspectRatio,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(photo, fit: BoxFit.fill),
+          // AspectRatio 덕분에 이 영역이 곧 사진 영역이라, 비율을 그대로 곱한다.
+          LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              children: [
+                for (final (index, entry) in entries.indexed)
+                  if (entry.source != null)
+                    ..._sourceMarkers(
+                      index: index,
+                      source: entry.source!,
+                      area: constraints.biggest,
+                    ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 사진을 눌러 크게 볼 수 있다는 표시. 사진 위에 얹으므로 어두운 반투명 바탕을 깐다.
+class _ZoomHint extends StatelessWidget {
+  const _ZoomHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.zoom_in, size: 14, color: Colors.white),
+            SizedBox(width: 3),
+            Text('Tap to zoom', style: TextStyle(fontSize: 11, color: Colors.white)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 사진을 화면 가득 띄우고 손가락으로 확대·이동하게 하는 화면.
+///
+/// 목록 안에서 바로 확대하지 않는 이유: 사진이 스크롤 목록 안에 있어서, 손가락을
+/// 끌면 사진을 옮기려는 것인지 목록을 넘기려는 것인지 구분되지 않는다. 화면을
+/// 따로 열면 그 충돌이 없고, 볼 수 있는 넓이도 커진다.
+///
+/// [InteractiveViewer]는 Flutter 기본 위젯이라 따로 받아올 것이 없다.
+class _FullScreenPhoto extends StatelessWidget {
+  const _FullScreenPhoto({
+    required this.photo,
+    required this.entries,
+    required this.aspectRatio,
+  });
+
+  final File photo;
+  final List<CartAddable> entries;
+  final double aspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // 사진을 보는 화면이라 배경을 어둡게 둔다 — 밝은 바탕이면 사진 가장자리가
+      // 어디까지인지 알기 어렵다.
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Pinch to zoom'),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          // 축소는 원래 크기까지만 — 더 줄이면 검은 화면에 사진이 떠 있는 꼴이 된다.
+          minScale: 1,
+          maxScale: 6,
+          child: _PhotoWithMarkers(
+            photo: photo,
+            entries: entries,
+            aspectRatio: aspectRatio,
+          ),
+        ),
+      ),
+    );
   }
 }
 

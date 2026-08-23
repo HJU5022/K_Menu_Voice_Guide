@@ -392,6 +392,38 @@ def match_prices_to_names(normalized_boxes: list[TextBox], food_names: list[str]
     return prices
 
 
+# 가격 숫자 바로 앞에 붙는 표시들 — 통화 기호(₩, W, w)와 크기 표기(小/中/大).
+#
+# find_prices()가 돌려주는 구간은 **숫자 부분만**이라, 그 구간만 지우면 "김치전/부추전 W"
+# 처럼 표시가 남는다. 그래서 숫자 앞쪽에 붙어 있는 표시까지 같이 걷어낸다.
+# 문자열 끝($)에 붙은 것만 지운다 — 이름 가운데의 글자는 건드리지 않기 위함이다.
+_PRICE_MARKS = re.compile(r"[₩\\Ww\s]*[小中大]?[₩\\Ww\s]*$")
+
+
+def strip_prices(text: str) -> str:
+    """메뉴판 줄 글자에서 가격을 떼어내고 이름 쪽만 남긴다.
+
+    화면 카드는 가격을 이미 따로 큰 글씨로 보여준다. 그런데 이름 자리에도 줄 글자를
+    그대로 쓰면 "김치전/부추전 ₩7,000" 아래에 다시 "₩7,000"이 붙어 같은 값이 두 번
+    보인다(실측: 강원 메뉴판 한 장에서 미지원 줄 17개 전부).
+
+    가격이 어디인지는 find_prices()가 이미 위치로 알려주므로, 그 구간과 바로 앞에
+    붙은 통화·크기 표시를 지운다. 값을 다시 찾아 헤아리지 않는다.
+
+    가격을 지우고 나면 남는 글자가 없을 수도 있다(숫자만 있는 줄). 그때는 빈
+    문자열을 돌려주므로, 부르는 쪽이 원래 줄로 되돌릴지 정한다.
+    """
+    result = text
+    # 뒤에서부터 지운다 — find_prices()의 위치는 원본 기준이라, 앞쪽부터 지우면
+    # 뒤쪽 위치가 어긋난다.
+    #
+    # 지운 자리에 공백을 하나 남긴다. 가격 토큰은 뒤따르는 공백까지 포함하는 구간이라
+    # 그냥 이어붙이면 앞뒤 낱말이 달라붙는다("장칼국수 8,000 SEASON" → "장칼국수SEASON").
+    for start, end, _value in reversed(find_prices(text)):
+        result = _PRICE_MARKS.sub("", result[:start]) + " " + result[end:]
+    return " ".join(result.split())
+
+
 def format_price_krw(price_krw: int | None) -> str | None:
     """숫자 원화 가격을 프론트 표시용 "₩12,000" 형식 문자열로 바꾼다."""
     if price_krw is None:

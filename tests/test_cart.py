@@ -56,6 +56,23 @@ class CartStoreTests(unittest.TestCase):
         self.assertEqual(cart["total_krw"], 9000)
         self.assertEqual(cart["total_krw_display"], "₩9,000")
 
+    def test_line_carries_a_name_without_the_price(self):
+        """주문 확인 화면이 가격을 따로 보여주므로 이름 자리에는 가격이 없어야 한다.
+
+        줄을 묶는 기준인 menu_text는 그대로 둔다 — 표시용 값만 따로 준다.
+        """
+        cart = self.add(4, "김치찌개", "Kimchi Jjigae", 8000, 1, menu_text="우성김치찌개 8,000")
+
+        item = cart["items"][0]
+        self.assertEqual(item["menu_text"], "우성김치찌개 8,000")
+        self.assertEqual(item["name_text"], "우성김치찌개")
+
+    def test_name_falls_back_to_the_menu_line_when_nothing_is_left(self):
+        """가격을 떼면 남는 글자가 없는 줄은 원래 글자를 그대로 쓴다."""
+        cart = self.add(None, "9,000", "9,000", 9000, 1, menu_text="9,000")
+
+        self.assertEqual(cart["items"][0]["name_text"], "9,000")
+
     def test_same_food_merges_into_one_line(self):
         """AC-02 · 같은 음식을 또 담아도 줄이 늘지 않고 수량만 오른다."""
         self.add(1, "비빔밥", "Bibimbap", 9000, 1)

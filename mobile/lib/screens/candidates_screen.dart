@@ -293,11 +293,14 @@ class _CandidateCard extends StatelessWidget {
                     // 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 —
                     // 같으면 같은 말을 두 번 적는 꼴이고, 다를 때가 정말 중요하다.
                     // "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로 나왔는지 여기서 보인다.
-                    if (candidate.menuText != null &&
-                        candidate.menuText != candidate.nameKr) ...[
+                    //
+                    // 가격은 뺀 쪽을 쓴다 — 바로 아래에 값이 따로 있어서, 줄 글자를
+                    // 그대로 쓰면 "황기갈비탕 15,000" 밑에 "₩15,000"이 또 붙는다.
+                    if (candidate.nameText != null &&
+                        candidate.nameText != candidate.nameKr) ...[
                       const SizedBox(height: 2),
                       Text(
-                        'Menu: ${candidate.menuText}',
+                        'Menu: ${candidate.nameText}',
                         style: const TextStyle(fontSize: 12, color: Colors.black45),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -341,7 +344,8 @@ class _CandidateCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _SpeakButton(text: candidate.menuText ?? candidate.nameKr),
+              // 읽어줄 때도 가격은 뺀다 — 종업원에게 들려줄 말에 숫자가 끼면 어수선하다.
+              _SpeakButton(text: candidate.nameText ?? candidate.nameKr),
               _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
             ],
           ),
@@ -396,9 +400,11 @@ class _UnsupportedCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 메뉴판에 인쇄된 글자 그대로. 우리가 아는 이름이 없으니 이게 전부다.
+                  // 메뉴판에 인쇄된 글자에서 가격만 뗀 것. 우리가 아는 이름이 없으니
+                  // 이게 전부다. 가격은 바로 아래에 따로 두므로 여기서는 뺀다 —
+                  // 그대로 쓰면 "김치전/부추전 ₩7,000" 밑에 "₩7,000"이 또 붙는다.
                   Text(
-                    line.menuText,
+                    line.nameText,
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
@@ -418,7 +424,7 @@ class _UnsupportedCard extends StatelessWidget {
                 ],
               ),
             ),
-            _SpeakButton(text: line.menuText),
+            _SpeakButton(text: line.nameText),
             _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
           ],
         ),

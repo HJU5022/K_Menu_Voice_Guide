@@ -54,6 +54,7 @@ POST /api/analyze
       "score": int,
       "modifiers": {...},
       "menu_text": string | null,
+      "name_text": string | null,
       "thumbnail_url": string | null,
       "thumbnail_attribution": string | null
     }
@@ -65,6 +66,12 @@ POST /api/analyze
 "물만두"와 "군만두"가 둘 다 있으면 후보도 둘이고, 둘 다 `food_id`는 같다.
 프론트는 `food_id`를 목록의 유일 키로 쓰면 안 되고, `menu_text`(그 줄에 인쇄된
 글자 그대로)로 구분해야 한다. 순서는 메뉴판을 읽는 순서(위→아래)다.
+
+**이름을 보여줄 자리에는 `name_text`를 쓴다.** `menu_text`에서 가격만 뗀 값이다
+(`김치전/부추전 W7,000` → `김치전/부추전`). 화면은 가격을 이미 따로 보여주므로
+줄 글자를 그대로 쓰면 같은 값이 두 번 보인다. 줄을 구분하는 기준은 계속
+`menu_text`다 — `name_text`는 표시 전용이고, 뗄 것이 없으면 줄 글자와 같다.
+`unsupported_lines`도 같은 필드를 갖는다.
 
 ```
 GET /api/foods/{food_id}

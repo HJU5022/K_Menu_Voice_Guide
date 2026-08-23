@@ -107,8 +107,11 @@ class _OrderLine extends StatelessWidget {
                 // 등록 이름(김치찌개)이 아니라 **그 가게 메뉴판에 인쇄된 글자**
                 // (쌈싸먹는 꽁치김치찌개)를 쓴다. 종업원은 자기 메뉴판 표현으로
                 // 봐야 무엇인지 바로 안다. 줄 정보가 없으면 등록 이름으로 돌아간다.
+                //
+                // 가격을 뗀 쪽을 먼저 쓴다 — 오른쪽에 값이 따로 있어서, 줄 글자를
+                // 그대로 쓰면 "우성김치찌개 8,000" 옆에 "₩8,000"이 또 붙는다.
                 Text(
-                  line.menuText ?? line.nameKr,
+                  line.nameText ?? line.menuText ?? line.nameKr,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

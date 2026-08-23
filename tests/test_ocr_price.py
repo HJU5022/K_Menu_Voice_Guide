@@ -306,6 +306,42 @@ class TextBoxShapeTests(unittest.TestCase):
         self.assertEqual(price.box_confidence(None), 1.0)
 
 
+class StripPricesTests(unittest.TestCase):
+    """줄 글자에서 가격을 떼어 이름만 남기기 — 카드가 가격을 따로 보여주기 때문.
+
+    아래 문자열은 전부 실측이다(AI Hub 관광 음식메뉴판 검증셋, 강원 족발집 한 장).
+    같은 줄이 화면에 "김치전/부추전 W7,000" 아래 "₩7,000"으로 두 번 찍혔다.
+    """
+
+    def test_removes_price_and_currency_mark(self):
+        self.assertEqual(price.strip_prices("김치전/부추전 W7,000"), "김치전/부추전")
+
+    def test_removes_size_marker_in_front_of_price(self):
+        """"小w31,000"의 크기 표기까지 걷어낸다 — 숫자만 지우면 "도야족발 小w"가 남는다."""
+        self.assertEqual(price.strip_prices("도야족발 小w31,000"), "도야족발")
+
+    def test_removes_every_price_when_line_repeats_it(self):
+        self.assertEqual(price.strip_prices("100% 앞발 中w38,000 中w38,000"), "100% 앞발")
+
+    def test_keeps_words_after_the_price_separated(self):
+        """가격 토큰이 뒤따르는 공백까지 먹으므로, 지운 자리에 공백을 남겨야 한다."""
+        self.assertEqual(
+            price.strip_prices("쟁반막국수 장칼국수 W8,000 SEASON MENU"),
+            "쟁반막국수 장칼국수 SEASON MENU",
+        )
+
+    def test_removes_thousand_abbreviated_price(self):
+        """"034.0"처럼 천 단위를 줄여 적은 값도 가격이므로 같이 뗀다."""
+        self.assertEqual(price.strip_prices("가오리회보쌈034.0 大w41,000"), "가오리회보쌈")
+
+    def test_leaves_text_untouched_when_there_is_no_price(self):
+        self.assertEqual(price.strip_prices("돼지고기 국내산"), "돼지고기 국내산")
+
+    def test_returns_empty_when_only_price_remains(self):
+        """이름이 남지 않으면 빈 문자열 — 부르는 쪽이 원래 줄로 되돌릴지 정한다."""
+        self.assertEqual(price.strip_prices("9,000"), "")
+
+
 class FormatPriceKrwTests(unittest.TestCase):
     def test_formats_with_won_sign_and_thousands_separator(self):
         self.assertEqual(price.format_price_krw(9000), "₩9,000")

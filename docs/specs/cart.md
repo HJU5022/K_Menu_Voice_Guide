@@ -96,6 +96,7 @@ CartResponse (두 엔드포인트 공통 — 언제나 카트 전체 상태):
     {
       "food_id": int, "name_kr": string, "name_en": string,
       "menu_text": string | null,
+      "name_text": string | null,   // menu_text에서 가격만 뗀 것. 표시 전용
       "price_krw": int | null, "price_krw_display": string | null,
       "quantity": int,
       "line_total_krw": int | null, "line_total_display": string | null
