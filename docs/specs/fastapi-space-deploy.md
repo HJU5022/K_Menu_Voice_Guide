@@ -52,7 +52,8 @@
   - **C 컴파일러가 있어야 한다.** torch가 GPU 커널 일부를 실행 시점에 Triton으로 즉석 컴파일하는데, slim 이미지에는 컴파일러가 없어 `RuntimeError: Failed to find C compiler`로 워커가 죽는다. 개발 PC(Windows)는 CPU 빌드 torch라 이 경로를 타지 않아 드러나지 않는다.
 - **진단 방법**: 워커의 stderr는 컨테이너 안 `logs/tts_worker.log`에만 남아 Space 로그 화면에서 보이지 않는다. 원인을 볼 때는 파이프를 거치지 않고 `TTS_VENV_PYTHON`으로 `src.tts.infer.synthesize`를 직접 실행해 종료 코드와 stderr를 확인하는 편이 빠르다.
 - **Space Secrets**(이미지·저장소에 넣지 않는다): `SUPABASE_URL`, `SUPABASE_ANON_KEY`. TTS LoRA 저장소가 비공개면 `HF_TOKEN` 추가(EC-04).
-- **`.dockerignore`**: `.env`(비밀값 — 반드시), `.venv*`, `mobile/`, `docs/`, `tests/`, `logs/`, `static/`, git 메타 — 빌드 컨텍스트와 이미지에서 제외한다.
+- **`.dockerignore`**: `.env`(비밀값 — 반드시), `.venv*`, `mobile/`, `docs/`, `tests/`, `logs/`, `static/audio`, git 메타 — 빌드 컨텍스트와 이미지에서 제외한다.
+- **사전 생성 TTS 캐시(`static/tts_cache`)는 이미지에 넣는다.** 없으면 요청마다 라이브 생성이라 음식 하나에 60초 이상 걸린다(T4 실측 2026-08-24). 캐시가 있으면 0.8초로 끝난다 — `src/pipeline.py`의 `_load_cached_tts`가 `food_{id}_{STYLE}.wav`를 먼저 찾기 때문이다. 저장소에는 `.gitignore`가 `static/`을 막고 있으므로, 배포용 스냅샷에서 `git add -f static/tts_cache`로 포함시키고 `.gitattributes`에 `*.wav filter=lfs …`를 넣어 LFS로 올린다(EC-05).
 
 ## AC
 
