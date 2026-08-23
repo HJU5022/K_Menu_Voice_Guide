@@ -315,6 +315,43 @@ class ScanMenuLinesTests(unittest.TestCase):
             [("여름막국수 6,000원", 6000), ("두루치기(小) 12,000원", 12000)],
         )
 
+    def test_two_column_menu_splits_at_the_column_boundary(self):
+        """2단 메뉴판에서 왼쪽 칸과 오른쪽 칸이 한 항목으로 뭉치면 안 된다.
+
+        줄 묶기는 세로 위치만 보므로, 같은 높이에 있는 두 칸이 한 줄이 된다.
+        그러면 한 항목에 이름과 가격이 두 벌씩 들어가 어느 가격을 집어도 틀린다
+        (실측: 가격 정확도 60.0% → 76.7%).
+
+        가로로 훑다가 가격이 나온 뒤에 또 이름이 나오면 거기가 칸 경계다.
+        """
+        boxes = [
+            (10, 100, 120, 24, "모듬전", 0.99),
+            (150, 100, 60, 24, "13.0", 0.99),
+            (400, 100, 140, 24, "그집막걸리", 0.99),
+            (560, 100, 60, 24, "6.0", 0.99),
+        ]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(line["menu_text"], line["price_krw"]) for line in unsupported],
+            [("모듬전 13.0", 13000), ("그집막걸리 6.0", 6000)],
+        )
+
+    def test_one_column_line_is_not_split(self):
+        """1단 메뉴판은 쪼개지면 안 된다 — 이름 뒤에 가격이 오고 끝난다."""
+        boxes = [
+            (10, 100, 200, 24, "여름막국수", 0.99),
+            (300, 100, 80, 24, "6,000원", 0.99),
+        ]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(line["menu_text"], line["price_krw"]) for line in unsupported],
+            [("여름막국수 6,000원", 6000)],
+        )
+
     def test_a_line_of_only_numbers_is_not_a_menu(self):
         """숫자만 있는 줄은 메뉴가 아니다.
 
