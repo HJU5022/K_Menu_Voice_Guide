@@ -66,8 +66,9 @@ def use_local_checkpoint(weights: str, dict_path: str) -> None:
 
     infer._rec_model = model
     infer._rec_post_process = post
+    # 추론 경로와 같은 구성 — DecodeImage는 없다. 조각이 이미 BGR 배열로 들어오므로
+    # 여기에 DecodeImage를 두면 배열을 바이트로 오해해서 깨진다(src/ocr/infer.py 참고).
     infer._rec_ops = [
-        infer.DecodeImage(img_mode="BGR", channel_first=False),
         infer.RecResizeImg(image_shape=[3, 48, 320], infer_mode=True),
         infer.KeepKeys(keep_keys=["image"]),
     ]

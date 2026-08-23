@@ -30,7 +30,7 @@ import paddle
 from huggingface_hub import hf_hub_download
 from paddleocr import PaddleOCR
 
-from src.ocr.vendor.ppocr.data.imaug.operators import DecodeImage, KeepKeys
+from src.ocr.vendor.ppocr.data.imaug.operators import KeepKeys
 from src.ocr.vendor.ppocr.data.imaug.rec_img_aug import RecResizeImg
 from src.ocr.vendor.ppocr.modeling.architectures import build_model
 from src.ocr.vendor.ppocr.postprocess.rec_postprocess import CTCLabelDecode
@@ -115,8 +115,9 @@ def _load_rec_engine():
     load_model({"Global": {"pretrained_model": pretrained_model, "checkpoints": None}}, _rec_model)
     _rec_model.eval()
 
+    # DecodeImage를 빼두었다. 넣으면 잘라낸 조각을 JPEG로 압축했다가 곧바로 다시 푸는
+    # 왕복이 생기는데, 조각은 이미 메모리 위의 BGR 배열이라 그 왕복이 통째로 낭비다.
     _rec_ops = [
-        DecodeImage(img_mode="BGR", channel_first=False),
         RecResizeImg(image_shape=[3, 48, 320], infer_mode=True),
         KeepKeys(keep_keys=["image"]),
     ]
@@ -130,15 +131,64 @@ def _transform(data: dict) -> list:
     return data
 
 
-def _recognize_crop_with_score(image_bytes: bytes) -> tuple[str, float]:
-    """이미 잘라낸 글자 영역 하나에서 글자와 신뢰도 점수를 읽는다."""
+# 한 번의 forward에 몰아넣을 조각 수. 조각은 전부 [3,48,320]로 맞춰지므로 그냥 쌓으면 된다.
+#
+# 무한정 키우지 않는 이유는 메모리다 — 조각 하나가 약 180KB(3*48*320*4바이트)라
+# 32개면 6MB 남짓이고, 메뉴판 한 장의 조각 수(실측 92~161개)를 몇 번에 나눠 처리한다.
+_REC_BATCH_SIZE = 32
+
+
+def _recognize_crops(crops: list[np.ndarray]) -> list[tuple[str, float]]:
+    """잘라낸 글자 조각 여러 개를 **한 번에** 읽는다. 입력 순서 그대로 돌려준다.
+
+    조각마다 따로 부르면 forward를 조각 수만큼 하게 된다(실측: 92개 조각에 16.8초).
+    크기가 [3,48,320]로 고정이라 그냥 쌓아서 한 번에 넣을 수 있다.
+
+    전처리에 실패한 조각은 ("", 0.0)으로 채워 자리를 지킨다 — 입력과 출력의 길이가
+    같아야 부르는 쪽이 원래 조각과 짝지을 수 있다.
+    """
+    if not crops:
+        return []
+
     _load_rec_engine()
-    batch = _transform({"image": image_bytes})
-    images = paddle.to_tensor(np.expand_dims(batch[0], axis=0))
-    preds = _rec_model(images)
-    result = _rec_post_process(preds)
-    text, score = result[0]
-    return text, score
+
+    prepared = [_transform({"image": crop}) for crop in crops]
+    results: list[tuple[str, float] | None] = [None] * len(crops)
+
+    # 같은 크기끼리 묶는다. 리사이즈(resize_norm_img_chinese)는 폭을 48*max(320/48, w/h)로
+    # 잡아서, 아주 납작한 조각(가로/세로 > 6.67)만 320보다 넓어진다. 대부분은 320이라
+    # 한 묶음으로 들어가고, 나머지는 작은 묶음이 된다.
+    #
+    # 폭을 억지로 맞추지 않는 이유는 결과를 바꾸지 않기 위해서다 — 오른쪽에 여백을 더
+    # 붙이면 모델이 보는 그림 자체가 달라진다.
+    groups: dict[tuple, list[int]] = {}
+    for index, item in enumerate(prepared):
+        if item is None:
+            results[index] = ("", 0.0)
+            continue
+        groups.setdefault(item[0].shape, []).append(index)
+
+    for indices in groups.values():
+        for start in range(0, len(indices), _REC_BATCH_SIZE):
+            chunk = indices[start : start + _REC_BATCH_SIZE]
+            images = paddle.to_tensor(np.stack([prepared[index][0] for index in chunk], axis=0))
+            preds = _rec_model(images)
+            decoded = _rec_post_process(preds)
+            for position, index in enumerate(chunk):
+                results[index] = decoded[position]
+
+    return [result if result is not None else ("", 0.0) for result in results]
+
+
+def _recognize_crop_with_score(image_bytes: bytes) -> tuple[str, float]:
+    """JPEG 바이트 하나를 읽는다 — eval 스크립트처럼 바이트를 들고 있는 호출부용이다.
+
+    추론 경로는 이 함수를 쓰지 않는다. 거기서는 조각이 이미 배열이라 압축할 이유가 없다.
+    """
+    crop = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if crop is None:
+        return "", 0.0
+    return _recognize_crops([crop])[0]
 
 
 
@@ -149,21 +199,42 @@ def _recognize_crop_with_score(image_bytes: bytes) -> tuple[str, float]:
 _VERTICAL_ASPECT_RATIO = 1.5
 
 
+def _rotated_pair(crop: np.ndarray) -> list[np.ndarray]:
+    """세로로 긴 조각을 시계·반시계로 돌린 두 장. 어느 쪽이 바로 선 것인지 모르기 때문이다."""
+    return [
+        cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE),
+        cv2.rotate(crop, cv2.ROTATE_90_COUNTERCLOCKWISE),
+    ]
+
+
 def _recognize_vertical_crop(crop: np.ndarray) -> tuple[str, float]:
     """세로로 긴 조각은 90도 양쪽으로 돌려보고, 신뢰도 점수가 더 높은 쪽을 채택한다."""
-    best_text, best_score = "", 0.0
-    for rotation in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
-        rotated = cv2.rotate(crop, rotation)
-        ok, buf = cv2.imencode(".jpg", rotated)
-        if not ok:
-            continue
-        text, score = _recognize_crop_with_score(buf.tobytes())
-        if score > best_score:
-            best_text, best_score = text, score
-    return best_text, best_score
+    readings = _recognize_crops(_rotated_pair(crop))
+    return max(readings, key=lambda reading: reading[1], default=("", 0.0))
 
 
 _HANGUL = re.compile(r"[가-힣]")
+
+
+# 파인튜닝 인식을 건너뛰어도 되는 기준 점수.
+#
+# 기본 인식기가 한글 없는 글자를 이만큼 확신하면, 파인튜닝 모델을 돌려봐야 그 결과는
+# _better_reading()에서 어차피 버려진다. 그런 조각에서 두 번째 인식은 순수한 낭비다.
+#
+# 값을 낮추면 더 많이 건너뛰어 빨라지지만, 기본 인식기가 **한글을 한자로 잘못 읽은**
+# 조각까지 확정해버릴 위험이 커진다(실측: "김치찌개" -> "召大|", 0.855). 그 사례보다
+# 확실히 위에 두어야 이름을 잃지 않는다.
+_STOCK_TRUSTED_SCORE = 0.95
+
+
+def _stock_is_trustworthy(stock: tuple[str, float]) -> bool:
+    """기본 인식기 결과만으로 확정해도 되는 조각인지 — 파인튜닝 인식을 건너뛸지 판단한다.
+
+    한글이 없다는 것만으로는 부족하다. 기본 인식기는 한글을 한자·기호로 바꿔 읽고도
+    높은 점수를 주는 일이 있어서, 점수까지 함께 봐야 이름 조각을 놓치지 않는다.
+    """
+    text, score = stock
+    return bool(text) and not _HANGUL.search(text) and score >= _STOCK_TRUSTED_SCORE
 
 
 def _better_reading(tuned: tuple[str, float], stock: tuple[str, float]) -> tuple[str, float]:
@@ -304,25 +375,54 @@ def recognize_boxes_with_mapping(image_path: str) -> tuple[list[TextBox], Source
     stock_texts = detection.get("rec_texts", [])
     stock_scores = detection.get("rec_scores", [])
 
-    boxes = []
+    # 1단계 — 조각을 훑으면서 "파인튜닝 인식이 필요한 것"만 모은다. 아직 읽지 않는다.
+    #
+    # 읽기를 뒤로 미루는 이유는 한 번에 몰아서 넣기 위해서다. 조각마다 바로 읽으면
+    # forward를 조각 수만큼 하게 된다.
+    placements: list[tuple[int, int, int, int, tuple[str, float]]] = []
+    pending_crops: list[np.ndarray] = []
+    # placements의 몇 번째가 pending_crops의 어디서 어디까지를 쓰는지. 세로 조각은 두 장이다.
+    pending_spans: dict[int, tuple[int, int]] = {}
+
     for index, poly in enumerate(dt_polys):
         points = np.array(poly, dtype=np.int32)
         x, y, bw, bh = cv2.boundingRect(points)
-        crop = image[y : y + bh, x : x + bw]
-
-        if bh > bw * _VERTICAL_ASPECT_RATIO:
-            tuned = _recognize_vertical_crop(crop)
-        else:
-            ok, buf = cv2.imencode(".jpg", crop)
-            if not ok:
-                continue
-            tuned = _recognize_crop_with_score(buf.tobytes())
 
         stock = (
             stock_texts[index] if index < len(stock_texts) else "",
             stock_scores[index] if index < len(stock_scores) else 0.0,
         )
-        text, confidence = _better_reading(tuned, stock)
+
+        # 기본 인식기 결과를 먼저 본다. 가격·수량처럼 한글이 없고 확신이 높은 조각은
+        # 파인튜닝 모델을 돌려도 그 답이 아래 _better_reading()에서 버려지므로,
+        # 두 번째 인식을 통째로 생략한다. 메뉴판은 절반 가까이가 이런 조각이다.
+        if _stock_is_trustworthy(stock):
+            placements.append((x, y, bw, bh, stock))
+            continue
+
+        crop = image[y : y + bh, x : x + bw]
+        # 세로로 긴 조각은 어느 쪽으로 돌려야 바로 서는지 몰라 두 장을 다 넣는다.
+        crops = _rotated_pair(crop) if bh > bw * _VERTICAL_ASPECT_RATIO else [crop]
+
+        start = len(pending_crops)
+        pending_crops.extend(crops)
+        pending_spans[len(placements)] = (start, start + len(crops))
+        placements.append((x, y, bw, bh, stock))
+
+    # 2단계 — 모아둔 조각을 한 번에 읽는다.
+    readings = _recognize_crops(pending_crops)
+
+    # 3단계 — 원래 순서대로 되돌려 놓는다.
+    boxes = []
+    for position, (x, y, bw, bh, stock) in enumerate(placements):
+        span = pending_spans.get(position)
+        if span is None:
+            # 기본 인식기만으로 확정한 조각.
+            text, confidence = stock
+        else:
+            start, end = span
+            tuned = max(readings[start:end], key=lambda reading: reading[1], default=("", 0.0))
+            text, confidence = _better_reading(tuned, stock)
         boxes.append(TextBox(x, y, bw, bh, text, confidence))
 
     return boxes, mapping
