@@ -42,13 +42,13 @@
   13. 상세 화면에 대표 사진이 보이고, **출처가 사진과 함께** 있다.
   14. 상세 화면에서 **목록으로 돌아갈 수 있고**, 그때 `/api/analyze`를 다시 부르지 않는다.
   15. 밝은 모드와 어두운 모드 **양쪽에서** 글자가 읽힌다.
+  16. 메뉴 줄을 장바구니에 담고 빼고, 담긴 목록과 총계를 주문 확인 화면에서 볼 수 있다. 계약과 규칙은 `docs/specs/cart.md`를 따른다 — 이 Spec은 그것을 웹 화면에 어떻게 붙였는지만 다룬다.
 - **Out of Scope**:
   - **Streamlit 내부 클래스명을 덮어쓰는 CSS 주입** — Streamlit이 올라갈 때마다 깨진다. 색·여백은 테마 파일(`.streamlit/config.toml`)과 요소 안의 절제된 인라인 스타일로만 다룬다.
   - `K_Menu_Talk.py` **수정** — 계약(`api-layer.md`)은 그대로 쓴다. 서버 쪽은 바꾸지 않는다. **같은 API를 쓰는 iOS 앱이 함께 깨지기 때문이다.**
   - HF Space 생성·하드웨어 설정·시크릿 등록, FastAPI Space용 Dockerfile, Flutter 클라이언트(`config.dart` 주소 변경 포함), 다국어.
   - **첫 화면 샘플 메뉴판 체험 버튼과 그 이미지 3장** — 분량이 커서 따로 뺐다. 요구사항은 `docs/specs/sample-menu-images.md`에 있다.
   - 사진 상자를 **눌러서 선택**하는 기능 — Streamlit에서 좌표 클릭이 불안정하다. 상자는 표시 전용이고, 선택은 목록에서 한다.
-  - 장바구니.
   - **한국어 이름 발음 재생**과 **사진 확대·이동** — 둘 다 넣기로 정해졌으나(2026-08-24), 브라우저 JavaScript가 들어가 위험도가 달라서 다음 PR로 나눈다. 문제가 생겼을 때 이번 변경까지 같이 되돌리지 않기 위해서다.
 
 ## What
@@ -62,7 +62,8 @@
 5. 사용자가 안내 가능한 줄 하나를 선택한다.
 6. `GET {API_BASE_URL}/api/foods/{food_id}`를 호출해 응답을 `session_state["guide"]`에 담고 결과 화면으로 넘어간다 — 이 한 응답에 상세·나레이션·맵기가 모두 들어 있다(`api-layer.md`의 `FoodDetailResponse`). 선택한 줄의 메뉴판 글자·가격은 응답에 없으므로 **선택 시점에 같이 담아둔다.**
 7. 결과 화면이 **상단 요약 블록**(대표 사진·이름·영문명·메뉴판 글자·맵기·가격·발음·음성)과 **노트형 본문 6항목**을 보여준다. 오디오는 응답의 상대 경로(`/audio/...`) 앞에 `API_BASE_URL`을 붙인 URL로 재생한다.
-8. 사용자가 "Back to the list"를 누르면 선택 화면으로 돌아간다. `analysis`와 `image`가 그대로 있으므로 **서버를 다시 부르지 않는다.**
+8. 선택 화면에서 `Add to order`로 줄을 담고 `−`/`+`로 수량을 고친다. 목록 아래 요약에서 `Order`를 누르면 주문 확인 화면으로 간다 — 종업원에게 보여주는 화면이며 **어디로도 주문을 보내지 않는다.**
+9. 사용자가 "Back to the list"를 누르면 선택 화면으로 돌아간다. `analysis`와 `image`가 그대로 있으므로 **서버를 다시 부르지 않는다.**
 
 **Edge Cases**
 
@@ -80,7 +81,7 @@
 | EC-10 | 썸네일이 없음 (`thumbnail_url: null`) | 사진 자리를 비우고 번호 배지만 보여준다. 출처 문구도 표시하지 않는다 (표시할 사진이 없으므로) |
 | EC-11 | 가격을 못 읽음 (`price_krw_display: null`) | 가격 자리를 비운다. "가격 미상" 같은 문구로 채우지 않는다 — 없는 정보를 글자로 채우면 화면만 시끄럽다 |
 | EC-12 | `name_text`가 등록 이름(`name_kr`)과 같음 | 메뉴판 글자를 따로 표시하지 않는다. 같은 말을 두 번 적는 꼴이 된다 |
-| EC-13 | 미지원 줄을 사용자가 누름 | 누를 수 없게 둔다. 안내할 내용이 없는데 선택 가능해 보이면 고장으로 읽힌다 |
+| EC-13 | 미지원 줄 | **설명 보기(`Select`)는 막고 담기(`Add to order`)는 열어둔다.** 안내할 내용이 없는데 설명 버튼이 눌리면 고장으로 읽히지만, 설명을 못 해도 주문은 되기 때문이다(공기밥 같은 줄) |
 | EC-14 | `details.PRONUNCIATION`에 따옴표가 없음 | 요약 블록에서 발음 줄을 생략한다. 본문 Pronunciation 항목에는 문장이 그대로 남으므로 정보가 사라지지 않는다 |
 | EC-15 | 고른 줄에 대표 사진이 없음 | 상세 화면에서 사진과 출처를 **둘 다** 생략하고 글자만 그린다 |
 | EC-16 | 상세에서 목록으로 돌아간 뒤 다른 줄을 고름 | `guide`·`picked`를 새 값으로 덮어쓴다. 이전 선택이 남아 섞이지 않는다 |
@@ -90,7 +91,7 @@
 ```
 session_state 계약
 
-"step"     : "upload" | "select" | "result" | "api_error"   # 현재 화면
+"step"     : "upload" | "select" | "result" | "cart" | "api_error"   # 현재 화면
 "image"    : 업로드한 사진의 원본 바이트 (사진 위 상자를 그리는 데 쓴다)
 "analysis" : POST /api/analyze 응답 JSON 그대로
              {status, ocr_text, candidates[], unsupported_lines[]}
@@ -99,6 +100,9 @@ session_state 계약
               details: {CATEGORY: text, ...},
               narration_text, style,
               narration_audio_path, tts_status, tts_latency_ms}
+"cart_id"  : 이 화면의 카트를 가리키는 UUID (docs/specs/cart.md)
+"cart"     : 카트 요청의 응답(CartResponse) 그대로
+"cart_error": 카트 요청이 실패했을 때의 안내 문구. 성공하면 지운다
 "picked"   : 선택한 메뉴판 줄에서 결과 화면이 쓸 값
              {name_text, price_krw_display}
              — 상세 응답에는 없는 값이라 선택 시점에 담아둔다.
@@ -154,6 +158,16 @@ session_state 계약
 - 제목과 본문은 **한 요소로 그린다**(`st.markdown(f"**{title}**\n\n{text}")`). 나누면 요소마다 기본 여백이 붙어 화면이 길어진다. 목록 항목도 같은 이유로 글자 부분을 한 덩어리 HTML로 그린다.
 - **사진 폭은 픽셀로 고정한다**(요약 140px, 목록 72px). `width="stretch"`로 두면 폰에서 칸이 위아래로 쌓일 때 사진이 화면 폭을 다 먹어 요약이 접힌 아래로 밀려난다(실측 2026-08-24).
 - **돌아가기**: "Back to the list"는 `step`만 `select`로 바꾼다. `analysis`·`image`는 비우지 않는다 — 비우면 서버를 다시 불러야 한다.
+
+### 장바구니 (계약과 규칙은 `docs/specs/cart.md`)
+
+- 카트 ID는 `session_state`에 둔다. 새로고침하면 새 카트가 된다 — 그 판단 근거는 `cart.md`의 "카트 ID" 절에 있다.
+- 담기·빼기·비우기 어느 요청이든 **카트 전체**가 돌아온다. 응답을 `session_state["cart"]`에 통째로 담고 부분 갱신을 짜맞추지 않는다.
+- 요청이 실패하면 `session_state["cart"]`를 **건드리지 않고** `cart_error`에 문구만 남긴다. 서버가 잠깐 안 되는 것과 카트가 비는 것은 다른 일이다.
+- 담기 버튼은 수량이 0이면 `+`만, 1 이상이면 `− n +`. 0인데 `−`가 보이면 눌러도 아무 일이 없어 고장처럼 읽힌다.
+- 카트 줄의 신원은 `food_id|menu_text`다. `food_id`만으로 묶으면 물만두와 군만두가 한 줄이 되고 총계까지 틀린다.
+- **분석에 성공했을 때만** 카트를 비운다(`status == "candidates_found"`). OCR 실패·미지원은 새 식당이 아니라 실패한 시도다.
+- 주문 확인 화면은 **한국어 이름을 크게** 쓴다 — 읽는 사람이 종업원이다. 후보 목록이 영어를 크게 쓰는 것과 반대인데, 보는 사람이 다르기 때문이다.
 
 ### 색과 테마
 
@@ -263,3 +277,23 @@ session_state 계약
 - GIVEN: 결과 화면이 표시돼 있고 `session_state["analysis"]`가 채워져 있다.
 - WHEN: 사용자가 "Back to the list"를 누른다.
 - THEN: 선택 화면이 표시되고 `analysis`가 그대로 남아 있다. `POST /api/analyze`를 다시 호출하지 않는다.
+
+**AC-21 · 안내 못 하는 줄도 담을 수 있다**
+- GIVEN: `unsupported_lines`에 `menu_text`가 `"공기밥 1,000"`인 줄이 있다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 그 줄에 담기 버튼은 있고 `Select` 버튼은 없다. 담으면 이름 자리에 `"공기밥 1,000"`이 실려 나간다(EC-13).
+
+**AC-22 · 새 메뉴판을 읽으면 카트를 비운다**
+- GIVEN: 카트에 담긴 줄이 있다.
+- WHEN: 새 사진을 올려 `status`가 `candidates_found`로 돌아온다.
+- THEN: `DELETE /api/cart`가 호출되고 카트가 빈다. `status`가 `ocr_empty`면 카트 요청을 하지 않는다.
+
+**AC-23 · 카트 요청이 실패해도 담긴 내용을 지우지 않는다**
+- GIVEN: 카트에 담긴 줄이 있다.
+- WHEN: `+`를 눌렀는데 서버 요청이 실패한다.
+- THEN: `session_state["cart"]`가 그대로 남고, 화면에 안내 문구만 추가된다.
+
+**AC-24 · 빈 카트에서는 주문·비우기를 누를 수 없다**
+- GIVEN: 카트가 비어 있다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: `Order`와 `Clear cart`가 비활성이다. 빈 주문 확인 화면으로 넘어가지 않는다.
