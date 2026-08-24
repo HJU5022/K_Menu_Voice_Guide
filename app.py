@@ -15,8 +15,10 @@ API를 쓰는 다른 화면이 이미 이 데이터를 다 그리고 있고, 그
 디자인(CSS·테마)은 아직 입히지 않았다. 이 파일은 그 CSS가 붙을 골격 역할을 한다.
 """
 
+import html
 import io
 import os
+import re
 
 import requests
 import streamlit as st
@@ -162,6 +164,30 @@ def _modifier_badges_html(labels: list[str]) -> str:
     )
 
 
+def _muted(text: str, size: str = "0.85rem") -> str:
+    """보조 글자. **색을 직접 정하지 않고 흐리게만 한다.**
+
+    밝은 모드와 어두운 모드 양쪽에서 읽혀야 하는데, 배경색을 모르는 채로 회색 값을
+    박으면 한쪽에서 안 보인다. 지금 글자색을 그대로 쓰고 투명도만 낮춘다.
+    """
+    return f'<div style="opacity:0.65;font-size:{size};margin:0">{text}</div>'
+
+
+def _pronunciation_quote(details: dict) -> str:
+    """발음 안내에서 따옴표 안의 발음만 뽑는다.
+
+    `Bossam is pronounced "bo-ssam," meaning "wrapped."` → `bo-ssam,`
+    요약 블록은 스크롤 없이 다 보여야 해서 문장 전체를 넣을 자리가 없다. 본문
+    Pronunciation 항목에는 문장이 그대로 남는다.
+    """
+    match = re.search(r'"([^"]+)"', details.get("PRONUNCIATION", "") or "")
+    if match:
+        # 원문이 `"bo-ssam," meaning ...` 꼴이라 쉼표가 따옴표 안에 들어 있다.
+        # 그대로 두면 화면에 `"bo-ssam,"`으로 보인다.
+        return match.group(1).strip(" ,.;:")
+    return ""
+
+
 def _translucent(hex_color: str) -> tuple[int, int, int, int]:
     """상자 안쪽을 덮을 색. 아주 옅게만 채운다 — 진하게 채우면 무엇을 읽었는지 못 본다."""
     red, green, blue = (int(hex_color[start : start + 2], 16) for start in (1, 3, 5))
@@ -244,6 +270,13 @@ def screen_upload() -> None:
     """1번 화면 — 메뉴 사진을 촬영하거나 업로드한다."""
     st.title("K-Menu Voice Guide")
     st.caption("Photograph a Korean menu and get an English guide with audio.")
+    # 링크만 받고 들어온 사람에게는 설명해줄 사람이 없다. 무엇을 하는 서비스인지
+    # 한 줄로 먼저 알려준다.
+    st.markdown(
+        _muted("Take a photo &rarr; pick a dish &rarr; hear what it is, "
+               "how it tastes, and how to eat it."),
+        unsafe_allow_html=True,
+    )
 
     photo = st.camera_input("Take a photo of the menu")
     uploaded = st.file_uploader("or upload a photo", type=["jpg", "jpeg", "png"])
@@ -306,54 +339,79 @@ def screen_select() -> None:
     st.button("Take a new photo", on_click=_reset)
 
 
-def _render_entry(entry: dict, index: int) -> None:
-    """메뉴 줄 하나를 그린다 — 항목 순서는 앱 `candidates_screen.dart`와 같다."""
-    supported = entry["supported"]
-    thumbnail = entry.get("thumbnail_url")
+def _entry_html(entry: dict, index: int) -> str:
+    """메뉴 줄 하나의 글자 부분을 **한 덩어리 HTML로** 만든다.
 
+    Streamlit 요소를 여러 개 쌓으면 요소마다 기본 여백이 붙어 항목 하나가 화면을 거의
+    다 먹는다(실측 2026-08-24). 한 덩어리로 그리면 줄 간격을 우리가 정할 수 있다.
+
+    메뉴판에서 읽어온 글자가 그대로 들어가므로 **반드시 이스케이프한다** — `<`나 `&`가
+    섞이면 화면이 깨진다.
+
+    항목 순서는 앱 `candidates_screen.dart`와 같다.
+    """
+    supported = entry["supported"]
+    rows = []
+
+    if supported:
+        # 읽을 사람이 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
+        rows.append(_title_html(entry["name_en"]))
+        rows.append(_muted(html.escape(entry["name_kr"])))
+    else:
+        rows.append(_title_html(entry.get("name_text") or entry.get("menu_text", "")))
+        rows.append(_muted("Not in our guide yet"))
+
+    # 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은 말을
+    # 두 번 적는 꼴이다(EC-12).
+    name_text = entry.get("name_text")
+    if supported and name_text and name_text != entry.get("name_kr"):
+        rows.append(_muted("Menu: " + html.escape(name_text)))
+
+    labels = _modifier_labels(entry.get("modifiers"))
+    if labels:
+        rows.append(f'<div style="margin-top:4px">{_modifier_badges_html(labels)}</div>')
+
+    # 가격은 있을 때만. 서버가 못 읽었으면 자리를 비운다(EC-11).
+    price = entry.get("price_krw_display")
+    if price:
+        rows.append(
+            f'<div style="font-size:1rem;font-weight:700;margin-top:4px">'
+            f"{html.escape(price)}</div>"
+        )
+
+    # 사진 출처. 사진을 보여주는 자리에는 반드시 함께 둔다.
+    if entry.get("thumbnail_url") and entry.get("thumbnail_attribution"):
+        rows.append(_muted(html.escape(entry["thumbnail_attribution"]), size="0.7rem"))
+
+    return '<div style="display:flex;flex-direction:column;gap:2px">' + "".join(rows) + "</div>"
+
+
+def _title_html(text: str) -> str:
+    """목록 항목의 이름 줄."""
+    return (
+        '<div style="font-size:1.05rem;font-weight:700;margin:0">'
+        f"{html.escape(text)}</div>"
+    )
+
+
+def _render_entry(entry: dict, index: int) -> None:
+    """메뉴 줄 하나를 그린다."""
     with st.container(border=True):
         number_column, text_column = st.columns([1, 5], vertical_alignment="top")
 
         with number_column:
             # 사진 위 상자와 같은 번호·같은 색. 어느 줄이 어느 자리인지 잇는다.
             st.markdown(_badge_html(index), unsafe_allow_html=True)
-            if thumbnail:
-                st.image(thumbnail, width="stretch")
+            if entry.get("thumbnail_url"):
+                # 폭 고정 — 폰에서 칸이 쌓일 때 사진만 커지는 것을 막는다.
+                st.image(entry["thumbnail_url"], width=72)
 
         with text_column:
-            if supported:
-                # 읽을 사람이 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
-                st.markdown(f"**{entry['name_en']}**")
-                st.caption(entry["name_kr"])
-            else:
-                st.markdown(f"**{entry.get('name_text') or entry.get('menu_text', '')}**")
-                st.caption("Not in our guide yet")
-
-            # 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은
-            # 말을 두 번 적는 꼴이다(EC-12). "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로
-            # 안내되는지 여기서 보인다.
-            name_text = entry.get("name_text")
-            if supported and name_text and name_text != entry.get("name_kr"):
-                st.caption(f"Menu: {name_text}")
-
-            labels = _modifier_labels(entry.get("modifiers"))
-            if labels:
-                st.markdown(_modifier_badges_html(labels), unsafe_allow_html=True)
-
-            # 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 — 없는 가격을
-            # "가격 미상" 같은 문구로 채우면 화면만 시끄럽다(EC-11).
-            price = entry.get("price_krw_display")
-            if price:
-                st.markdown(f"**{price}**")
-
-            # 사진 출처 표기. 외부 사진을 쓰면서 출처를 남기기로 한 항목이라, **사진을
-            # 보여주는 자리에는 반드시 함께 둔다.** 있으면 좋은 것이 아니라 조건이다.
-            if thumbnail and entry.get("thumbnail_attribution"):
-                st.caption(entry["thumbnail_attribution"])
+            st.markdown(_entry_html(entry, index), unsafe_allow_html=True)
 
             # 안내할 내용이 없는 줄은 누를 수 없게 둔다 — 눌리는데 아무 일도 안 일어나면
             # 고장으로 읽힌다(EC-13).
-            if supported:
+            if entry["supported"]:
                 # key는 합친 목록에서의 순서로 만든다. `food_id`도 `line_no`도 유일하지
                 # 않다 — 같은 음식이 두 줄에 나올 수 있고(물만두·군만두), 한 줄에서 서로
                 # 다른 음식이 매칭되기도 한다(EC-08).
@@ -380,32 +438,69 @@ def _select_food(entry: dict) -> None:
             return
 
     st.session_state["guide"] = response.json()
-    # 상세 응답에는 메뉴판 글자와 가격이 없다(api-layer.md의 FoodDetailResponse). 결과
-    # 화면에서 다시 찾을 방법이 없으므로 고른 시점에 같이 담아둔다.
+    # 상세 응답에는 메뉴판 글자·가격·대표 사진이 없다(api-layer.md의 FoodDetailResponse).
+    # 결과 화면에서 다시 찾을 방법이 없으므로 고른 시점에 같이 담아둔다.
+    # 출처는 사진과 **한 쌍으로** 담는다 — 사진만 옮기고 출처를 빠뜨리면 안 된다.
     st.session_state["picked"] = {
         "name_text": entry.get("name_text"),
         "price_krw_display": entry.get("price_krw_display"),
+        "thumbnail_url": entry.get("thumbnail_url"),
+        "thumbnail_attribution": entry.get("thumbnail_attribution"),
     }
     _go("result")
 
 
-def screen_result() -> None:
-    """3번 화면 — 카테고리 6개 상세 카드와 내레이션 음성을 보여준다."""
-    guide = st.session_state["guide"]
-    picked = st.session_state.get("picked") or {}
+def _summary_html(guide: dict, picked: dict) -> str:
+    """요약 블록의 글자 부분. 이름·가격·맵기·발음을 한 덩어리로 묶는다."""
+    rows = [
+        '<div style="font-size:1.6rem;font-weight:800;margin:0">'
+        f'{html.escape(guide["name_kr"])}</div>',
+        _muted(html.escape(guide["name_en"]), size="0.95rem"),
+    ]
 
-    st.title(guide["name_kr"])
-    st.caption(guide["name_en"])
-
-    # 고른 줄에 인쇄돼 있던 글자와 가격. 상세 응답에 없는 값이라 선택 시점 것을 쓴다.
     name_text = picked.get("name_text")
     if name_text and name_text != guide["name_kr"]:
-        st.caption(f"Menu: {name_text}")
-    if picked.get("price_krw_display"):
-        st.markdown(f"**{picked['price_krw_display']}**")
+        rows.append(_muted("Menu: " + html.escape(name_text)))
 
     # 맵기 단계를 불꽃 5개로 표시한다(README 3절 "불꽃 아이콘 5개 채움").
-    st.write("🌶️" * guide["spice_level"] + "·" * (5 - guide["spice_level"]))
+    level = guide["spice_level"]
+    spice = "🌶️" * level + "·" * (5 - level)
+    price = picked.get("price_krw_display")
+    if price:
+        line = (
+            f'{spice}<span style="margin-left:14px;font-weight:700">'
+            f"{html.escape(price)}</span>"
+        )
+    else:
+        line = spice
+    rows.append(f'<div style="margin-top:8px;font-size:1rem">{line}</div>')
+
+    quote = _pronunciation_quote(guide["details"])
+    if quote:
+        rows.append(_muted("&ldquo;" + html.escape(quote) + "&rdquo;", size="0.95rem"))
+
+    return '<div style="display:flex;flex-direction:column;gap:2px">' + "".join(rows) + "</div>"
+
+
+def _render_summary(guide: dict, picked: dict) -> None:
+    """상단 요약 블록 — 스크롤하지 않아도 이름·가격·맵기·발음·음성이 다 보이게 모은다."""
+    thumbnail = picked.get("thumbnail_url")
+    if thumbnail:
+        image_column, text_column = st.columns([1, 2], vertical_alignment="top")
+        with image_column:
+            # 폭을 고정한다. `stretch`로 두면 폰에서 칸이 위아래로 쌓이면서 사진이
+            # 화면 폭을 다 먹어 요약이 접힌 아래로 밀려난다(실측 2026-08-24).
+            st.image(thumbnail, width=140)
+            attribution = picked.get("thumbnail_attribution")
+            if attribution:
+                st.markdown(
+                    _muted(html.escape(attribution), size="0.7rem"),
+                    unsafe_allow_html=True,
+                )
+        with text_column:
+            st.markdown(_summary_html(guide, picked), unsafe_allow_html=True)
+    else:
+        st.markdown(_summary_html(guide, picked), unsafe_allow_html=True)
 
     if guide["narration_audio_path"]:
         # 응답의 경로는 상대 경로(/audio/...)다 — 파일은 API 서버에 있으므로 주소를 붙인다.
@@ -415,20 +510,35 @@ def screen_result() -> None:
         st.warning("Audio guide is unavailable right now.")
         st.write(guide["narration_text"])
 
-    for category, title, is_warning in DETAIL_CARDS:
-        with st.container(border=True):
-            st.markdown(f"**{title}**")
-            text = guide["details"].get(category, "")
-            # if문으로 쓴다 — 삼항 표현식으로 두면 Streamlit의 magic(한 줄에 남은 값을
-            # 자동 출력하는 기능)이 그 반환값까지 화면에 그린다. st.write()는 None이라
-            # "None" 배지가, st.warning()은 내부 객체라 Streamlit API 설명서 표가 통째로
-            # 카드 안에 렌더링됐다(실측 2026-08-24).
-            if is_warning:
-                st.warning(text)
-            else:
-                st.write(text)
 
-    st.button("Take a new photo", on_click=_reset)
+def screen_result() -> None:
+    """3번 화면 — 요약 블록과 노트형 본문을 보여준다."""
+    guide = st.session_state["guide"]
+    picked = st.session_state.get("picked") or {}
+
+    _render_summary(guide, picked)
+    st.divider()
+
+    for category, title, is_warning in DETAIL_CARDS:
+        text = guide["details"].get(category, "")
+        # 카드 테두리를 두지 않는다 — 소제목과 본문이 이어지는 노트 형식이다.
+        # 알레르기만 경고 스타일을 남긴다. 안전 정보라 눈에 띄어야 한다.
+        if is_warning:
+            st.markdown(f"**{title}**")
+            st.warning(text)
+        else:
+            # 제목과 본문을 한 요소로 그린다 — 나누면 요소마다 여백이 붙어 길어진다.
+            # if문으로 쓴다(삼항 표현식을 쓰면 Streamlit magic이 반환값까지 그린다).
+            st.markdown(f"**{title}**\n\n{text}")
+
+    back_column, restart_column = st.columns(2)
+    with back_column:
+        # 목록으로 돌아가는 길. 분석 결과는 session_state에 그대로 있으므로 서버를
+        # 다시 부르지 않는다 — 이 버튼이 없으면 다른 메뉴를 보려고 사진부터 다시
+        # 올려야 했다(재분석 6~7초).
+        st.button("Back to the list", on_click=_go, args=("select",), width="stretch")
+    with restart_column:
+        st.button("Take a new photo", on_click=_reset, width="stretch")
 
 
 def screen_api_error() -> None:
