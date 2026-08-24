@@ -8,13 +8,19 @@ Space에서 도는 화면 전용 클라이언트가 됐다 — `src/`를 임포�
 모바일 앱(`mobile/lib/api.dart`)과 같은 API·같은 계약을 쓴다. API 주소는 환경변수
 `API_BASE_URL`로 주입한다(앱의 `config.dart`와 같은 방식). 기본값은 로컬 개발용이다.
 
+화면 구성도 앱(`mobile/lib/screens/candidates_screen.dart`)을 기준으로 맞춘다 — 같은
+API를 쓰는 다른 화면이 이미 이 데이터를 다 그리고 있고, 그 판단 근거도 그쪽 주석에
+남아 있다. 웹만 다르게 정할 이유가 없다.
+
 디자인(CSS·테마)은 아직 입히지 않았다. 이 파일은 그 CSS가 붙을 골격 역할을 한다.
 """
 
+import io
 import os
 
 import requests
 import streamlit as st
+from PIL import Image, ImageDraw, ImageFont
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
@@ -45,7 +51,22 @@ ERROR_MESSAGES = {
     ),
 }
 
+# 후보 번호에 돌려 쓰는 색 — 앱 `menu_photo_overlay.dart`와 같은 팔레트다.
+# 사진 위 상자와 목록 배지가 **같은 색**이어야 눈으로 짝지을 수 있다. 후보가 6개를
+# 넘으면 색이 반복되지만, 번호가 같이 붙어 있어 헷갈리지 않는다.
+CANDIDATE_COLORS = ["#D32F2F", "#1976D2", "#388E3C", "#F57C00", "#7B1FA2", "#0097A7"]
+
 st.set_page_config(page_title="K-Menu Voice Guide", page_icon="🍲", layout="centered")
+
+
+def _color(index: int) -> str:
+    """목록에서 index번째 줄의 색. 사진 상자와 배지가 같은 값을 써야 짝지어진다."""
+    return CANDIDATE_COLORS[index % len(CANDIDATE_COLORS)]
+
+
+def _label(index: int) -> str:
+    """후보 번호 표기. 앱과 같게 두 자리로 채운다(`01`, `02` …)."""
+    return f"{index + 1:02d}"
 
 
 def _go(step: str) -> None:
@@ -55,9 +76,168 @@ def _go(step: str) -> None:
 
 def _reset() -> None:
     """처음 화면으로 돌아가면서 이전 분석 결과를 모두 비운다."""
-    for key in ("analysis", "guide"):
+    for key in ("analysis", "guide", "image", "picked"):
         st.session_state.pop(key, None)
     _go("upload")
+
+
+def _menu_entries(analysis: dict) -> list[dict]:
+    """후보와 안내 못 하는 줄을 메뉴판에 인쇄된 순서(`line_no`)로 합친다.
+
+    서버가 둘을 따로 보내는 건 예전 웹 화면이 `candidates`만 알았기 때문이다. 합쳐서
+    줄 순서대로 놓아야 화면이 실제 메뉴판과 같은 순서가 된다 — 앱의 `menuEntries`
+    (`mobile/lib/api.dart`)와 같은 규칙이다.
+
+    번호와 색은 **이 합친 목록의 순서**로 매긴다.
+    """
+    entries = [dict(item, supported=True) for item in analysis.get("candidates", [])]
+    entries += [dict(item, supported=False) for item in analysis.get("unsupported_lines", [])]
+    # 계약상 후보의 `line_no`는 없을 수도 있다(`int | None`). 그런 줄은 뒤로 보낸다 —
+    # 파이썬 정렬은 순서를 유지하므로 자기들끼리는 받은 순서 그대로 남는다.
+    entries.sort(key=lambda entry: (entry.get("line_no") is None, entry.get("line_no") or 0))
+    return entries
+
+
+def _summary_line(entries: list[dict], has_photo: bool) -> str:
+    """목록 위에 두는 한 줄 안내 — 앱 `candidates_screen.dart`의 `_summaryLine`과 같다.
+
+    사진 위에 상자가 안 붙은 줄이 있으면 그 수를 밝힌다. 상자가 2개인데 목록이 6줄이면
+    "왜 4개는 표시가 없지?"가 되는데, 이름이 여러 글자 상자에 걸쳐 잘리면 서버가 위치를
+    특정하지 못해 생기는 정상 동작이다. 말없이 두면 화면이 뭔가 빠뜨린 것처럼 보인다.
+    """
+    dish = "dish" if len(entries) == 1 else "dishes"
+    found = f"We found {len(entries)} {dish}."
+    if not has_photo:
+        return found
+
+    unpinned = sum(1 for entry in entries if not entry.get("source"))
+    if unpinned == 0:
+        return f"{found} Each box shows what we read there."
+
+    it = "one" if unpinned == 1 else str(unpinned)
+    return (
+        f"{found} Each box shows what we read there — "
+        f"we could not pin {it} to a spot on the photo."
+    )
+
+
+def _modifier_labels(modifiers: dict | None) -> list[str]:
+    """수식어를 화면에 쓸 이름으로 편다.
+
+    메뉴판 이름 앞에 붙어 있던 재료·맵기다. 같은 "김치찌개" 두 줄을 가르는 단서가
+    이것뿐일 때가 있다(꽁치김치찌개). 영어 표기가 있으면 그쪽을 쓴다 — 읽을 사람이
+    한국어를 못 읽는다.
+    """
+    if not modifiers:
+        return []
+
+    labels = []
+    for category in ("spice", "ingredient"):
+        for modifier in modifiers.get(category) or []:
+            labels.append(modifier.get("keyword_en") or modifier.get("keyword") or "")
+    return [label for label in labels if label]
+
+
+def _badge_html(index: int) -> str:
+    """번호 배지. 사진 상자와 같은 색을 내려면 HTML로 그려야 한다.
+
+    Streamlit이 기본으로 주는 색 이름(`:red[]` 등)으로는 위 팔레트의 정확한 색을 낼 수
+    없어, Pillow로 그린 사진 상자와 색이 어긋난다. 색으로 짝짓는 것이 이 화면의
+    핵심이라 배지만 인라인 HTML로 그린다 — 들어가는 값은 우리가 만든 상수 팔레트와
+    정수 번호뿐이고 사용자 입력이 섞이지 않는다.
+    """
+    return (
+        f'<span style="display:inline-block;min-width:28px;padding:2px 6px;'
+        f"border-radius:6px;background:{_color(index)};color:#fff;font-size:12px;"
+        f'font-weight:700;text-align:center">{_label(index)}</span>'
+    )
+
+
+def _modifier_badges_html(labels: list[str]) -> str:
+    """수식어 배지들. 한 줄에 나란히 놓으려고 번호 배지와 같은 방식으로 그린다."""
+    return " ".join(
+        '<span style="display:inline-block;padding:1px 8px;border-radius:10px;'
+        'background:rgba(128,128,128,0.18);font-size:11px">' + label + "</span>"
+        for label in labels
+    )
+
+
+def _translucent(hex_color: str) -> tuple[int, int, int, int]:
+    """상자 안쪽을 덮을 색. 아주 옅게만 채운다 — 진하게 채우면 무엇을 읽었는지 못 본다."""
+    red, green, blue = (int(hex_color[start : start + 2], 16) for start in (1, 3, 5))
+    return red, green, blue, 31
+
+
+def _photo_with_boxes(image_bytes: bytes, entries: list[dict]) -> Image.Image:
+    """올린 사진 위에 각 줄이 나온 자리를 번호 상자로 그린 **사본**을 돌려준다.
+
+    왜 필요한가: 목록만 보면 "왜 이게 나왔지?"를 확인할 방법이 없다. 실제로 사진에 없는
+    음식이 후보로 뜬 적이 있는데(`막국수` → `칼국수`), 그때 사용자가 스스로 판단할 근거가
+    화면에 하나도 없었다.
+
+    좌표(`source`)는 원본 사진 기준 0~1 비율이라 원본 크기만 곱하면 자리가 맞는다.
+    """
+    canvas = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    # RGBA로 그려야 상자 안쪽을 반투명하게 채울 수 있다.
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    width, height = canvas.size
+
+    # 사진 크기가 제각각이라 선 굵기와 글자 크기를 사진에 비례해서 정한다.
+    line_width = max(2, round(min(width, height) / 400))
+    font = ImageFont.load_default(size=max(12, round(min(width, height) / 45)))
+
+    for index, entry in enumerate(entries):
+        source = entry.get("source")
+        if not source:
+            continue  # 자리를 못 찾은 줄 — 목록에는 남지만 사진에는 못 그린다(EC-09)
+
+        left = source["left"] * width
+        top = source["top"] * height
+        right = left + source["width"] * width
+        bottom = top + source["height"] * height
+
+        color = _color(index)
+        draw.rectangle(
+            (left, top, right, bottom),
+            outline=color,
+            width=line_width,
+            fill=_translucent(color),
+        )
+        _draw_number(draw, index, left, top, bottom, height, font, color)
+
+    return canvas
+
+
+def _draw_number(
+    draw: ImageDraw.ImageDraw,
+    index: int,
+    left: float,
+    top: float,
+    bottom: float,
+    image_height: int,
+    font: ImageFont.ImageFont,
+    color: str,
+) -> None:
+    """상자에 번호를 붙인다. 위쪽에 자리가 없으면 아래에 붙인다(앱과 같은 규칙)."""
+    text = _label(index)
+    text_left, text_top, text_right, text_bottom = draw.textbbox((0, 0), text, font=font)
+    padding = 2
+    box_width = text_right - text_left + padding * 2
+    box_height = text_bottom - text_top + padding * 2
+
+    number_top = top - box_height - 1
+    if number_top < 0:
+        number_top = min(bottom + 1, image_height - box_height)
+
+    draw.rectangle(
+        (left, number_top, left + box_width, number_top + box_height), fill=color
+    )
+    draw.text(
+        (left + padding - text_left, number_top + padding - text_top),
+        text,
+        font=font,
+        fill="#FFFFFF",
+    )
 
 
 def screen_upload() -> None:
@@ -71,12 +251,16 @@ def screen_upload() -> None:
     if image is None:
         return
 
+    # 보낸 바이트는 남겨둔다 — 다음 화면에서 이 사진 위에 상자를 그린다.
+    image_bytes = image.getvalue()
+    st.session_state["image"] = image_bytes
+
     # 계약은 api-layer.md의 POST /api/analyze — multipart, 필드명 "image".
     with st.spinner("Reading the menu..."):
         try:
             response = requests.post(
                 f"{API_BASE_URL}/api/analyze",
-                files={"image": (image.name or "menu.jpg", image.getvalue())},
+                files={"image": (image.name or "menu.jpg", image_bytes)},
                 timeout=REQUEST_TIMEOUT_SEC,
             )
             response.raise_for_status()
@@ -89,7 +273,7 @@ def screen_upload() -> None:
 
 
 def screen_select() -> None:
-    """2번 화면 — 인식된 음식 후보를 보여주고 하나를 고르게 한다."""
+    """2번 화면 — 읽어낸 메뉴 줄을 사진과 함께 보여주고 하나를 고르게 한다."""
     analysis = st.session_state["analysis"]
     status = analysis["status"]
 
@@ -100,26 +284,86 @@ def screen_select() -> None:
         st.button("Take a new photo", on_click=_reset)
         return
 
-    candidates = analysis["candidates"]
-    st.subheader("Which dish is it?")
-
-    # 후보가 하나뿐이면 고르게 할 이유가 없어 바로 결과로 넘긴다.
-    if len(candidates) == 1:
-        _select_food(candidates[0]["food_id"])
+    # 고를 것이 하나뿐이면 선택 화면을 건너뛴다. 다만 안내 못 하는 줄이 하나라도 있으면
+    # 건너뛰지 않는다 — 건너뛰면 그 줄들이 화면에서 통째로 사라진다(EC-03).
+    candidates = analysis.get("candidates", [])
+    if len(candidates) == 1 and not analysis.get("unsupported_lines"):
+        _select_food(candidates[0])
         st.rerun()
         return
 
-    for candidate in candidates:
-        label = f"{candidate['name_kr']} · {candidate['name_en']}"
-        if st.button(label, key=f"candidate_{candidate['food_id']}", use_container_width=True):
-            _select_food(candidate["food_id"])
-            st.rerun()
+    entries = _menu_entries(analysis)
+    image_bytes = st.session_state.get("image")
+
+    st.subheader("Which dish is it?")
+    if image_bytes:
+        st.image(_photo_with_boxes(image_bytes, entries), width="stretch")
+    st.caption(_summary_line(entries, image_bytes is not None))
+
+    for index, entry in enumerate(entries):
+        _render_entry(entry, index)
 
     st.button("Take a new photo", on_click=_reset)
 
 
-def _select_food(food_id: int) -> None:
-    """고른 음식의 설명·음성을 한 번만 받아 session_state에 담는다.
+def _render_entry(entry: dict, index: int) -> None:
+    """메뉴 줄 하나를 그린다 — 항목 순서는 앱 `candidates_screen.dart`와 같다."""
+    supported = entry["supported"]
+    thumbnail = entry.get("thumbnail_url")
+
+    with st.container(border=True):
+        number_column, text_column = st.columns([1, 5], vertical_alignment="top")
+
+        with number_column:
+            # 사진 위 상자와 같은 번호·같은 색. 어느 줄이 어느 자리인지 잇는다.
+            st.markdown(_badge_html(index), unsafe_allow_html=True)
+            if thumbnail:
+                st.image(thumbnail, width="stretch")
+
+        with text_column:
+            if supported:
+                # 읽을 사람이 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
+                st.markdown(f"**{entry['name_en']}**")
+                st.caption(entry["name_kr"])
+            else:
+                st.markdown(f"**{entry.get('name_text') or entry.get('menu_text', '')}**")
+                st.caption("Not in our guide yet")
+
+            # 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은
+            # 말을 두 번 적는 꼴이다(EC-12). "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로
+            # 안내되는지 여기서 보인다.
+            name_text = entry.get("name_text")
+            if supported and name_text and name_text != entry.get("name_kr"):
+                st.caption(f"Menu: {name_text}")
+
+            labels = _modifier_labels(entry.get("modifiers"))
+            if labels:
+                st.markdown(_modifier_badges_html(labels), unsafe_allow_html=True)
+
+            # 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 — 없는 가격을
+            # "가격 미상" 같은 문구로 채우면 화면만 시끄럽다(EC-11).
+            price = entry.get("price_krw_display")
+            if price:
+                st.markdown(f"**{price}**")
+
+            # 사진 출처 표기. 외부 사진을 쓰면서 출처를 남기기로 한 항목이라, **사진을
+            # 보여주는 자리에는 반드시 함께 둔다.** 있으면 좋은 것이 아니라 조건이다.
+            if thumbnail and entry.get("thumbnail_attribution"):
+                st.caption(entry["thumbnail_attribution"])
+
+            # 안내할 내용이 없는 줄은 누를 수 없게 둔다 — 눌리는데 아무 일도 안 일어나면
+            # 고장으로 읽힌다(EC-13).
+            if supported:
+                # key는 합친 목록에서의 순서로 만든다. `food_id`도 `line_no`도 유일하지
+                # 않다 — 같은 음식이 두 줄에 나올 수 있고(물만두·군만두), 한 줄에서 서로
+                # 다른 음식이 매칭되기도 한다(EC-08).
+                if st.button("Select", key=f"pick_{index}", width="stretch"):
+                    _select_food(entry)
+                    st.rerun()
+
+
+def _select_food(entry: dict) -> None:
+    """고른 줄의 설명·음성을 한 번만 받아 session_state에 담는다.
 
     Streamlit은 버튼 하나 누를 때마다 스크립트를 처음부터 다시 실행한다. 결과를 여기
     담아두지 않으면 화면이 갱신될 때마다 서버가 TTS를 다시 돌린다(캐시 미스면 요청당 33초).
@@ -128,7 +372,7 @@ def _select_food(food_id: int) -> None:
     with st.spinner("Preparing your guide..."):
         try:
             response = requests.get(
-                f"{API_BASE_URL}/api/foods/{food_id}", timeout=REQUEST_TIMEOUT_SEC
+                f"{API_BASE_URL}/api/foods/{entry['food_id']}", timeout=REQUEST_TIMEOUT_SEC
             )
             response.raise_for_status()
         except requests.RequestException:
@@ -136,15 +380,30 @@ def _select_food(food_id: int) -> None:
             return
 
     st.session_state["guide"] = response.json()
+    # 상세 응답에는 메뉴판 글자와 가격이 없다(api-layer.md의 FoodDetailResponse). 결과
+    # 화면에서 다시 찾을 방법이 없으므로 고른 시점에 같이 담아둔다.
+    st.session_state["picked"] = {
+        "name_text": entry.get("name_text"),
+        "price_krw_display": entry.get("price_krw_display"),
+    }
     _go("result")
 
 
 def screen_result() -> None:
     """3번 화면 — 카테고리 6개 상세 카드와 내레이션 음성을 보여준다."""
     guide = st.session_state["guide"]
+    picked = st.session_state.get("picked") or {}
 
     st.title(guide["name_kr"])
     st.caption(guide["name_en"])
+
+    # 고른 줄에 인쇄돼 있던 글자와 가격. 상세 응답에 없는 값이라 선택 시점 것을 쓴다.
+    name_text = picked.get("name_text")
+    if name_text and name_text != guide["name_kr"]:
+        st.caption(f"Menu: {name_text}")
+    if picked.get("price_krw_display"):
+        st.markdown(f"**{picked['price_krw_display']}**")
+
     # 맵기 단계를 불꽃 5개로 표시한다(README 3절 "불꽃 아이콘 5개 채움").
     st.write("🌶️" * guide["spice_level"] + "·" * (5 - guide["spice_level"]))
 
