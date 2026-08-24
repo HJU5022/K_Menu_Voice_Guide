@@ -7,8 +7,10 @@ Streamlit이 주는 `AppTest`로 스크립트를 실제로 실행하고 그려�
 검사하려는 화면과 상관없는 것까지 끌어들이게 된다.
 """
 
+import base64
 import importlib.util
 import io
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -120,6 +122,24 @@ def _texts(app: AppTest) -> list[str]:
 
 def _select_buttons(app: AppTest) -> list:
     return [button for button in app.button if button.label == "Select"]
+
+
+def _iframes(app: AppTest) -> list[str]:
+    """화면에 그려진 iframe들의 내용. 사진 확대창과 발음 버튼이 여기 들어간다."""
+    return [
+        element.proto.srcdoc
+        for element in app.main
+        if element.type == "iframe"
+    ]
+
+
+def _photo_frames(app: AppTest) -> list[str]:
+    return [frame for frame in _iframes(app) if "data:image/jpeg" in frame]
+
+
+def _speak_targets(app: AppTest) -> list[str]:
+    """발음 버튼이 읽어줄 글자들."""
+    return re.findall(r'data-text="([^"]*)"', "\n".join(_iframes(app)))
 
 
 def _sample_photo(size: tuple[int, int] = (400, 300)) -> bytes:
@@ -274,8 +294,10 @@ def test_ac12_사진이_있으면_상자를_얹은_사진을_그린다():
     )
 
     assert not app.exception
-    # 썸네일이 없으므로 그려진 이미지는 메뉴판 사진 하나뿐이다.
-    assert len(app.image) == 1
+    # 사진은 끌어서 옮기고 확대할 수 있는 창으로 그린다 — 폰에서는 st.image의 확대
+    # 버튼이 나타나지 않기 때문이다.
+    assert len(_photo_frames(app)) == 1
+    assert "pinch to zoom" in _photo_frames(app)[0]
     # 자리를 못 찾은 줄도 목록에는 남는다(EC-09).
     assert len(_select_buttons(app)) == 2
 
@@ -309,12 +331,12 @@ def test_ac12_좌표가_없는_줄은_상자를_그리지_않는다():
     assert untouched.getpixel((100, 100)) == (255, 255, 255)
 
 
-def test_ac12_사진이_없으면_이미지를_그리지_않는다():
+def test_ac12_사진이_없으면_사진창을_그리지_않는다():
     app = _select_screen(
         [_candidate(), _candidate(food_id=2, name_en="Kimchi Stew", name_kr="김치찌개")]
     )
 
-    assert len(app.image) == 0
+    assert _photo_frames(app) == []
 
 
 # --- AC-13 ------------------------------------------------------------------
@@ -753,3 +775,88 @@ def test_안내_못_하는_줄은_주문_확인에서_영문_줄을_그리지_�
     # 영어 이름이 없어 메뉴판 글자를 담아 보낸 줄이다. 그대로 찍으면 같은 말이 두 번
     # 나오고 가격도 두 번 보인다.
     assert not any("공기밥 1,000" in text for text in texts)
+
+
+# --- 발음 재생 · 사진 확대 (브라우저 기능) -----------------------------------
+
+
+def test_발음_버튼은_가격을_뺀_이름을_읽는다():
+    app = _select_screen([
+        _candidate(name_kr="갈비탕", name_text="황기갈비탕", menu_text="황기갈비탕 15,000"),
+        _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
+    ])
+
+    # 종업원에게 들려줄 말에 숫자가 끼면 어수선하다 — 줄 글자가 아니라 가격을 뗀 쪽이다.
+    assert "황기갈비탕" in _speak_targets(app)
+    assert not any("15,000" in target for target in _speak_targets(app))
+
+
+def test_안내_못_하는_줄에도_발음_버튼이_있다():
+    app = _select_screen(
+        [_candidate()],
+        [_unsupported(menu_text="공기밥 1,000", name_text="공기밥")],
+    )
+
+    # 설명은 못 해도 종업원에게 말할 수는 있어야 한다.
+    assert "공기밥" in _speak_targets(app)
+
+
+def test_상세_화면에도_발음_버튼이_있다():
+    app = _result_screen(picked={"name_text": "황기갈비탕"})
+
+    assert _speak_targets(app) == ["황기갈비탕"]
+
+
+def test_주문_확인_화면의_줄마다_발음_버튼이_있다():
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "cart"
+    app.session_state["cart"] = _cart([
+        _cart_line(name_text="황기갈비탕"),
+        _cart_line(food_id=None, name_kr="공기밥 1,000", name_en="공기밥 1,000",
+                   menu_text="공기밥 1,000", name_text="공기밥"),
+    ])
+    app.run()
+
+    assert _speak_targets(app) == ["황기갈비탕", "공기밥"]
+
+
+def test_읽을_이름이_없으면_발음_버튼을_그리지_않는다():
+    app = _select_screen([
+        _candidate(name_text="", menu_text=""),
+        _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
+    ])
+
+    # 빈 버튼을 두면 눌러도 아무 일이 없어 고장으로 읽힌다.
+    assert "" not in _speak_targets(app)
+
+
+def test_사진창은_원본이_아니라_줄인_사본을_싣는다():
+    # 확대·이동은 사진을 페이지에 통째로 실어야 동작한다. 촬영본을 그대로 실으면
+    # 그만큼 페이지가 무거워지므로 긴 변을 줄여서 넣는다.
+    app = _select_screen(
+        [
+            _candidate(source={"text": "갈비탕", "left": 0.1, "top": 0.1,
+                               "width": 0.3, "height": 0.1}),
+            _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
+        ],
+        image=_sample_photo((3000, 2000)),
+    )
+
+    [frame] = _photo_frames(app)
+    encoded = re.search(r"data:image/jpeg;base64,([^\"]+)", frame).group(1)
+    loaded = Image.open(io.BytesIO(base64.b64decode(encoded)))
+    assert max(loaded.size) <= 1400
+    # 가로세로 비는 그대로여야 상자 자리가 맞는다.
+    assert round(loaded.width / loaded.height, 2) == 1.5
+
+
+def test_iframe_안에서_스크립트가_중간에_끊기지_않는다():
+    app = _select_screen([
+        _candidate(name_text="황기갈비탕"),
+        _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
+    ])
+
+    for frame in _iframes(app):
+        # 스크립트를 닫는 태그가 두 번 나오면 첫 번째에서 코드가 끊기고, 그 뒤는
+        # 화면에 글자로 새어 나온다. 실제로 주석에 예시로 적었다가 그렇게 됐다.
+        assert frame.count("</" + "script>") <= 1

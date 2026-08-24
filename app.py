@@ -15,6 +15,7 @@ API를 쓰는 다른 화면이 이미 이 데이터를 다 그리고 있고, 그
 디자인(CSS·테마)은 아직 입히지 않았다. 이 파일은 그 CSS가 붙을 골격 역할을 한다.
 """
 
+import base64
 import html
 import io
 import os
@@ -259,6 +260,78 @@ def _muted(text: str, size: str = "0.85rem") -> str:
     return f'<div style="opacity:0.65;font-size:{size};margin:0">{text}</div>'
 
 
+def speak_button(text: str) -> None:
+    """한국어 이름을 브라우저 내장 음성으로 읽어주는 버튼.
+
+    나레이션은 우리가 파인튜닝한 TTS가 맡고, **이름 발음만** 기기에 깔린 음성을 쓴다
+    (앱과 같은 방침). 이름 한 단어를 들려주자고 서버를 왕복할 이유가 없다.
+
+    Streamlit에서 JavaScript를 쓰려면 `st.iframe`이 필요한데, 이건 호출마다 iframe을
+    하나씩 만든다. 줄이 많은 메뉴판에서는 그만큼 iframe이 생긴다 — 앱과 같은 자리에
+    두기로 한 결정(2026-08-24)의 대가다.
+
+    (`st.components.v1.html`은 폐기 예정이라 쓰지 않는다. requirements.txt가 streamlit
+    버전을 고정하지 않으므로, Space가 새 버전을 설치하는 시점에 사라질 수 있다.)
+
+    **기기에 한국어 음성이 없으면 버튼을 감춘다.** 눌러도 아무 일이 없으면 고장으로
+    읽힌다. 다만 브라우저가 음성 목록을 늦게 채우는 경우가 있어(크롬), 목록이 빈
+    동안에는 판단을 미루고 `voiceschanged`를 기다린다 — 안 그러면 있는 음성을 두고
+    버튼을 숨긴다.
+    """
+    if not text:
+        return
+
+    st.iframe(
+        """
+<style>
+  body { margin: 0; background: transparent; }
+  button {
+    width: 100%; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(128,128,128,0.4);
+    background: transparent; color: #2B2320; font-size: 0.85rem;
+  }
+  @media (prefers-color-scheme: dark) { button { color: #F3EDE7; } }
+</style>
+<button id="say" data-text="__TEXT__">Say it in Korean</button>
+<script>
+  const button = document.getElementById("say");
+  // 읽을 글자는 데이터 속성으로 받는다. 스크립트 안에 직접 끼워 넣으면, 메뉴판에서
+  // 읽어온 글자에 스크립트를 닫는 태그가 섞였을 때 거기서 코드가 끊긴다.
+  // (이 주석에 그 태그를 예시로 적었다가 실제로 끊긴 적이 있다 — 2026-08-24)
+  const text = button.dataset.text;
+
+  function koreanVoice() {
+    return speechSynthesis.getVoices().find(
+      (voice) => voice.lang && voice.lang.toLowerCase().startsWith("ko"));
+  }
+
+  function hideIfUnavailable() {
+    if (!("speechSynthesis" in window)) { button.style.display = "none"; return; }
+    // 목록이 아직 비어 있으면 판단하지 않는다 — 잠시 뒤 voiceschanged로 다시 들어온다.
+    if (speechSynthesis.getVoices().length === 0) return;
+    if (!koreanVoice()) button.style.display = "none";
+  }
+
+  if ("speechSynthesis" in window) {
+    speechSynthesis.addEventListener("voiceschanged", hideIfUnavailable);
+  }
+  hideIfUnavailable();
+
+  button.addEventListener("click", () => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voice = koreanVoice();
+    if (voice) utterance.voice = voice;
+    utterance.lang = "ko-KR";
+    utterance.rate = 0.9;   // 따라 말해야 하므로 조금 천천히
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  });
+</script>
+""".replace("__TEXT__", html.escape(text, quote=True)),
+        height=44,
+    )
+
+
 def _pronunciation_quote(details: dict) -> str:
     """발음 안내에서 따옴표 안의 발음만 뽑는다.
 
@@ -274,10 +347,26 @@ def _pronunciation_quote(details: dict) -> str:
     return ""
 
 
-def _translucent(hex_color: str) -> tuple[int, int, int, int]:
-    """상자 안쪽을 덮을 색. 아주 옅게만 채운다 — 진하게 채우면 무엇을 읽었는지 못 본다."""
+def _rgba(hex_color: str, alpha: int) -> tuple[int, int, int, int]:
+    """`#RRGGBB`를 투명도가 붙은 색으로 바꾼다."""
     red, green, blue = (int(hex_color[start : start + 2], 16) for start in (1, 3, 5))
-    return red, green, blue, 31
+    return red, green, blue, alpha
+
+
+# 상자 안쪽을 덮는 정도. 아주 옅게만 채운다 — 진하게 채우면 무엇을 읽었는지 못 본다.
+BOX_FILL_ALPHA = 31
+
+# 번호 배지의 진하기. 메뉴판은 줄이 촘촘해서 배지가 바로 윗줄 글자 위에 얹히는데,
+# 꽉 채우면 그 글자를 통째로 가린다(실측 2026-08-24, 족발집 메뉴판에서 07 배지가
+# 09 줄을 덮었다).
+#
+# 값은 밝은 메뉴판과 어두운 메뉴판 양쪽에 그려보고 정했다. 더 낮추면(140) 어두운
+# 메뉴판에서는 밑 글자가 잘 비치지만 **흰 메뉴판에서 흰 숫자가 흐려져** 번호를 못
+# 읽는다. 190이 양쪽에서 숫자가 읽히는 선이다.
+#
+# 다만 이건 **덜 가리는 것**이지 가리는 문제를 없애지는 못한다. 완전히 없애려면
+# 겹침을 계산해 배지를 빈 자리로 옮겨야 한다 — 실제 사진에서 부족하면 그때 한다.
+BADGE_ALPHA = 190
 
 
 def _photo_with_boxes(image_bytes: bytes, entries: list[dict]) -> Image.Image:
@@ -313,11 +402,145 @@ def _photo_with_boxes(image_bytes: bytes, entries: list[dict]) -> Image.Image:
             (left, top, right, bottom),
             outline=color,
             width=line_width,
-            fill=_translucent(color),
+            fill=_rgba(color, BOX_FILL_ALPHA),
         )
         _draw_number(draw, index, left, top, bottom, height, font, color)
 
     return canvas
+
+
+def _photo_data_uri(image: Image.Image, max_side: int = 1400) -> str:
+    """사진을 페이지 안에 실을 수 있게 줄여서 인코딩한다.
+
+    확대·이동은 사진을 페이지에 통째로 실어야 동작한다. 원본이 몇 MB짜리 촬영본이면
+    페이지가 그만큼 무거워지므로, **화면 표시용으로만** 긴 변을 줄이고 JPEG로 넣는다.
+    좌표는 0~1 비율이라 이미 상자가 그려진 뒤이므로 크기를 줄여도 자리가 어긋나지 않는다.
+    """
+    canvas = image
+    if max(canvas.size) > max_side:
+        canvas = canvas.copy()
+        canvas.thumbnail((max_side, max_side))
+
+    buffer = io.BytesIO()
+    canvas.save(buffer, format="JPEG", quality=82)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def zoomable_photo(image: Image.Image, height: int = 380) -> None:
+    """메뉴판 사진을 끌어서 옮기고 확대할 수 있게 보여준다.
+
+    상자와 번호가 촘촘해서 원본 크기로는 글자를 못 읽는다. `st.image`에도 확대 버튼이
+    붙지만 마우스를 올려야 나타나서 **폰에서는 보이지 않는다** — 이 서비스를 쓸 사람은
+    대부분 폰이다.
+
+    상자를 눌러 고르는 기능은 만들지 않는다(범위 밖). 여기서는 보기만 한다.
+    """
+    st.iframe(
+        """
+<style>
+  body { margin: 0; background: transparent; }
+  #frame {
+    position: relative; width: 100%; height: __HEIGHT__px; overflow: hidden;
+    border-radius: 8px; touch-action: none; cursor: grab;
+  }
+  #frame.dragging { cursor: grabbing; }
+  #photo { position: absolute; transform-origin: 0 0; user-select: none; }
+  #hint {
+    position: absolute; right: 8px; bottom: 6px; font-size: 11px;
+    background: rgba(0,0,0,0.45); color: #fff; padding: 2px 7px; border-radius: 6px;
+  }
+</style>
+<div id="frame">
+  <img id="photo" src="__SRC__" alt="menu photo" draggable="false">
+  <div id="hint">drag to move &middot; scroll or pinch to zoom &middot; double-click to reset</div>
+</div>
+<script>
+  const frame = document.getElementById("frame");
+  const photo = document.getElementById("photo");
+
+  let fit = 1, scale = 1, x = 0, y = 0;
+
+  function apply() {
+    photo.style.transform = "translate(" + x + "px," + y + "px) scale(" + scale + ")";
+  }
+
+  function reset() {
+    // 사진 전체가 보이도록 맞춘다.
+    fit = Math.min(frame.clientWidth / photo.naturalWidth,
+                   frame.clientHeight / photo.naturalHeight);
+    scale = fit;
+    x = (frame.clientWidth - photo.naturalWidth * scale) / 2;
+    y = (frame.clientHeight - photo.naturalHeight * scale) / 2;
+    apply();
+  }
+
+  function zoomAt(px, py, factor) {
+    // 손가락(또는 포인터)이 가리키던 지점이 제자리에 남도록 옮긴다.
+    const next = Math.min(Math.max(scale * factor, fit), fit * 8);
+    const ratio = next / scale;
+    x = px - (px - x) * ratio;
+    y = py - (py - y) * ratio;
+    scale = next;
+    apply();
+  }
+
+  photo.addEventListener("load", reset);
+  if (photo.complete) reset();
+  window.addEventListener("resize", reset);
+
+  frame.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const box = frame.getBoundingClientRect();
+    zoomAt(event.clientX - box.left, event.clientY - box.top,
+           event.deltaY < 0 ? 1.15 : 1 / 1.15);
+  }, { passive: false });
+
+  frame.addEventListener("dblclick", reset);
+
+  const pointers = new Map();
+  let pinchDistance = 0;
+
+  frame.addEventListener("pointerdown", (event) => {
+    frame.setPointerCapture(event.pointerId);
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    frame.classList.add("dragging");
+  });
+
+  frame.addEventListener("pointermove", (event) => {
+    const previous = pointers.get(event.pointerId);
+    if (!previous) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pointers.size === 1) {
+      x += event.clientX - previous.x;
+      y += event.clientY - previous.y;
+      apply();
+      return;
+    }
+
+    // 손가락 두 개 — 사이 거리가 벌어지면 확대한다.
+    const [first, second] = [...pointers.values()];
+    const distance = Math.hypot(first.x - second.x, first.y - second.y);
+    if (pinchDistance) {
+      const box = frame.getBoundingClientRect();
+      zoomAt((first.x + second.x) / 2 - box.left,
+             (first.y + second.y) / 2 - box.top,
+             distance / pinchDistance);
+    }
+    pinchDistance = distance;
+  });
+
+  function release(event) {
+    pointers.delete(event.pointerId);
+    if (pointers.size < 2) pinchDistance = 0;
+    if (pointers.size === 0) frame.classList.remove("dragging");
+  }
+  frame.addEventListener("pointerup", release);
+  frame.addEventListener("pointercancel", release);
+</script>
+""".replace("__HEIGHT__", str(height)).replace("__SRC__", _photo_data_uri(image)),
+        height=height + 8,
+    )
 
 
 def _draw_number(
@@ -342,7 +565,8 @@ def _draw_number(
         number_top = min(bottom + 1, image_height - box_height)
 
     draw.rectangle(
-        (left, number_top, left + box_width, number_top + box_height), fill=color
+        (left, number_top, left + box_width, number_top + box_height),
+        fill=_rgba(color, BADGE_ALPHA),
     )
     draw.text(
         (left + padding - text_left, number_top + padding - text_top),
@@ -422,7 +646,7 @@ def screen_select() -> None:
 
     st.subheader("Which dish is it?")
     if image_bytes:
-        st.image(_photo_with_boxes(image_bytes, entries), width="stretch")
+        zoomable_photo(_photo_with_boxes(image_bytes, entries))
     st.caption(_summary_line(entries, image_bytes is not None))
 
     quantities = _cart_quantities()
@@ -564,6 +788,9 @@ def _render_entry(entry: dict, index: int, quantity: int = 0) -> None:
                     st.rerun()
 
             _render_stepper(entry, index, quantity)
+            # 종업원에게 말할 때 쓰는 이름이라 가격을 뗀 쪽을 읽는다 — 들려줄 말에
+            # 숫자가 끼면 어수선하다(앱 `_SpeakButton`과 같다).
+            speak_button(entry.get("name_text") or entry.get("name_kr") or "")
 
 
 def _render_stepper(entry: dict, index: int, quantity: int) -> None:
@@ -678,6 +905,8 @@ def _render_summary(guide: dict, picked: dict) -> None:
     else:
         st.markdown(_summary_html(guide, picked), unsafe_allow_html=True)
 
+    speak_button(picked.get("name_text") or guide["name_kr"])
+
     if guide["narration_audio_path"]:
         # 응답의 경로는 상대 경로(/audio/...)다 — 파일은 API 서버에 있으므로 주소를 붙인다.
         st.audio(f"{API_BASE_URL}{guide['narration_audio_path']}")
@@ -760,6 +989,7 @@ def screen_cart() -> None:
     for line in items:
         with st.container(border=True):
             st.markdown(_cart_line_html(line), unsafe_allow_html=True)
+            speak_button(line.get("name_text") or line.get("name_kr") or "")
 
     st.divider()
     st.markdown(
