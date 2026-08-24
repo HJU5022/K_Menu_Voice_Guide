@@ -6,6 +6,7 @@ UI-friendly response.
 """
 
 import json
+import logging
 import os
 import queue
 import shutil
@@ -20,6 +21,8 @@ from src.ocr.infer import group_boxes_into_rows, recognize, recognize_boxes_with
 from src.ocr.preprocess import to_original_bbox
 from src.ocr.match import match_food, scan_menu_lines
 from src.text_gen.detail import get_details
+
+logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -83,7 +86,9 @@ def _kill_worker() -> None:
         try:
             _worker.kill()
         except Exception:
-            pass
+            # 이미 죽었거나 죽어가는 프로세스에 흔한 경로다(docs/specs/error-logging.md
+            # EC-01) — ERROR로 올리지 않는다.
+            logger.warning("TTS 워커 종료 실패", exc_info=True)
         _worker = None
 
 
@@ -99,6 +104,9 @@ def _readline_with_timeout(proc: subprocess.Popen, timeout: float) -> str | None
         try:
             answer.put(proc.stdout.readline())
         except Exception:
+            # _kill_worker()가 파이프를 닫으면서 정상적으로도 발생할 수 있는 경로다
+            # (docs/specs/error-logging.md EC-02) — ERROR로 올리지 않는다.
+            logger.warning("TTS 워커 응답 읽기 실패", exc_info=True)
             answer.put("")
 
     threading.Thread(target=_read, daemon=True).start()
@@ -129,6 +137,14 @@ def _synthesize_via_subprocess(text: str, style: str) -> dict[str, object]:
                 raise RuntimeError("TTS 워커가 응답하지 않았습니다.")
             return json.loads(line)
         except Exception:
+            # 여기서 예외를 그냥 삼키면 서로 다른 실패 원인(라이브러리 버전 충돌,
+            # 컴파일러 부재, venv 없음 등)이 전부 API 응답의 "not_ready" 한 단어로
+            # 뭉개진다 — 배포 환경에서 원인 파악에 재배포를 여러 번 반복하게 만든
+            # 실제 사례가 있다(docs/specs/error-logging.md A-1~A-3). 반드시 로그로
+            # 남긴다.
+            logger.error(
+                "TTS 합성 실패 (style=%s, text=%r)", style, text[:80], exc_info=True
+            )
             # 파이프가 어긋났을 수 있으므로(요청만 들어가고 응답이 안 온 상태 등)
             # 그냥 두면 다음 요청까지 계속 밀린다. 버리고 새로 시작하게 한다.
             _kill_worker()

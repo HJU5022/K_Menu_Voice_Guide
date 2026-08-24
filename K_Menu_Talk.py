@@ -15,6 +15,22 @@ OCR·텍스트·TTS 로직은 그대로 src/ 아래에 둔다.
 # 초기화 시점에 또 발생한다 — 실측 재현·검증 완료(2026-08-20).
 import torch  # noqa: F401
 
+# torch 다음, 다른 src.* import보다 먼저 로깅을 설정한다 — 순서가 밀리면 다른 라이브러리가
+# 먼저 logging.basicConfig()를 호출해(흔한 일이다) 이 설정이 무시된다. stdout으로 보내는
+# 이유는 배포된 Space에 셸 접근이 없어, Container 로그 화면에서 보이는 게 stdout뿐이기
+# 때문이다(docs/specs/error-logging.md).
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    stream=sys.stdout,
+)
+# httpx(Supabase 클라이언트가 내부적으로 씀)가 요청 URL을 INFO로 찍어 공개 Space 로그에
+# 그대로 노출된다(실측 2026-08-24) — WARNING 이상만 남긴다.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 import shutil
 import tempfile
 from pathlib import Path
