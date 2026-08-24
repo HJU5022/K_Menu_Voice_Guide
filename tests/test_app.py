@@ -155,7 +155,7 @@ def test_ac09_메뉴판_글자가_등록_이름과_같으면_따로_적지_않�
         ]
     )
 
-    assert not any(text.startswith("Menu: ") for text in _texts(app))
+    assert not any("Menu: " in text for text in _texts(app))
 
 
 # --- AC-10 ------------------------------------------------------------------
@@ -304,32 +304,54 @@ def test_ac02_후보가_하나뿐이고_미지원_줄이_없으면_결과로_바
     with patch("requests.get", return_value=response):
         app = _select_screen([_candidate()])
 
-    assert [element.value for element in app.title] == ["갈비탕"]
+    # 이름은 요약 블록 안에 있다(st.title이 아니다 — 요약을 한 덩어리로 그린다).
+    assert any("갈비탕" in text for text in _texts(app))
 
 
 # --- AC-14 ------------------------------------------------------------------
 
 
-def test_ac14_결과_화면이_고른_줄의_가격을_이어받는다():
-    app = AppTest.from_file(APP_PATH)
-    app.session_state["step"] = "result"
-    app.session_state["guide"] = {
+def _guide(**overrides) -> dict:
+    """`GET /api/foods/{id}` 응답 (`FoodDetailResponse`)."""
+    guide = {
         "food_id": 1,
         "name_kr": "갈비탕",
         "name_en": "Galbitang",
         "spice_level": 2,
-        "details": {"DESCRIPTION": "A beef short rib soup."},
+        "details": {
+            "DESCRIPTION": "A beef short rib soup.",
+            "HOW_TO_EAT": "Sip the broth first.",
+            "INGREDIENT": "Beef short ribs, radish.",
+            "ALLERGY": "Contains soy.",
+            "PRONUNCIATION": 'Galbitang is pronounced "gal-bi-tang."',
+            "SPICY": "Not spicy.",
+        },
         "narration_text": "A beef short rib soup.",
         "style": "GUIDE",
-        "tts_status": "not_ready",
-        "narration_audio_path": None,
-        "tts_latency_ms": 0,
+        "tts_status": "ok",
+        "narration_audio_path": "/audio/tmp.wav",
+        "tts_latency_ms": 1,
     }
-    app.session_state["picked"] = {
+    guide.update(overrides)
+    return guide
+
+
+def _result_screen(guide=None, picked=None, analysis=None) -> AppTest:
+    """상세 화면을 그린 상태로 돌려준다."""
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "result"
+    app.session_state["guide"] = guide or _guide()
+    app.session_state["picked"] = picked or {}
+    if analysis is not None:
+        app.session_state["analysis"] = analysis
+    return app.run()
+
+
+def test_ac14_결과_화면이_고른_줄의_가격을_이어받는다():
+    app = _result_screen(picked={
         "name_text": "황기갈비탕",
         "price_krw_display": "₩15,000",
-    }
-    app.run()
+    })
 
     texts = _texts(app)
     assert any("₩15,000" in text for text in texts)
@@ -379,3 +401,84 @@ def test_ac06_처음으로_돌아가면_이전_결과가_남지_않는다():
     for key in ("analysis", "guide", "image", "picked"):
         assert key not in app.session_state
     assert app.session_state["step"] == "upload"
+
+
+# --- 상세 화면 개편 (요약 블록 · 노트형 본문 · 대표 사진 · 뒤로가기) ---------
+
+
+def test_요약_블록에_발음은_따옴표_안쪽만_보인다():
+    app = _result_screen()
+
+    texts = _texts(app)
+    # 요약 블록은 스크롤 없이 다 보여야 해서 발음만 뽑아 쓴다. 원문이
+    # `"gal-bi-tang."` 꼴이라 따옴표 안에 마침표가 들어 있는데, 그것까지 그대로
+    # 두면 화면에 `"gal-bi-tang."`으로 보인다 — 문장부호를 떼고 인용부호로 감싼다.
+    assert any("&ldquo;gal-bi-tang&rdquo;" in text for text in texts)
+    # 문장 전체는 본문 Pronunciation 항목에 그대로 남는다.
+    assert any("is pronounced" in text for text in texts)
+
+
+def test_발음_안내에_따옴표가_없으면_요약에서_생략한다():
+    guide = _guide()
+    guide["details"]["PRONUNCIATION"] = "Say it as it looks."
+
+    app = _result_screen(guide=guide)
+
+    assert not app.exception
+    assert any("Say it as it looks." in text for text in _texts(app))
+
+
+def test_상세_화면에_대표_사진과_출처가_함께_나온다():
+    app = _result_screen(picked={
+        "thumbnail_url": "https://example.com/galbitang.jpg",
+        "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    })
+
+    assert len(app.image) == 1
+    # 사진을 보여주는 자리에는 출처가 반드시 함께 있어야 한다.
+    assert any("AI Hub Tourism Menu Board Dataset" in text for text in _texts(app))
+
+
+def test_대표_사진이_없으면_사진도_출처도_그리지_않는다():
+    app = _result_screen(picked={"thumbnail_attribution": "Source: 아무개"})
+
+    assert len(app.image) == 0
+    assert not any("아무개" in text for text in _texts(app))
+
+
+def test_본문에서_경고_스타일은_알레르기_하나뿐이다():
+    app = _result_screen()
+
+    # 노트 형식이라 항목마다 상자를 두르지 않는다. 알레르기만 경고로 남긴다 —
+    # 안전 정보라 눈에 띄어야 한다.
+    warnings = [element.value for element in app.warning]
+    assert warnings == ["Contains soy."]
+
+
+def test_음성이_없으면_경고와_내레이션_글이_대신_나온다():
+    app = _result_screen(guide=_guide(tts_status="not_ready", narration_audio_path=None))
+
+    warnings = [element.value for element in app.warning]
+    # 오디오 실패 경고 + 알레르기 경고 두 개다.
+    assert "Audio guide is unavailable right now." in warnings
+    assert "Contains soy." in warnings
+    assert any("A beef short rib soup." in text for text in _texts(app))
+
+
+def test_목록으로_돌아가도_분석_결과가_남아있다():
+    analysis = {
+        "status": "candidates_found",
+        "ocr_text": "갈비탕",
+        "candidates": [_candidate(), _candidate(food_id=2, name_en="Kimchi Stew",
+                                                name_kr="김치찌개")],
+        "unsupported_lines": [],
+    }
+    app = _result_screen(analysis=analysis)
+
+    [button] = [b for b in app.button if b.label == "Back to the list"]
+    button.click().run()
+
+    assert app.session_state["step"] == "select"
+    # 서버를 다시 부르지 않으려면 분석 결과가 그대로 남아 있어야 한다.
+    assert app.session_state["analysis"] == analysis
+    assert [element.value for element in app.subheader] == ["Which dish is it?"]
