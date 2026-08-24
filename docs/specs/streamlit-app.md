@@ -8,31 +8,48 @@
   1. 직접 연결 구조를 유지한 채 웹을 배포하면 **Streamlit Space에도 GPU**가 필요하다. 모바일 앱용 FastAPI Space(GPU)와 합쳐 GPU 비용이 두 배가 된다.
   2. 웹(Streamlit)과 앱(Flutter)이 각각 계산을 들고 있으면 같은 파이프라인이 두 곳에 뜬다 — 모델 로딩 메모리도, 콜드스타트도 두 배다.
 - **결정(2026-08-23)**: 계산은 **FastAPI Space(GPU, `K_Menu_Talk.py`) 한 곳**에 몰고, `app.py`는 **무료 CPU Space에서 그 API를 HTTP로 호출하는 화면 전용 클라이언트**로 바꾼다. HTTP 계약은 `docs/specs/api-layer.md`에 이미 있는 것을 그대로 쓴다 — 모바일 앱(`mobile/lib/api.dart`)과 같은 계약이다.
-- **측정 지표**: 사진 업로드부터 음성 재생까지의 사용자 흐름이 **FastAPI 호출만으로**(로컬 파이프라인 임포트 없이) 끝까지 완주하는지, 아래 AC로 검증한다.
+- **배포 후 확인된 문제(2026-08-24)**: 위 전환은 끝났지만, **화면이 서버가 주는 데이터를 대부분 받아놓고 쓰지 않는다.** `AnalyzeResponse`의 후보 한 줄에는 13개 필드가 실려 오는데 화면은 `food_id`·`name_kr`·`name_en` 세 개만 쓰고 나머지를 버린다. 그 결과:
+  1. 메뉴판에 **실제로 인쇄된 글자**(`name_text`) 대신 DB 등록 이름이 보인다 — "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로 안내되는지 확인할 근거가 화면에 없다.
+  2. 가격(`price_krw_display`)과 썸네일(`thumbnail_url`)이 보이지 않는다. 사진을 쓰면서 **출처 표기**(`thumbnail_attribution`)를 못 하고 있는데, 이건 있으면 좋은 항목이 아니라 지켜야 하는 조건이다.
+  3. 사진 속 위치(`source`)를 안 쓰므로, 잘못 읽힌 후보를 사용자가 눈으로 가려낼 수 없다(실제 사례: 사진에 없는 `칼국수`가 `막국수`에서 후보로 떴다).
+  4. `unsupported_lines`(이름·가격은 읽혔지만 안내는 못 하는 줄)가 화면에서 통째로 사라진다. 실측 메뉴판 한 장에서 후보 17개, 미지원 17개였다 — 절반이 안 보인다.
+- **버그(2026-08-24)**: 후보 버튼의 위젯 key가 `candidate_{food_id}`인데, `api-layer.md`는 후보가 **메뉴판 줄 단위**이며 같은 `food_id`가 여러 번 나올 수 있다고 못박고 있다(메뉴판에 "물만두"와 "군만두"가 둘 다 있으면 후보도 둘, `food_id`는 같다). 같은 음식이 두 줄이면 key가 겹쳐 Streamlit이 예외를 던지고 화면이 멈춘다.
+- **근거가 사라진 제약**: 이 Spec에 있던 "`modifiers`는 표시하지 않는다 — 기존 React 화면과 동작을 맞춘다"는 규칙은, PR #86에서 React 프론트를 제거하면서 근거를 잃었다. 이제 맞출 기준은 **모바일 앱**(`mobile/lib/screens/candidates_screen.dart`)이다 — 같은 API를 쓰는 다른 화면이 이미 이 데이터를 전부 그리고 있고, 그 판단 근거도 코드 주석에 남아 있다.
+- **측정 지표**: 사진 업로드부터 음성 재생까지의 흐름이 **FastAPI 호출만으로** 끝까지 완주하는지, 그리고 후보 목록 한 줄이 **메뉴판 글자·가격·사진·번호**를 담고 같은 `food_id`가 두 줄이어도 화면이 죽지 않는지를 아래 AC로 검증한다.
 
 ## Goal
 
-- **해결 목표**: `app.py`가 화면(업로드 → 후보 선택 → 결과)만 담당하고, 계산은 전부 `K_Menu_Talk.py`(FastAPI)의 HTTP API로 위임하는 배포 진입점을 만든다.
+- **해결 목표**: `app.py`가 화면(업로드 → 후보 선택 → 결과)만 담당하고, 계산은 전부 `K_Menu_Talk.py`(FastAPI)의 HTTP API로 위임하는 배포 진입점을 만든다. 그 화면은 **서버가 이미 보내주는 데이터를 버리지 않는다.**
 - **성공 기준**:
   1. `app.py`가 `src/` 아래 코드를 **전혀 임포트하지 않는다** — paddle·torch 없이 뜨므로 무료 CPU Space에서 돌 수 있다.
   2. API 주소는 환경변수 `API_BASE_URL`로 주입한다(기본값 `http://127.0.0.1:8000` — 로컬 개발). 모바일 앱의 `config.dart`와 같은 방식이다.
   3. 화면이 재실행돼도 `/api/foods/{id}`를 다시 부르지 않는다(TTS 재생성 방지 — 기존 성공 기준 유지).
   4. 카테고리 6개의 순서·영어 제목·예외 문구가 `docs/content-style.md` 기준을 지킨다(앱과 같은 문구를 쓴다).
+  5. 후보 목록의 각 항목이 **메뉴판 줄 단위로 유일하게 식별된다** — 같은 `food_id`가 여러 줄 나와도 각각 따로 선택할 수 있고 예외가 나지 않는다.
+  6. 후보 한 줄에 `name_text`·`price_krw_display`·썸네일·`modifiers`·번호가 표시된다. **썸네일을 보여주는 자리에는 `thumbnail_attribution`이 반드시 함께 있다.**
+  7. `unsupported_lines`가 후보와 같은 목록에 `line_no` 순으로 함께 표시된다 — 메뉴판에 인쇄된 순서와 화면 순서가 같아진다.
+  8. 업로드한 사진 위에 `source` 좌표로 번호 상자를 그리고, 그 번호·색이 목록 항목과 짝을 이룬다.
+  9. 결과 화면이 선택한 줄의 **메뉴판 글자와 가격**을 함께 보여준다(상세 응답에는 가격이 없으므로 선택 시점 값을 이어받는다).
+  10. 목록 위 한 줄 안내가 **찾은 줄 수**와 **사진에 자리를 못 찾은 줄 수**를 밝힌다 — 상자 수와 목록 수가 다를 때 사용자가 고장으로 오해하지 않게 한다.
 - **Out of Scope**:
-  - **디자인·CSS·테마** — 별도 작업이다. 이 Spec은 그 CSS가 붙을 **골격**까지만 다룬다.
-  - `K_Menu_Talk.py` **수정** — 계약(`api-layer.md`)은 그대로 쓴다. 서버 쪽은 바꾸지 않는다.
+  - **디자인·CSS·테마** — 별도 작업이다. 이 Spec은 그 CSS가 붙을 **골격**까지만 다룬다. 상세 화면을 노트형 본문으로 바꾸는 것(카드 테두리 제거 등)도 여기 포함된다.
+  - `K_Menu_Talk.py` **수정** — 계약(`api-layer.md`)은 그대로 쓴다. 서버 쪽은 바꾸지 않는다. **같은 API를 쓰는 iOS 앱이 함께 깨지기 때문이다.**
   - HF Space 생성·하드웨어 설정·시크릿 등록, FastAPI Space용 Dockerfile, Flutter 클라이언트(`config.dart` 주소 변경 포함), 다국어.
+  - **첫 화면 샘플 메뉴판 체험 버튼** — 쓸 샘플 이미지가 아직 저장소에 없다. 이미지가 준비되면 별도로 다룬다.
+  - 사진 상자를 **눌러서 선택**하는 기능 — Streamlit에서 좌표 클릭이 불안정하다. 상자는 표시 전용이고, 선택은 목록에서 한다.
+  - 장바구니, 한국어 이름 발음 재생(앱에는 있으나 웹은 다음 단계).
 
 ## What
 
 **Happy Path**
 
 1. 사용자가 업로드 화면에서 메뉴 사진을 촬영(`st.camera_input`)하거나 업로드(`st.file_uploader`)한다.
-2. 업로드된 바이트를 `POST {API_BASE_URL}/api/analyze`에 multipart(필드명 `image`)로 보낸다.
+2. 업로드된 바이트를 `POST {API_BASE_URL}/api/analyze`에 multipart(필드명 `image`)로 보낸다. **보낸 바이트는 `session_state`에 남긴다** — 다음 화면에서 사진 위에 상자를 그리는 데 쓴다.
 3. 응답 JSON을 `session_state["analysis"]`에 담고 후보 선택 화면으로 넘어간다.
-4. 사용자가 후보 버튼 중 하나를 누른다.
-5. `GET {API_BASE_URL}/api/foods/{food_id}`를 호출해 응답을 `session_state["guide"]`에 담고 결과 화면으로 넘어간다 — 이 한 응답에 상세·나레이션·맵기가 모두 들어 있다(`api-layer.md`의 `FoodDetailResponse`).
-6. 결과 화면이 음식명·맵기 불꽃·오디오·카테고리 6개 카드를 보여준다. 오디오는 응답의 상대 경로(`/audio/...`) 앞에 `API_BASE_URL`을 붙인 URL로 재생한다.
+4. 선택 화면이 `candidates`와 `unsupported_lines`를 `line_no` 순으로 합친 목록을 만들고, 위에는 상자를 얹은 사진을, 아래에는 같은 번호를 단 목록을 보여준다.
+5. 사용자가 안내 가능한 줄 하나를 선택한다.
+6. `GET {API_BASE_URL}/api/foods/{food_id}`를 호출해 응답을 `session_state["guide"]`에 담고 결과 화면으로 넘어간다 — 이 한 응답에 상세·나레이션·맵기가 모두 들어 있다(`api-layer.md`의 `FoodDetailResponse`). 선택한 줄의 메뉴판 글자·가격은 응답에 없으므로 **선택 시점에 같이 담아둔다.**
+7. 결과 화면이 음식명·메뉴판 글자·가격·맵기 불꽃·오디오·카테고리 6개 카드를 보여준다. 오디오는 응답의 상대 경로(`/audio/...`) 앞에 `API_BASE_URL`을 붙인 URL로 재생한다.
 
 **Edge Cases**
 
@@ -40,18 +57,25 @@
 |---|---|---|
 | EC-01 | OCR 결과 없음 (`ocr_empty`) | 재촬영 안내 문구 + "Take a new photo" 버튼. 기존 React `ErrorPanel`의 영어 문구를 그대로 사용 |
 | EC-02 | 등록되지 않은 음식 (`unsupported_food`) | 미지원 안내 + "Take a new photo" 버튼. 추측해서 결과를 만들지 않는다 |
-| EC-03 | 후보가 1개뿐 | 선택 화면을 건너뛰고 바로 결과 화면으로 넘어간다 (고를 것이 없으므로) |
+| EC-03 | 후보가 1개뿐이고 **미지원 줄도 없음** | 선택 화면을 건너뛰고 바로 결과 화면으로 넘어간다 (고를 것이 없으므로). 미지원 줄이 하나라도 있으면 건너뛰지 않는다 — 건너뛰면 그 줄들이 화면에서 사라진다 |
 | EC-04 | TTS 실패 (`tts_status: "not_ready"`) | `narration_audio_path`가 `None` → 오디오 대신 경고 + 내레이션 텍스트를 화면에 출력. 상세 카드는 정상 표시 (README 9절 "TTS 생성 실패 \| 상세 텍스트 우선 출력") |
 | EC-05 | 위젯 조작으로 스크립트가 재실행됨 | Streamlit은 상호작용마다 스크립트를 처음부터 다시 실행한다. 결과를 `session_state`에 담아두고 재사용해 TTS를 다시 부르지 않는다 (캐시 미스면 요청당 약 33초) |
 | EC-06 | 특정 카테고리 텍스트가 비어 있음 | 해당 카드만 빈 내용으로 표시하고 화면 전체는 계속 그린다 (`details.get(category, "")`) |
 | EC-07 | API 서버에 연결할 수 없음 (꺼져 있음·잠자기·네트워크 오류) 또는 5xx 응답 | "서비스에 연결할 수 없다"는 안내 문구와 "Try again" 버튼을 보여준다. 추측으로 결과를 만들지 않는다 |
+| EC-08 | 같은 `food_id`가 여러 줄에 나옴 (물만두·군만두) | 위젯 key를 **합친 목록에서의 순서**로 만든다. `food_id`는 목록의 유일 키가 아니고(`api-layer.md` 명시), `line_no`도 아니다 — `src/ocr/match.py`는 한 줄에서 서로 다른 음식이 매칭되면 그 줄에 후보를 여러 개 만든다 |
+| EC-09 | 후보에 `source` 좌표가 없음 (`null`) | 사진에는 상자를 그리지 않고 목록에는 그대로 남긴다. 자리를 못 찾은 줄이 몇 개인지 목록 위 한 줄 안내에 밝힌다 — 상자 2개에 목록 6줄이면 "왜 4개는 표시가 없지?"가 되는데, 이름이 여러 글자 상자에 걸쳐 잘려 서버가 위치를 특정하지 못한 정상 동작이다 |
+| EC-10 | 썸네일이 없음 (`thumbnail_url: null`) | 사진 자리를 비우고 번호 배지만 보여준다. 출처 문구도 표시하지 않는다 (표시할 사진이 없으므로) |
+| EC-11 | 가격을 못 읽음 (`price_krw_display: null`) | 가격 자리를 비운다. "가격 미상" 같은 문구로 채우지 않는다 — 없는 정보를 글자로 채우면 화면만 시끄럽다 |
+| EC-12 | `name_text`가 등록 이름(`name_kr`)과 같음 | 메뉴판 글자를 따로 표시하지 않는다. 같은 말을 두 번 적는 꼴이 된다 |
+| EC-13 | 미지원 줄을 사용자가 누름 | 누를 수 없게 둔다. 안내할 내용이 없는데 선택 가능해 보이면 고장으로 읽힌다 |
 
 ## How
 
 ```
 session_state 계약
 
-"step"     : "upload" | "select" | "result"    # 현재 화면
+"step"     : "upload" | "select" | "result" | "api_error"   # 현재 화면
+"image"    : 업로드한 사진의 원본 바이트 (사진 위 상자를 그리는 데 쓴다)
 "analysis" : POST /api/analyze 응답 JSON 그대로
              {status, ocr_text, candidates[], unsupported_lines[]}
 "guide"    : GET /api/foods/{food_id} 응답 JSON 그대로
@@ -59,6 +83,10 @@ session_state 계약
               details: {CATEGORY: text, ...},
               narration_text, style,
               narration_audio_path, tts_status, tts_latency_ms}
+"picked"   : 선택한 메뉴판 줄에서 결과 화면이 쓸 값
+             {name_text, price_krw_display}
+             — 상세 응답에는 없는 값이라 선택 시점에 담아둔다.
+             결과 화면이 쓰지 않는 값(썸네일 등)은 담지 않는다
 ```
 
 - **대상 파일**: 저장소 루트 `app.py` (HF Spaces Streamlit SDK의 기본 진입점 이름).
@@ -66,18 +94,51 @@ session_state 계약
 - **HTTP 클라이언트**: `requests`(이미 `requirements.txt`에 있음)를 쓴다. 계약·필드명은 `api-layer.md`를 따르고 새 필드를 만들지 않는다.
 - **오디오**: 응답의 `narration_audio_path`는 상대 경로(`/audio/...`)다. `st.audio()`에 `{API_BASE_URL}{narration_audio_path}` URL을 넘긴다.
 - **카테고리 6개의 순서·영어 제목**과 **예외 화면 문구**는 `docs/content-style.md` 기준을 따른다. 새로 짓지 않는다.
-- **후보의 `modifiers`** 는 화면에 표시하지 않는다 — 기존 React 화면도 받기만 하고 렌더링하지 않았으므로 동작을 맞춘다.
-- **맵기 표시**: `spice_level`(1~5)만큼 불꽃을 채운다(README 3절). `get_food_info()`는 `spice_level`을 돌려주지 않으므로 `cache.get_food()`에서 읽는다.
+- **맵기 표시**: `spice_level`(1~5)만큼 불꽃을 채운다(README 3절).
+
+### 목록 구성 — 앱(`mobile/lib/api.dart`의 `menuEntries`)과 같은 규칙
+
+- `candidates`와 `unsupported_lines`를 **합쳐서 `line_no` 오름차순**으로 늘어놓는다. 서버가 둘을 따로 보내는 것은 예전 웹 화면이 `candidates`만 알았기 때문이고, 합쳐서 줄 순서대로 놓아야 화면이 실제 메뉴판과 같은 순서가 된다.
+- **번호와 색은 이 합친 목록의 순서로 매긴다.** 사진 위 상자와 목록 항목이 같은 번호·같은 색이어야 눈으로 짝지을 수 있다.
+- 번호 표기는 두 자리(`01`, `02` …) — 앱과 같게 맞춘다.
+- 색은 진한 6색을 돌려 쓴다(앱 `menu_photo_overlay.dart`의 팔레트와 동일: `#D32F2F` `#1976D2` `#388E3C` `#F57C00` `#7B1FA2` `#0097A7`). 6개를 넘으면 반복되지만 번호가 같이 붙어 있어 헷갈리지 않는다.
+- **위젯 key는 합친 목록에서의 순서로 만든다** — `food_id`도 `line_no`도 유일하지 않다(EC-08). 순서는 한 응답 안에서 고정이므로 재실행돼도 같은 값이 나온다.
+- **번호 배지는 `st.markdown(..., unsafe_allow_html=True)`로 그린다.** Streamlit이 기본으로 주는 색 이름(`:red[]` 등)으로는 위 팔레트의 정확한 색을 낼 수 없어, 사진 상자(Pillow로 그려 정확한 색)와 목록 배지의 색이 어긋난다. 색으로 짝짓는 것이 이 화면의 핵심이므로 배지만 인라인 HTML로 그린다 — 값은 우리가 만든 상수 팔레트와 정수 번호뿐이고 사용자 입력이 들어가지 않는다.
+
+### 목록 항목의 구성 — 앱 `candidates_screen.dart`와 같은 순서
+
+1. 번호 배지 + 썸네일 (없으면 번호만)
+2. 영어 이름 (굵게 — 사용자가 영어권이다)
+3. 한글 이름 (보조)
+4. `Menu: {name_text}` — **등록 이름과 다를 때만.** 왜 이 후보가 나왔는지 보여주는 자리다
+5. `modifiers` 배지 (`spice`·`ingredient`) — 같은 "김치찌개" 둘을 가르는 단서가 이것뿐일 때가 있다
+6. 가격 `price_krw_display` — 있을 때만
+7. `thumbnail_attribution` — **썸네일을 보여주면 반드시 함께**
+8. 미지원 줄은 위 중 이름·가격만 있고 선택할 수 없다
+
+### 목록 위 한 줄 안내 — 앱 `candidates_screen.dart`의 `_summaryLine`과 같은 규칙
+
+- 찾은 줄 수를 먼저 밝힌다(`We found 6 dishes.`). 1개면 `dish`, 여러 개면 `dishes`.
+- 사진이 있으면 상자의 뜻을 덧붙인다(`Each box shows what we read there.`).
+- `source`가 없는 줄이 있으면 그 수를 밝힌다(`… — we could not pin 4 to a spot on the photo.`). 1개일 때는 숫자 대신 `one`.
+- 문구는 앱과 같은 영어를 쓴다. 새로 짓지 않는다.
+
+### 사진 위 번호 상자
+
+- `source`는 **원본 사진 기준 0~1 비율**이다(`left`·`top`·`width`·`height`). 사진을 어떤 크기로 그리든 비율만 곱하면 자리가 맞는다.
+- Pillow(`requirements.txt`에 이미 있음)로 원본 이미지에 상자를 그려 `st.image`로 보여준다. 테두리는 굵게, 안쪽은 아주 옅게만 채운다 — 진하게 채우면 무엇을 읽었는지 못 본다.
+- 상자 옆에 번호를 적는다. 위쪽에 자리가 없으면 아래에 적는다.
+- 원본 바이트는 손대지 않는다 — 그린 이미지는 화면 표시용 사본이다.
 
 ## AC
 
 **AC-01 · 후보 여러 개 → 선택 화면**
 - GIVEN: `POST /api/analyze`가 `candidates_found`와 후보 2개를 반환한다.
 - WHEN: 사용자가 업로드 화면에서 사진을 올린다.
-- THEN: 후보 2개가 각각 버튼으로 표시되고, 결과 화면으로 자동 이동하지 않는다.
+- THEN: 후보 2개가 각각 선택 가능한 항목으로 표시되고, 결과 화면으로 자동 이동하지 않는다.
 
 **AC-02 · 후보 1개 → 결과 화면 자동 이동**
-- GIVEN: `POST /api/analyze`가 `candidates_found`와 후보 1개를 반환한다.
+- GIVEN: `POST /api/analyze`가 `candidates_found`와 후보 1개를 반환하고, `unsupported_lines`는 비어 있다.
 - WHEN: 사용자가 사진을 올린다.
 - THEN: 선택 화면을 건너뛰고 결과 화면이 표시된다.
 
@@ -99,9 +160,49 @@ session_state 계약
 **AC-06 · 처음으로 돌아가기**
 - GIVEN: 결과 화면이 표시돼 있다.
 - WHEN: 사용자가 "Take a new photo"를 누른다.
-- THEN: 업로드 화면으로 돌아가고, `session_state`의 `analysis`·`guide`가 비워져 이전 결과가 남지 않는다.
+- THEN: 업로드 화면으로 돌아가고, `session_state`의 `analysis`·`guide`·`image`·`picked`가 비워져 이전 결과가 남지 않는다.
 
 **AC-07 · API 연결 실패 안내**
 - GIVEN: `API_BASE_URL`에 응답하는 서버가 없다(연결 거부 또는 시간 초과).
 - WHEN: 사용자가 사진을 올리거나 후보를 선택한다.
 - THEN: 연결 실패 안내 문구와 "Try again" 버튼이 표시되고, 예외 스택이 화면에 그대로 노출되지 않는다.
+
+**AC-08 · 같은 `food_id`가 두 줄이어도 화면이 죽지 않는다**
+- GIVEN: `candidates`에 `food_id`가 같고 `menu_text`가 다른 두 줄("물만두", "군만두")이 있다. 같은 `line_no`를 가진 후보가 둘 있는 경우도 마찬가지다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 두 줄이 각각 선택 가능한 항목으로 표시되고, 위젯 key 중복 예외가 발생하지 않는다.
+
+**AC-09 · 메뉴판 글자와 가격이 보인다**
+- GIVEN: 후보의 `name_text`가 `"황기갈비탕"`, `name_kr`이 `"갈비탕"`, `price_krw_display`가 `"₩15,000"`이다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 그 줄에 `"황기갈비탕"`과 `"₩15,000"`이 함께 표시된다. `name_text`가 `name_kr`과 같은 줄에서는 메뉴판 글자를 따로 표시하지 않는다(EC-12).
+
+**AC-10 · 썸네일에는 출처가 따라붙는다**
+- GIVEN: 후보에 `thumbnail_url`과 `thumbnail_attribution`이 모두 있다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 썸네일과 출처 문구가 같이 표시된다. `thumbnail_url`이 `null`인 줄은 사진과 출처 둘 다 표시하지 않는다.
+
+**AC-11 · 미지원 줄도 목록에 남는다**
+- GIVEN: 응답에 `candidates` 1개(`line_no: 2`)와 `unsupported_lines` 2개(`line_no: 1, 3`)가 있다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 세 줄이 `line_no` 순서(1 → 2 → 3)로 모두 표시되고, 미지원 2줄은 선택할 수 없다.
+
+**AC-12 · 사진 위 번호 상자**
+- GIVEN: `session_state["image"]`에 사진이 있고, 후보 중 하나에만 `source` 좌표가 있다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 좌표가 있는 줄만 사진 위에 목록과 같은 번호의 상자로 그려지고, 좌표가 없는 줄은 목록에만 남는다(EC-09).
+
+**AC-13 · 후보 1개라도 미지원 줄이 있으면 건너뛰지 않는다**
+- GIVEN: `candidates` 1개, `unsupported_lines` 1개 이상.
+- WHEN: 사용자가 사진을 올린다.
+- THEN: 선택 화면이 표시된다(결과 화면으로 자동 이동하지 않는다).
+
+**AC-14 · 결과 화면이 선택한 줄의 가격을 이어받는다**
+- GIVEN: `price_krw_display`가 있는 줄을 선택했다. `GET /api/foods/{id}` 응답에는 가격이 없다.
+- WHEN: 결과 화면이 표시된다.
+- THEN: 선택한 줄의 가격이 함께 표시된다.
+
+**AC-15 · 목록 위 한 줄 안내**
+- GIVEN: 목록에 줄이 6개 있고, 그중 4개에 `source` 좌표가 없다.
+- WHEN: 선택 화면이 그려진다.
+- THEN: 찾은 줄 수(6)와 사진에 자리를 못 찾은 줄 수(4)가 한 줄 안내에 함께 표시된다.

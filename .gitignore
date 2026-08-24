@@ -12,6 +12,7 @@ __pycache__/
 venv/
 .venv/
 .venv-tts/
+.venv-web/
 ocr_test_env/
 *.egg-info/
 .ipynb_checkpoints/
