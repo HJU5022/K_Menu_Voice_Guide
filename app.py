@@ -19,6 +19,7 @@ import html
 import io
 import os
 import re
+import uuid
 
 import requests
 import streamlit as st
@@ -81,6 +82,91 @@ def _reset() -> None:
     for key in ("analysis", "guide", "image", "picked"):
         st.session_state.pop(key, None)
     _go("upload")
+
+
+def _cart_id() -> str:
+    """이 화면의 카트를 가리키는 값.
+
+    로그인이 없는 서비스라 계정 대신 쓰는 최소 식별자다(`docs/specs/cart.md`).
+    `session_state`에 둔다 — 앱도 실행 중에만 들고 있는 값을 쓴다(`mobile/lib/api.dart`의
+    `cartId`). 새로고침하면 새 카트가 되지만, 식당에 앉아 한 번에 쓰는 화면이라 그걸로
+    충분하다. localStorage에 두려면 JavaScript가 필요해 코드가 복잡해진다.
+    """
+    if "cart_id" not in st.session_state:
+        st.session_state["cart_id"] = uuid.uuid4().hex
+    return st.session_state["cart_id"]
+
+
+def _cart_request(method: str, path: str, payload: dict | None = None) -> None:
+    """카트 요청을 보내고 돌아온 **카트 전체**를 session_state에 담는다.
+
+    담기·빼기·비우기 어느 요청이든 카트 전체가 돌아온다 — 화면이 부분 갱신을 짜맞추지
+    않게 서버가 그렇게 정했다(`docs/specs/cart.md`).
+
+    실패하면 **담긴 내용을 지우지 않고** 오류 문구만 남긴다(EC-06). 서버가 잠깐 안
+    되는 것과 카트가 비는 것은 다른 일이다.
+    """
+    try:
+        response = requests.request(
+            method,
+            f"{API_BASE_URL}{path}",
+            headers={"X-Cart-Id": _cart_id()},
+            json=payload,
+            timeout=REQUEST_TIMEOUT_SEC,
+        )
+        response.raise_for_status()
+    except requests.RequestException:
+        st.session_state["cart_error"] = "We couldn't update your order just now."
+        return
+
+    st.session_state.pop("cart_error", None)
+    st.session_state["cart"] = response.json()
+
+
+def _line_key(food_id, menu_text) -> str:
+    """카트에서 이 줄을 가리키는 신원 — 앱 `Candidate.lineKey`와 같은 규칙이다.
+
+    `food_id`만으로 묶으면 안 된다. 메뉴판에 "물만두"와 "군만두"가 둘 다 있으면 화면
+    카드는 둘인데 카트는 하나가 되고, 가격이 다른 둘을 합쳐 총계까지 틀린다(EC-12).
+    """
+    return f"{food_id}|{menu_text or ''}"
+
+
+def _cart_quantities() -> dict[str, int]:
+    """지금 담겨 있는 줄별 수량."""
+    cart = st.session_state.get("cart") or {}
+    return {
+        _line_key(line.get("food_id"), line.get("menu_text")): line["quantity"]
+        for line in cart.get("items", [])
+    }
+
+
+def _change_cart(entry: dict, delta: int) -> None:
+    """메뉴 줄 하나의 수량을 바꾼다.
+
+    안내 못 하는 줄은 이름 자리에 메뉴판 글자를 그대로 보낸다 — 설명은 못 해도 주문은
+    되기 때문이다(앱 `UnsupportedMenuLine.cartNameKr`와 같다). 서버가 그 글자에서
+    가격을 떼어 화면에 쓸 이름을 만들어 준다(`src/cart/store.py`).
+    """
+    if entry["supported"]:
+        name_kr = entry["name_kr"]
+        name_en = entry["name_en"]
+    else:
+        name_kr = entry.get("menu_text") or ""
+        name_en = name_kr
+
+    _cart_request(
+        "POST",
+        "/api/cart/items",
+        payload={
+            "food_id": entry.get("food_id"),
+            "name_kr": name_kr,
+            "name_en": name_en,
+            "menu_text": entry.get("menu_text"),
+            "price_krw": entry.get("price_krw"),
+            "quantity_delta": delta,
+        },
+    )
 
 
 def _menu_entries(analysis: dict) -> list[dict]:
@@ -300,7 +386,13 @@ def screen_upload() -> None:
         except requests.RequestException:
             _go("api_error")
             st.rerun()
-    st.session_state["analysis"] = response.json()
+    analysis = response.json()
+    st.session_state["analysis"] = analysis
+    # 새 메뉴판을 성공적으로 읽었으면 카트를 비운다 — A식당에서 담아둔 것이 B식당
+    # 메뉴판을 찍은 뒤에도 남으면 안 된다(EC-09). 흐리게 찍어 실패한 경우는 새 식당이
+    # 아니라 실패한 시도이므로 담아둔 것을 그대로 둔다(EC-10).
+    if analysis.get("status") == "candidates_found":
+        _cart_request("DELETE", "/api/cart")
     _go("select")
     st.rerun()
 
@@ -333,10 +425,61 @@ def screen_select() -> None:
         st.image(_photo_with_boxes(image_bytes, entries), width="stretch")
     st.caption(_summary_line(entries, image_bytes is not None))
 
+    quantities = _cart_quantities()
     for index, entry in enumerate(entries):
-        _render_entry(entry, index)
+        key = _line_key(entry.get("food_id"), entry.get("menu_text"))
+        _render_entry(entry, index, quantities.get(key, 0))
 
+    _render_cart_bar()
     st.button("Take a new photo", on_click=_reset)
+
+
+def _clear_cart() -> None:
+    _cart_request("DELETE", "/api/cart")
+
+
+def _render_cart_bar() -> None:
+    """목록 아래 카트 요약 — 담긴 수와 총계, 주문 확인 화면으로 가는 길."""
+    cart = st.session_state.get("cart") or {}
+    count = cart.get("item_count", 0)
+
+    st.divider()
+
+    error = st.session_state.get("cart_error")
+    if error:
+        # 담긴 내용은 그대로 두고 문구만 알린다 — 서버가 잠깐 안 되는 것과 카트가
+        # 비는 것은 다른 일이다(EC-06).
+        st.warning(error)
+
+    if count == 0:
+        # 빈 카트에서는 두 버튼 모두 누를 수 없다(EC-07).
+        st.caption("Nothing in your order yet.")
+    else:
+        st.markdown(
+            f'<div style="font-size:1.05rem;font-weight:700">{count} in your order'
+            f'<span style="margin-left:12px">'
+            f'{html.escape(cart.get("total_krw_display") or "")}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+    order_column, clear_column = st.columns(2)
+    with order_column:
+        st.button(
+            "Order",
+            key="open_cart",
+            disabled=count == 0,
+            width="stretch",
+            on_click=_go,
+            args=("cart",),
+        )
+    with clear_column:
+        st.button(
+            "Clear cart",
+            key="clear_cart",
+            disabled=count == 0,
+            width="stretch",
+            on_click=_clear_cart,
+        )
 
 
 def _entry_html(entry: dict, index: int) -> str:
@@ -394,7 +537,7 @@ def _title_html(text: str) -> str:
     )
 
 
-def _render_entry(entry: dict, index: int) -> None:
+def _render_entry(entry: dict, index: int, quantity: int = 0) -> None:
     """메뉴 줄 하나를 그린다."""
     with st.container(border=True):
         number_column, text_column = st.columns([1, 5], vertical_alignment="top")
@@ -409,8 +552,9 @@ def _render_entry(entry: dict, index: int) -> None:
         with text_column:
             st.markdown(_entry_html(entry, index), unsafe_allow_html=True)
 
-            # 안내할 내용이 없는 줄은 누를 수 없게 둔다 — 눌리는데 아무 일도 안 일어나면
-            # 고장으로 읽힌다(EC-13).
+            # 설명을 볼 수 있는 줄만 누를 수 있게 둔다 — 안내할 내용이 없는데 눌리면
+            # 고장으로 읽힌다(EC-13). 담기는 안내 못 하는 줄에도 열어둔다: 설명은 못
+            # 해도 주문은 되기 때문이다(공기밥 같은 줄).
             if entry["supported"]:
                 # key는 합친 목록에서의 순서로 만든다. `food_id`도 `line_no`도 유일하지
                 # 않다 — 같은 음식이 두 줄에 나올 수 있고(물만두·군만두), 한 줄에서 서로
@@ -418,6 +562,38 @@ def _render_entry(entry: dict, index: int) -> None:
                 if st.button("Select", key=f"pick_{index}", width="stretch"):
                     _select_food(entry)
                     st.rerun()
+
+            _render_stepper(entry, index, quantity)
+
+
+def _render_stepper(entry: dict, index: int, quantity: int) -> None:
+    """담기·빼기 버튼 — 앱 `_QuantityStepper`와 같은 규칙이다.
+
+    아직 안 담긴 줄에는 `+`만 보여준다. 0인데 `−`가 있으면 누를 수 있어 보이지만 아무
+    일도 일어나지 않아서 고장처럼 읽힌다(EC-02).
+    """
+    if quantity == 0:
+        if st.button("Add to order", key=f"add_{index}", width="stretch"):
+            _change_cart(entry, 1)
+            st.rerun()
+        return
+
+    minus_column, count_column, plus_column = st.columns(
+        [1, 1, 1], vertical_alignment="center"
+    )
+    with minus_column:
+        if st.button("−", key=f"minus_{index}", width="stretch"):
+            _change_cart(entry, -1)
+            st.rerun()
+    with count_column:
+        st.markdown(
+            f'<div style="text-align:center;font-weight:700">{quantity}</div>',
+            unsafe_allow_html=True,
+        )
+    with plus_column:
+        if st.button("+", key=f"plus_{index}", width="stretch"):
+            _change_cart(entry, 1)
+            st.rerun()
 
 
 def _select_food(entry: dict) -> None:
@@ -541,6 +717,65 @@ def screen_result() -> None:
         st.button("Take a new photo", on_click=_reset, width="stretch")
 
 
+def _cart_line_html(line: dict) -> str:
+    """주문 확인 화면의 한 줄.
+
+    여기서는 **한국어 이름을 크게** 쓴다 — 이 화면을 읽는 사람은 종업원이다. 후보
+    목록이 영어를 크게 쓰는 것과 방향이 반대인데, 보는 사람이 다르기 때문이다.
+    """
+    name = line.get("name_text") or line.get("name_kr") or ""
+    rows = [
+        '<div style="display:flex;justify-content:space-between;align-items:baseline">'
+        f'<span style="font-size:1.25rem;font-weight:700">{html.escape(name)}</span>'
+        f'<span style="font-size:1.1rem;font-weight:700">&times;{line["quantity"]}</span>'
+        "</div>"
+    ]
+    # 영문 이름은 **진짜 영어 이름일 때만** 보여준다. 안내 못 하는 줄은 영어 이름이
+    # 없어서 메뉴판 글자를 그대로 담아 보내는데, 그대로 찍으면 "공기밥" 아래 "공기밥
+    # 1,000"이 또 나오고 가격도 두 번 보인다.
+    name_en = line.get("name_en")
+    if name_en and name_en != name and name_en != line.get("menu_text"):
+        rows.append(_muted(html.escape(name_en)))
+    total = line.get("line_total_display")
+    if total:
+        rows.append(_muted(html.escape(total), size="0.95rem"))
+    return '<div style="display:flex;flex-direction:column;gap:2px">' + "".join(rows) + "</div>"
+
+
+def screen_cart() -> None:
+    """주문 확인 화면.
+
+    **어디로도 주문을 보내지 않는다.** 여행자가 종업원에게 보여주는 화면이다. 그래서
+    "주문이 접수되었습니다" 같은 문구를 쓰지 않는다 — 접수되지 않았는데 접수된 것처럼
+    보이면 여행자가 자리에 앉아 오지 않을 음식을 기다리게 된다(`docs/specs/cart.md`).
+    """
+    cart = st.session_state.get("cart") or {}
+    items = cart.get("items", [])
+
+    st.subheader("Show this to the staff")
+    st.caption(
+        'This says "I would like to order these." Show this screen to the staff.'
+    )
+
+    for line in items:
+        with st.container(border=True):
+            st.markdown(_cart_line_html(line), unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown(
+        f'<div style="font-size:1.2rem;font-weight:800">Total '
+        f'<span style="margin-left:8px">'
+        f'{html.escape(cart.get("total_krw_display") or "")}</span></div>',
+        unsafe_allow_html=True,
+    )
+    if cart.get("has_unpriced_items"):
+        # 총계를 그냥 보여주면 실제보다 싸 보인다. 왜 모자란지 밝힌다.
+        st.caption("Some dishes had no price on the menu, so this total is partial.")
+
+    # 카트는 그대로 남긴다 — 보여주고 돌아와 수량을 고칠 수 있어야 한다(EC-08).
+    st.button("Back to the list", on_click=_go, args=("select",), width="stretch")
+
+
 def screen_api_error() -> None:
     """예외 화면 — API 서버에 연결하지 못했다(EC-07). 잠자던 Space가 깨는 중일 수도 있다."""
     st.subheader("We couldn't reach the service")
@@ -552,6 +787,7 @@ SCREENS = {
     "upload": screen_upload,
     "select": screen_select,
     "result": screen_result,
+    "cart": screen_cart,
     "api_error": screen_api_error,
 }
 

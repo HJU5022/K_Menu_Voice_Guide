@@ -12,6 +12,7 @@ import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import requests
 from PIL import Image
 from streamlit.testing.v1 import AppTest
 
@@ -55,7 +56,7 @@ def _unsupported(**overrides) -> dict:
     return line
 
 
-def _select_screen(candidates, unsupported=(), image=None) -> AppTest:
+def _select_screen(candidates, unsupported=(), image=None, cart=None) -> AppTest:
     """후보 선택 화면을 그린 상태로 돌려준다."""
     app = AppTest.from_file(APP_PATH)
     app.session_state["step"] = "select"
@@ -67,7 +68,47 @@ def _select_screen(candidates, unsupported=(), image=None) -> AppTest:
     }
     if image is not None:
         app.session_state["image"] = image
+    if cart is not None:
+        app.session_state["cart"] = cart
     return app.run()
+
+
+def _cart_line(**overrides) -> dict:
+    """`CartResponse.items`의 한 줄."""
+    line = {
+        "food_id": 1,
+        "name_kr": "갈비탕",
+        "name_en": "Galbitang",
+        "menu_text": "갈비탕",
+        "name_text": "갈비탕",
+        "price_krw": 15000,
+        "price_krw_display": "₩15,000",
+        "quantity": 1,
+        "line_total_krw": 15000,
+        "line_total_display": "₩15,000",
+    }
+    line.update(overrides)
+    return line
+
+
+def _cart(items=(), **overrides) -> dict:
+    """`CartResponse` 전체 — 담기·빼기·비우기 어느 요청이든 이 모양이 돌아온다."""
+    items = list(items)
+    cart = {
+        "cart_id": "test",
+        "items": items,
+        "item_count": sum(line["quantity"] for line in items),
+        "total_krw": sum(line["line_total_krw"] or 0 for line in items),
+        "total_krw_display": "₩15,000",
+        "has_unpriced_items": False,
+    }
+    cart.update(overrides)
+    return cart
+
+
+def _button(app: AppTest, label: str):
+    [button] = [element for element in app.button if element.label == label]
+    return button
 
 
 def _texts(app: AppTest) -> list[str]:
@@ -482,3 +523,233 @@ def test_목록으로_돌아가도_분석_결과가_남아있다():
     # 서버를 다시 부르지 않으려면 분석 결과가 그대로 남아 있어야 한다.
     assert app.session_state["analysis"] == analysis
     assert [element.value for element in app.subheader] == ["Which dish is it?"]
+
+
+# --- 장바구니 (docs/specs/cart.md) -------------------------------------------
+
+
+def test_담기_전에는_더하기만_담긴_뒤에는_빼기와_수량이_보인다():
+    # 0인데 `−`가 있으면 눌러도 아무 일이 없어 고장처럼 읽힌다(cart.md EC-02).
+    empty = _select_screen([_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")])
+    labels = [element.label for element in empty.button]
+    assert labels.count("Add to order") == 2
+    assert "−" not in labels
+
+    filled = _select_screen(
+        [_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")],
+        cart=_cart([_cart_line(quantity=2)]),
+    )
+    labels = [element.label for element in filled.button]
+    assert labels.count("−") == 1
+    assert labels.count("Add to order") == 1  # 아직 안 담은 줄만
+    assert any("2" == text.strip() or ">2<" in text for text in _texts(filled))
+
+
+def test_담기_요청은_줄을_가리키는_값을_함께_보낸다():
+    app = _select_screen([
+        _candidate(food_id=7, name_kr="만두", name_en="Dumplings",
+                   menu_text="물만두 8,000", name_text="물만두", price_krw=8000),
+        _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
+    ])
+
+    response = MagicMock()
+    response.json.return_value = _cart([_cart_line()])
+    with patch("requests.request", return_value=response) as request:
+        # 첫 줄(물만두)의 담기 버튼
+        [first_add, _] = [e for e in app.button if e.label == "Add to order"]
+        first_add.click().run()
+
+    sent = request.call_args.kwargs["json"]
+    assert sent["food_id"] == 7
+    # `food_id`만으로는 물만두와 군만두를 가를 수 없다(cart.md EC-12).
+    assert sent["menu_text"] == "물만두 8,000"
+    assert sent["price_krw"] == 8000
+    assert sent["quantity_delta"] == 1
+
+
+def test_안내_못_하는_줄도_담을_수_있고_이름_자리에_메뉴판_글자를_보낸다():
+    app = _select_screen(
+        [_candidate()],
+        [_unsupported(menu_text="공기밥 1,000", name_text="공기밥")],
+    )
+
+    # 설명은 못 해도 주문은 된다 — 담기 버튼은 열어둔다.
+    assert [element.label for element in app.button].count("Add to order") == 2
+    # 설명 보기는 여전히 막는다.
+    assert len(_select_buttons(app)) == 1
+
+    response = MagicMock()
+    response.json.return_value = _cart()
+    with patch("requests.request", return_value=response) as request:
+        # 두 번째 "Add to order"가 미지원 줄이다.
+        [_, unsupported_add] = [e for e in app.button if e.label == "Add to order"]
+        unsupported_add.click().run()
+
+    sent = request.call_args.kwargs["json"]
+    assert sent["food_id"] is None
+    assert sent["name_kr"] == "공기밥 1,000"
+
+
+def test_같은_food_id_두_줄은_각각_따로_담긴다():
+    # 카트에는 물만두만 담겨 있다. 군만두 줄은 아직 안 담긴 상태로 보여야 한다.
+    app = _select_screen(
+        [
+            _candidate(food_id=7, name_kr="만두", name_en="Dumplings",
+                       menu_text="물만두 8,000", name_text="물만두"),
+            _candidate(food_id=7, name_kr="만두", name_en="Dumplings",
+                       menu_text="군만두 8,000", name_text="군만두"),
+        ],
+        cart=_cart([_cart_line(food_id=7, menu_text="물만두 8,000", quantity=1)]),
+    )
+
+    labels = [element.label for element in app.button]
+    assert labels.count("−") == 1
+    assert labels.count("Add to order") == 1
+
+
+def test_빈_카트에서는_주문과_비우기를_누를_수_없다():
+    app = _select_screen([_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")])
+
+    # 빈 주문 확인 화면으로 넘어가지 않는다(cart.md EC-07).
+    assert _button(app, "Order").proto.disabled
+    assert _button(app, "Clear cart").proto.disabled
+
+
+def test_담긴_것이_있으면_주문과_비우기를_누를_수_있다():
+    app = _select_screen(
+        [_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")],
+        cart=_cart([_cart_line()]),
+    )
+
+    assert not _button(app, "Order").proto.disabled
+    assert not _button(app, "Clear cart").proto.disabled
+
+
+def test_카트_요청이_실패해도_담긴_내용을_지우지_않는다():
+    cart = _cart([_cart_line(quantity=2)])
+    app = _select_screen(
+        [_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")],
+        cart=cart,
+    )
+
+    with patch("requests.request", side_effect=requests.RequestException):
+        _button(app, "+").click().run()
+
+    # 서버가 잠깐 안 되는 것과 카트가 비는 것은 다른 일이다(cart.md EC-06).
+    assert app.session_state["cart"] == cart
+    assert "We couldn't update your order just now." in [e.value for e in app.warning]
+
+
+def test_주문_확인_화면은_한글_이름과_수량과_총계를_보여준다():
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "cart"
+    app.session_state["cart"] = _cart(
+        [_cart_line(name_text="황기갈비탕", quantity=2, line_total_display="₩30,000")],
+        total_krw_display="₩30,000",
+    )
+    app.run()
+
+    texts = _texts(app)
+    # 이 화면을 읽는 사람은 종업원이다 — 한국어 이름이 크게 나와야 한다.
+    assert any("황기갈비탕" in text for text in texts)
+    assert any("&times;2" in text for text in texts)
+    assert any("₩30,000" in text for text in texts)
+    # 어디로도 주문을 보내지 않는다 — 접수된 것처럼 읽히는 문구를 쓰지 않는다.
+    assert not any("received" in text.lower() or "접수" in text for text in texts)
+
+
+def test_가격을_못_읽은_메뉴가_있으면_총계가_일부라고_밝힌다():
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "cart"
+    app.session_state["cart"] = _cart([_cart_line()], has_unpriced_items=True)
+    app.run()
+
+    assert any("this total is partial" in text for text in _texts(app))
+
+
+def test_주문_확인에서_돌아가도_카트가_남아있다():
+    cart = _cart([_cart_line()])
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "cart"
+    app.session_state["cart"] = cart
+    app.session_state["analysis"] = {
+        "status": "candidates_found",
+        "ocr_text": "",
+        "candidates": [_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")],
+        "unsupported_lines": [],
+    }
+    app.run()
+
+    _button(app, "Back to the list").click().run()
+
+    # 보여주고 돌아와 수량을 고칠 수 있어야 한다(cart.md EC-08).
+    assert app.session_state["step"] == "select"
+    assert app.session_state["cart"] == cart
+
+
+def _upload(app: AppTest) -> AppTest:
+    """업로드 화면에 사진 한 장을 올린다."""
+    return app.file_uploader[0].set_value(("menu.jpg", _sample_photo(), "image/jpeg")).run()
+
+
+def _analyze_response(status: str = "candidates_found") -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = {
+        "status": status,
+        "ocr_text": "갈비탕",
+        "candidates": [
+            _candidate(),
+            _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
+        ] if status == "candidates_found" else [],
+        "unsupported_lines": [],
+    }
+    return response
+
+
+def test_새_메뉴판을_읽으면_카트를_비운다():
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["cart"] = _cart([_cart_line()])
+    app.run()
+
+    cart_response = MagicMock()
+    cart_response.json.return_value = _cart()
+    with patch("requests.post", return_value=_analyze_response()), \
+         patch("requests.request", return_value=cart_response) as request:
+        _upload(app)
+
+    # A식당에서 담아둔 것이 B식당 메뉴판을 찍은 뒤에도 남으면 안 된다(cart.md EC-09).
+    method, url = request.call_args.args
+    assert method == "DELETE"
+    assert url.endswith("/api/cart")
+    assert app.session_state["cart"]["item_count"] == 0
+
+
+def test_사진_인식에_실패하면_카트를_그대로_둔다():
+    cart = _cart([_cart_line()])
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["cart"] = cart
+    app.run()
+
+    with patch("requests.post", return_value=_analyze_response("ocr_empty")), \
+         patch("requests.request") as request:
+        _upload(app)
+
+    # 흐리게 찍어 다시 찍는 흔한 흐름에서 담아둔 것을 잃지 않게 한다(cart.md EC-10).
+    request.assert_not_called()
+    assert app.session_state["cart"] == cart
+
+
+def test_안내_못_하는_줄은_주문_확인에서_영문_줄을_그리지_않는다():
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "cart"
+    app.session_state["cart"] = _cart([
+        _cart_line(food_id=None, name_kr="공기밥 1,000", name_en="공기밥 1,000",
+                   menu_text="공기밥 1,000", name_text="공기밥"),
+    ])
+    app.run()
+
+    texts = _texts(app)
+    assert any("공기밥" in text for text in texts)
+    # 영어 이름이 없어 메뉴판 글자를 담아 보낸 줄이다. 그대로 찍으면 같은 말이 두 번
+    # 나오고 가격도 두 번 보인다.
+    assert not any("공기밥 1,000" in text for text in texts)
