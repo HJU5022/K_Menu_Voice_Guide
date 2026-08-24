@@ -13,9 +13,10 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 - **음식명 유사도 매칭**: RapidFuzz
 - **TTS**: Qwen3-TTS-12Hz-1.7B-Base + PEFT(LoRA) 파인튜닝 (어댑터: `k-bite-team/k-menu-qwen3-tts-lora`)
 - **데이터베이스**: Supabase
-- **서버**: FastAPI (`K_Menu_Talk.py`가 `/api/analyze`, `/api/foods/{id}` 노출)
-- **배포 UI**: Streamlit (`app.py`) — Hugging Face Spaces Streamlit SDK 진입점. 웹 화면은 이것 하나다. React 웹앱은 2026-08-23에 저장소에서 제거했다
-- **배포 형태**: Flutter 앱 (최종 목표, `mobile/`). 앱은 `K_Menu_Talk.py`(FastAPI)를 호출한다 — `app.py`는 HTTP 계약이 없어 앱을 대체하지 못하므로 두 진입점을 함께 유지한다
+- **서버**: FastAPI (`K_Menu_Talk.py`가 `/api/analyze`, `/api/foods/{id}`, `/api/cart` 노출)
+- **웹 화면**: Streamlit (`app.py`) — Hugging Face Spaces Streamlit SDK 진입점. `src/`를 임포트하지 않고 `K_Menu_Talk.py`를 HTTP로 호출하는 화면 전용 클라이언트다(2026-08-23 전환). React 웹앱은 같은 날 저장소에서 제거했다
+- **모바일 앱**: Flutter (최종 목표, `mobile/`). 같은 `K_Menu_Talk.py`를 HTTP로 호출한다 — 웹과 앱은 계약이 같은 두 개의 별도 클라이언트이지, 한쪽이 다른 쪽을 대체하지 않는다
+- **배포**: Hugging Face Spaces를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 GPU Space(`K_Menu_Talk.py`, Nvidia T4) 한 곳에 몰고, `app.py`는 그 API를 부르기만 하는 무료 CPU Space에 올린다 — 웹에도 계산을 두면 GPU 비용이 두 배가 되기 때문이다(`docs/specs/streamlit-app.md`, `docs/specs/fastapi-space-deploy.md`)
 
 ## Spec 먼저, 구현은 그다음
 
@@ -30,6 +31,34 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 ## Out of Scope 원칙
 
 에이전트는 Spec에 없는 기능을 임의로 추가하지 않습니다. "이왕이면"으로 범위를 넓히지 않습니다.
+
+## 구현 원칙
+
+- 이미 있는 코드·패턴을 우선 재사용합니다. 새로운 로직·알고리즘·추상화는 Spec에 명시되지 않았다면 임의로 만들지 않습니다.
+- 구현 방식이 여러 개일 때는 가장 단순하고 기존 코드와 일관된 방법을 택합니다. "이게 더 나은 방식 같다"는 판단이 들어도 스스로 바꾸지 않고, 먼저 팀에 확인받습니다.
+- Spec에 없는 결정(라이브러리 교체, 구조 변경 등)은 임의로 내리지 않습니다. 확신이 없으면 추측해서 구현하지 말고 질문합니다.
+
+## Git 규칙
+
+- `main` 브랜치에 직접 커밋·push하지 않습니다. 항상 새 브랜치(`feat/{작업내용}`, `fix/{내용}`, `docs/{내용}`)를 만들어 작업하고, PR로만 main에 합칩니다.
+- 스택 PR을 만들지 않습니다 — 각 브랜치는 `origin/main`에서 새로 분기합니다. 이전 PR이 아직 merge되지 않았어도, 다음 작업은 옛 브랜치 위가 아니라 최신 `origin/main`에서 다시 딴다(그 사이 merge된 PR을 기다렸다가).
+- `main` 브랜치에 force push(`--force`, `-f`)를 하지 않습니다.
+- `git reset --hard`, `git clean -f` 등 되돌리기 힘든 명령은 임의로 실행하지 않고, 실행 전에 먼저 사용자에게 확인받습니다.
+- 커밋 메시지에 AI 생성 흔적(`Co-Authored-By: Claude` 등)을 넣지 않습니다.
+- PR 본문은 `.github/PULL_REQUEST_TEMPLATE.md`의 3섹션만 채웁니다: 변경 요약(2~3줄) / 리뷰 포인트(2~3개) / 체크리스트.
+
+## 보안 원칙
+
+- API 키·비밀번호·토큰을 코드에 직접 작성(하드코딩 포함)하지 않습니다. 항상 `.env`를 통해 불러옵니다.
+- 새로 필요한 키가 생기면 `.env.example`에 값 없이 키 이름만 추가합니다.
+- 모든 push는 Secret Scan(GitHub Actions, `.github/workflows/secret-scan.yml`)으로 자동 검사됩니다. 실패 시 커밋 히스토리에서 지워도 유출로 간주되므로, 애초에 키를 커밋하지 않는 것이 유일한 대응입니다.
+- PR은 조원 1명 이상의 approve를 받은 뒤에만 merge합니다. merge 실행은 조장만 진행합니다.
+
+## 로깅 원칙
+
+- 예외를 잡을 때 그냥 버리지 않습니다(`except Exception: pass`). 무슨 예외였는지 `logging`으로 남깁니다 — 안 남기면 실패 원인이 배포 환경에서 재현 불가능해집니다(`docs/specs/error-logging.md`의 실제 사례 참고).
+- 로그는 컨테이너 파일이 아니라 **stdout**으로 내보내, 셸 접근 없는 배포 환경(HF Spaces 등)의 로그 화면에서 바로 보이게 합니다.
+- URL·토큰·키 등 자격증명을 로그에 평문으로 남기지 않습니다. 라이브러리가 알아서 찍는 로그(예: HTTP 클라이언트의 요청 URL)도 확인 대상입니다.
 
 ## 완료 기준
 
