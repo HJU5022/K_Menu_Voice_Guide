@@ -18,10 +18,10 @@
 
 | 이름 | GitHub | 역할 | 비고 |
 |---|---|---|---|
-| 하정운(조장) | @HJU5022 | PM·OCR 파인튜닝·파이프라인 통합 | |
-| 박민영 | @pastar20250101-creator | TTS 파인튜닝·하이퍼파라미터 실험·UI | |
-| 배재훈 | @Bae-JaeHun | TTS 추론 구현 | 프로젝트 참여 종료 |
-| 차백호 | @cosohotmas | 데이터 구축·Supabase DB | |
+| 하정운(조장) | @HJU5022 | PM·OCR 파인튜닝·파이프라인 통합·DB·배포 | |
+| 박민영 | @pastar20250101-creator | TTS 파인튜닝·하이퍼파라미터 실험·UX/UI | |
+| 배재훈 | @Bae-JaeHun | 데이터 구축 | 프로젝트 참여 종료 |
+| 차백호 | @cosohotmas | TTS 추론 | |
 
 ---
 
