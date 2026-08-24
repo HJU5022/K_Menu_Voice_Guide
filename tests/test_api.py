@@ -10,6 +10,7 @@ OCR·TTS 같은 무거운 로직은 전부 patch로 가짜 값으로 바꾼다. 
 """
 
 import io
+import logging
 import tempfile
 import unittest
 from pathlib import Path
@@ -473,6 +474,18 @@ class PublishAudioTests(unittest.TestCase):
             self.assertFalse(Path(source_path).exists())  # 원래 위치엔 없어야 함(=이동)
         finally:
             published_path.unlink(missing_ok=True)
+
+
+class LoggingConfigTests(unittest.TestCase):
+    """docs/specs/error-logging.md — httpx가 Supabase 요청 URL을 INFO로 찍어 공개 Space
+    로그 화면에 그대로 노출되던 문제(실측 2026-08-24)를 억제하는지 확인한다.
+
+    K_Menu_Talk.py를 임포트하는 시점에 이미 실행되는 모듈 최상단 설정이라, 값이
+    이미 적용된 상태를 확인한다(다시 임포트해서 재현하지 않는다).
+    """
+
+    def test_httpx_logger_is_suppressed_below_warning(self):
+        self.assertGreaterEqual(logging.getLogger("httpx").level, logging.WARNING)
 
 
 if __name__ == "__main__":

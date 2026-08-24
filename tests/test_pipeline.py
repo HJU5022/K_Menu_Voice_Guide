@@ -280,6 +280,47 @@ class SynthesizeViaSubprocessTests(unittest.TestCase):
 
         self.assertEqual(result, {"audio_path": None, "status": "not_ready", "latency_ms": 0.0})
 
+    def test_logs_failure_with_traceback_instead_of_swallowing_it(self):
+        """실패 원인이 로그에 남는지 — docs/specs/error-logging.md의 핵심 요구사항.
+
+        예전에는 이 지점에서 예외를 그냥 버렸다. 서로 다른 원인(라이브러리 충돌·
+        컴파일러 부재·venv 없음)이 전부 not_ready 한 단어로 뭉개져, 배포 환경에서
+        원인 파악에 재배포를 여러 번 반복해야 했다(A-1~A-3).
+        """
+        fake = FakeWorker(["not json\n"])  # JSON 파싱이 실패해 except로 들어간다
+        with (
+            patch("src.pipeline._start_worker", return_value=fake),
+            self.assertLogs("src.pipeline", level="ERROR") as logs,
+        ):
+            pipeline._synthesize_via_subprocess("text", "GUIDE")
+
+        self.assertEqual(len(logs.records), 1)
+        record = logs.records[0]
+        self.assertEqual(record.levelname, "ERROR")
+        # exc_info가 있어야 traceback이 로그에 실린다 — 메시지만으로는 "어디서 왜"를
+        # 알 수 없다.
+        self.assertIsNotNone(record.exc_info)
+        self.assertIn("TTS 합성 실패", record.getMessage())
+
+    def test_kill_worker_failure_logs_warning_not_error(self):
+        """워커 종료 자체가 실패하는 건 이미 죽어가는 프로세스에 흔한 경로다.
+
+        ERROR로 올리면 정상적인 정리 과정까지 실패처럼 보여 로그가 실패를 과장한다.
+        """
+
+        class ExplodingWorker(FakeWorker):
+            def kill(self):
+                raise OSError("이미 종료됨")
+
+        pipeline._worker = ExplodingWorker([])
+
+        with self.assertLogs("src.pipeline", level="WARNING") as logs:
+            pipeline._kill_worker()
+
+        self.assertEqual(logs.records[0].levelname, "WARNING")
+        self.assertIsNotNone(logs.records[0].exc_info)
+        self.assertIsNone(pipeline._worker)
+
 
 class PipelineRunAndAnalyzeTests(unittest.TestCase):
     """run()과 analyze_image() — 이미지 한 장을 받아 처리하는 두 진입 함수.
