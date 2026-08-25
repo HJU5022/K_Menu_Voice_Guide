@@ -90,7 +90,11 @@ def main() -> None:
         # 같은 음성을 낸다 — 음식명이 한글 표기로 바뀐 tts_text다.
         result = pipeline._synthesize_via_subprocess(narration["tts_text"], narration["style"])
         if result.get("status") != "ok" or not result.get("audio_path"):
-            print(f"{label} — 실패 (status={result.get('status')})")
+            # 워커(src/tts/worker.py)는 실패 원인을 result["error"]에 담아 돌려주는데
+            # 여기서 그걸 안 찍으면 서로 다른 원인이 전부 "status=not_ready" 한 줄로
+            # 뭉개진다 — 50개가 같은 이유로 실패해도 그 이유를 알 수 없다.
+            reason = result.get("error") or "워커 응답에 error 없음 (워커 시작 실패일 수 있음 — logs/tts_worker.log 확인)"
+            print(f"{label} — 실패 (status={result.get('status')}) — {reason}")
             failed += 1
             continue
 
