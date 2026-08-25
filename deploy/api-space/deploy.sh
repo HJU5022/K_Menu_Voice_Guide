@@ -25,12 +25,26 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 
-# API가 쓰지 않는 폴더는 뺀다. 셋 다 이미지·바이너리를 품고 있는데, Hugging Face는
-# LFS 없이 올라오는 바이너리를 거부한다. 빼면 저장소도 가벼워진다.
+# 이 Space는 **계산만** 한다. 서버가 실행에 쓰지 않는 것은 올리지 않는다.
+#
+# 바이너리를 품고 있어 반드시 빼야 하는 것 — Hugging Face는 LFS 없이 올라오는
+# 바이너리를 거부한다:
 #   mobile/    Flutter 앱 (iOS 리소스·아이콘)
 #   eval/      평가 스크립트와 결과 이미지
 #   frontend/  React 웹 화면 — 별도 Space로 배포한다(frontend/space/deploy.sh)
-EXCLUDE_PATHS=(':(exclude)mobile' ':(exclude)eval' ':(exclude)frontend')
+#
+# 실행에 안 쓰여서 빼는 것 (2.4MB 중 1.1MB를 차지한다):
+#   tests/       테스트
+#   docs/        문서
+#   app.py       Streamlit 웹 화면 — 화면은 React로 옮겼고, 이 서버와 무관하다
+#   .streamlit/  Streamlit 테마 설정
+#
+# models/ 와 data/ 는 README 한 장씩(각 4KB)이라 남긴다 — 코드 주석이 그 문서를
+# 가리키므로, 컨테이너 안에서 코드를 읽을 때 링크가 끊기지 않는다.
+EXCLUDE_PATHS=(
+  ':(exclude)mobile' ':(exclude)eval' ':(exclude)frontend'
+  ':(exclude)tests' ':(exclude)docs' ':(exclude)app.py' ':(exclude).streamlit'
+)
 
 echo "==> 대상 Space: $SPACE_ID"
 echo "    올릴 것: $REF (이 Space의 기존 내용은 통째로 덮어쓴다)"
