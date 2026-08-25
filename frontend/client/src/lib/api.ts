@@ -144,6 +144,10 @@ export type CartLine = {
   food_id: number;
   name_kr: string;
   name_en: string;
+  // 서버가 늘 실어 보내는 값인데 여기 없으면, 카트 안의 ± 버튼이 이 줄을 되돌려 보낼 때
+  // menu_text가 빠져 서로 다른 줄이 하나로 합쳐진다.
+  menu_text: string | null;
+  name_text: string | null;
   price_krw: number | null;
   price_krw_display: string | null;
   quantity: number;
@@ -171,7 +175,10 @@ export const EMPTY_CART: CartResponse = {
 
 // What the cart endpoint needs to identify a line. A candidate card and a cart line both
 // satisfy this shape, so the same updateCount() call works from either place.
-export type CartItemRef = { food_id: number; name_kr: string; name_en: string; price_krw: number | null };
+// menu_text가 카트에서 줄을 구분하는 기준이다(docs/specs/cart.md). 안 보내면 서버가
+// food_id로만 묶어서, 메뉴판에 따로 인쇄된 "반반족발 ₩31,000"과 "족발 ₩33,000"이
+// 한 줄로 합쳐지고 가격도 하나만 남는다.
+export type CartItemRef = { food_id: number; name_kr: string; name_en: string; price_krw: number | null; menu_text?: string | null };
 
 // ---------------------------------------------------------------------------
 // Requests
@@ -213,7 +220,7 @@ export async function getCart(): Promise<CartResponse> {
 export async function changeCartItem(item: CartItemRef, quantityDelta: number): Promise<CartResponse> {
   const { data } = await client.post<CartResponse>(
     "/api/cart/items",
-    { food_id: item.food_id, name_kr: item.name_kr, name_en: item.name_en, price_krw: item.price_krw, quantity_delta: quantityDelta },
+    { food_id: item.food_id, name_kr: item.name_kr, name_en: item.name_en, menu_text: item.menu_text ?? null, price_krw: item.price_krw, quantity_delta: quantityDelta },
     { headers: cartHeaders() },
   );
   return data;
