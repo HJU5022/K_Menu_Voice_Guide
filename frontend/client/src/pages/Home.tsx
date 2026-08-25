@@ -1,7 +1,7 @@
 // Hanok Editorial: asymmetric editorial layout, cream surfaces, teal trust, coral safety cues.
 // Data layer connects to the real K_Menu_Talk.py API via ../lib/api — see that module for
 // the HTTP contract. This file only owns screen state and rendering.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Camera, Check, ChevronDown, CircleHelp, Flame,
   Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Volume2, X,
@@ -642,7 +642,15 @@ function DishCard({
   featured: boolean;
 }) {
   const t = useT();
+  const lang = useContext(LangContext);
   const cartRef: CartItemRef = { food_id: candidate.food_id, name_kr: candidate.name_kr, name_en: candidate.name_en, price_krw: candidate.price_krw };
+  // 맵기를 먼저, 재료를 뒤에 놓는다. 맵기는 "먹을 수 있는가"를 가르는 정보라 먼저 보여야 한다.
+  // 어느 쪽에서 왔는지(kind)를 들고 다니는 이유는 색을 다르게 주기 위해서다 — tier 유무로
+  // 판별하면 맵기인데 tier가 비어 있는 행이 재료로 섞인다.
+  const mods = [
+    ...candidate.modifiers.spice.map((m) => ({ ...m, kind: "spice" as const })),
+    ...candidate.modifiers.ingredient.map((m) => ({ ...m, kind: "ingredient" as const })),
+  ];
   return (
     <article className={`dish-card ${featured ? "featured" : ""}`}>
       {/* 사진 위 상자와 같은 번호·같은 색. 이것이 카드와 사진을 잇는 유일한 단서다. */}
@@ -675,6 +683,19 @@ function DishCard({
             {/* 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은
                 말을 두 번 적는 꼴이다. 이 줄이 없으면 "족발 ₩31,000"과 "족발 ₩33,000"이
                 같은 메뉴가 두 번 뜬 것처럼 보인다(실제로는 반반족발과 족발처럼 다른 줄이다). */}
+            {/* 메뉴 줄에 붙어 있던 수식어를 **읽는 사람의 언어로** 보여준다.
+                같은 음식이 여러 줄 나올 때(돼지김치찌개 / 참치김치찌개) 지금까지는 아래
+                한국어 줄이 유일한 구분 수단이었는데, 이 서비스를 쓰는 사람은 그 글자를
+                읽지 못한다. Kimchi Jjigae가 둘 떠 있어도 [Pork]와 [Tuna]로 고를 수 있게 한다. */}
+            {mods.length > 0 && (
+              <ul className="dish-mods">
+                {mods.map((m) => (
+                  <li key={`${m.kind}-${m.keyword}`} className={`dish-mod dish-mod-${m.kind}`}>
+                    {lang === "ko" ? m.keyword : m.keyword_en ?? m.keyword}
+                  </li>
+                ))}
+              </ul>
+            )}
             {candidate.name_text && candidate.name_text !== candidate.name_kr && (
               <p className="dish-menu-text" lang="ko">{t.menuLinePrefix}: {candidate.name_text}</p>
             )}

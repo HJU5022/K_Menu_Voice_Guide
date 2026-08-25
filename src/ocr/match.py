@@ -385,6 +385,10 @@ def match_food_candidates(
                 "name_en": food["name_en"],
                 "score": score,
                 "modifiers": {"spice": spice_hits, "ingredient": ingredient_hits},
+                # 그 음식 자체의 맵기(1~5). 후보 카드에 불꽃 눈금을 그리는 값이다.
+                # 여기서 싣지 않으면 화면은 값을 못 받아 눈금을 영영 그리지 못한다.
+                # .get()인 이유는 thumbnail과 같다 — 오래된 테스트 fixture에는 이 컬럼이 없다.
+                "spice_level": food.get("spice_level"),
                 # 이 후보가 사진 어디에서 나왔는지 — 좌표는 아직 전처리 이미지 기준이라
                 # src/pipeline.py가 원본 사진 비율로 옮긴 뒤 응답에 싣는다.
                 "source_text": source_box[4] if source_box else None,

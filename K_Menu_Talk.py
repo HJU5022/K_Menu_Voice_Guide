@@ -87,7 +87,12 @@ class Candidate(BaseModel):
     name_kr: str
     name_en: str
     score: int
+    # {"spice": [{keyword, keyword_en, tier}], "ingredient": [{keyword, keyword_en}]}
+    # 메뉴 줄에 붙은 수식어를 **영어와 함께** 싣는다(src/ocr/match.py). 읽는 사람이
+    # 한국어를 못 읽는 여행자라, 같은 음식이 여러 줄 나올 때 이것이 유일한 구분 수단이다.
     modifiers: dict
+    # 그 음식의 맵기 1~5. 후보 카드의 불꽃 눈금에 쓴다. 등록되지 않은 값이면 null.
+    spice_level: int | None = None
     # 메뉴판에서 위에서부터 센 줄 번호. 화면이 메뉴판에 인쇄된 순서대로 늘어놓을 때 쓴다.
     line_no: int | None = None
     thumbnail_url: str | None = None
