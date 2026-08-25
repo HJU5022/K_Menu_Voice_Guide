@@ -5,15 +5,15 @@
 /// 옛 서버로 가는 형태로 조용히 깨진다.
 ///
 /// 환경별 값:
-///   시뮬레이터  http://localhost:8000            ← 현재 값
+///   시뮬레이터  http://localhost:8000
 ///   실제 기기    http://<맥 로컬 IP>:8000         폰이 맥과 같은 Wi-Fi일 때
 ///   시연        https://<...>.trycloudflare.com  cloudflared 터널
-///   배포        https://<...>.hf.space           미확정
+///   배포        https://hju5022-k-menu.hf.space  ← 현재 값
 ///
 /// **시뮬레이터는 맥 안에서 돌기 때문에 localhost로 서버에 닿는다.** 맥의 IP가
 /// 바뀌어도 영향을 받지 않아서, 화면을 만드는 동안에는 이 값이 가장 안정적이다.
 ///
-/// **실제 아이폰에 설치할 때는 반드시 맥의 LAN IP로 바꿔야 한다.** 폰에게
+/// **로컬 서버로 되돌릴 때**는 맥의 LAN IP로 바꿔야 한다. 폰에게
 /// localhost는 폰 자신이라 서버를 찾지 못한다. 주소는 아래로 확인한다.
 ///
 ///     ipconfig getifaddr en0
@@ -24,4 +24,4 @@
 ///
 /// 서버는 반드시 `--host 0.0.0.0`으로 띄워야 한다. 기본값(127.0.0.1)이면 맥
 /// 자신만 접속할 수 있어 실제 폰에서는 연결되지 않는다.
-const String apiBaseUrl = 'http://localhost:8000';
+const String apiBaseUrl = 'https://hju5022-k-menu.hf.space';
