@@ -9,11 +9,14 @@
 | `legal/` | 동의서·공개용 가림본 등 프로젝트 운영 문서 |
 | [`content-style.md`](content-style.md) | 화면에 쓰는 영어 문구 기준 (웹·앱 공통) |
 | [`../frontend/README.md`](../frontend/README.md) | React 웹 화면 구조·실행/빌드 방법·프론트 문서 읽는 순서 |
+| [`../frontend/docs/`](../frontend/docs/README.md) | **웹 화면 스펙이 사는 곳** — 화면 흐름·화면별 스펙·API 호출 규칙·배포 절차 |
 | [`../mobile/README.md`](../mobile/README.md) | Flutter 앱 구조·실행 방법(시뮬레이터/실기기)·자주 겪는 문제 |
 
 > 전체 파이프라인 흐름도는 루트 [`README.md`](../README.md)의 "시스템 아키텍처" 절에 Mermaid 다이어그램으로 들어있습니다(별도 이미지 파일 없음 — 텍스트라 수정이 쉽고 GitHub에서 바로 그림으로 보입니다).
 
 ## Spec 목록
+
+아래 표는 **백엔드·파이프라인·모바일 앱** 스펙입니다. **웹(React) 화면 스펙은 여기가 아니라 [`frontend/docs/`](../frontend/docs/README.md)에 있습니다** — 화면 문서는 화면 코드 바로 옆에 두고, 이 목록은 가리키기만 합니다(두 벌로 갈라져 서로 어긋나는 것을 막기 위해서). 화면이나 API 경계를 바꿀 때 갱신해야 하는 문서도 그쪽 표에 정리돼 있습니다.
 
 | 파일 | 내용 |
 |---|---|
