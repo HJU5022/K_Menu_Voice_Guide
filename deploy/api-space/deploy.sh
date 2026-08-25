@@ -84,6 +84,20 @@ cat > .gitattributes <<'ATTRS'
 ATTRS
 
 git add -A
+# 저장소의 .gitignore에 `static/`이 들어 있고, 그 파일이 여기까지 딸려 나온다. 그래서
+# 음성 캐시를 복사해 두어도 git이 무시해 버린다(실측 2026-08-25: wav 0개로 배포됐다).
+# -f로 그 무시를 넘어선다. 이 임시 저장소에는 우리가 넣은 것만 있으므로 안전하다.
+git add -f static
+
+# 올라가야 할 음성이 실제로 담겼는지 확인한다. 없이 배포되면 서버는 뜨지만 음식 하나에
+# 60초 이상 걸려서, 배포한 뒤에야 느리다는 것을 알게 된다.
+staged_wav=$(git diff --cached --name-only | grep -c '\.wav$' || true)
+if [ "$staged_wav" -eq 0 ]; then
+  echo "음성 캐시가 하나도 담기지 않았다. 중단한다." >&2
+  exit 1
+fi
+echo "    담긴 wav: ${staged_wav}개"
+
 git -c user.email="deploy@kmenu.local" -c user.name="K-Menu Deploy" \
     commit -q -m "deploy: 백엔드 스냅샷 ($REF @ $(git -C "$REPO_DIR" rev-parse --short "$REF"))"
 git branch -M main
