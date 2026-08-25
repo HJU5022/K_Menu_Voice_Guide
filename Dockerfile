@@ -38,9 +38,17 @@ RUN pip install --no-cache-dir --default-timeout=300 --retries 10 -r requirement
 # torch를 계속 낮추다 cu11 시절인 2.0.1까지 내려가고, 그 torch는 numpy 2.x와 호환되지 않아
 # TTS 로딩이 통째로 깨진다(실측 2026-08-24). 워커는 paddle을 전혀 임포트하지 않으므로
 # (src/tts/worker.py) 환경을 갈라두면 서로 간섭하지 않는다 — 맥·Windows의 .venv-tts와 같은 구조다.
+#
+# **torch와 torchaudio는 버전을 못 박는다.** 둘은 같은 버전 번호끼리만 맞물린다 —
+# qwen-tts가 torchaudio를 끌어오는데, 버전을 안 적어두면 빌드하는 날의 최신을 각각
+# 집어와 짝이 깨진다. 실제로 2026-08-26 빌드가 torch 2.13.0 + torchaudio 2.11.0을
+# 설치했고, 같은 어긋남을 Windows에서 겪었을 때는 qwen_tts 임포트가
+# `OSError: [WinError 127]`로 죽어 TTS가 통째로 멈췄다(로딩 실패라 캐시가 있으면
+# 증상이 안 보인다 — 실시간 생성만 조용히 죽는다).
+# 값은 그 Windows GPU에서 실제로 음성 생성까지 확인한 조합이다.
 RUN python -m venv /home/user/venv-tts \
     && /home/user/venv-tts/bin/pip install --no-cache-dir --default-timeout=300 --retries 10 \
-    torch qwen-tts peft transformers safetensors soundfile huggingface_hub numpy
+    "torch==2.6.0" "torchaudio==2.6.0" qwen-tts peft transformers safetensors soundfile huggingface_hub numpy
 ENV TTS_VENV_PYTHON=/home/user/venv-tts/bin/python
 
 COPY --chown=user . .

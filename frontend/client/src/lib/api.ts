@@ -121,6 +121,10 @@ export type FoodDetail = {
   tts_status: "ok" | "not_ready";
   narration_audio_path: string | null;
   tts_latency_ms: number;
+  // 음식 이름만 읽은 음성. 나레이션과 별개 파일이라 이름 옆 스피커를 눌러도 설명이
+  // 같이 나오지 않는다. 서버가 아직 옛 버전이면 없을 수 있어 optional로 둔다.
+  name_audio_path?: string | null;
+  name_tts_status?: "ok" | "not_ready";
 };
 
 export type CartLine = {

@@ -62,6 +62,10 @@ class AnalyzeToFoodDetailFlowTests(unittest.TestCase):
             "narration_audio_path": "/audio/1.wav",
             "tts_status": "ready",
             "tts_latency_ms": 120.0,
+            # 이름만 읽어주는 음성. get_food()가 이 두 키를 직접 꺼내 쓰므로
+            # 가짜 응답에도 있어야 한다(K_Menu_Talk.py).
+            "name_audio_path": None,
+            "name_tts_status": "not_ready",
         }
 
         # --- 1단계: 사진 업로드 → 후보 목록 ---

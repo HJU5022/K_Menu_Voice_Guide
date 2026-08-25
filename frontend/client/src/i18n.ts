@@ -121,8 +121,17 @@ const en = {
   errNotAMenuHint: "Point the camera at a printed menu with prices, then take the photo again.",
   errUnsupportedTitle: "Not in our guide yet",
   errUnsupportedHint: "Try a different menu item or ask the restaurant staff.",
-  errServiceTitle: "We could not read that menu.",
-  errServiceHint: "Try a brighter, steadier photo with the full menu in frame.",
+  // 서버에 닿지 못했거나 서버가 5xx를 준 경우. **사진 이야기를 하면 안 된다** —
+  // 사진을 다시 찍어도 서버가 살아나지는 않는다. 한때 이 자리에 "더 밝게 다시 찍으세요"가
+  // 적혀 있어서, 서버가 죽어도·PDF를 올려도·12MB를 올려도 전부 같은 안내가 나갔다
+  // (실측 2026-08-26). errOcrEmpty*와 문장이 겹치지 않게 유지할 것.
+  errServiceTitle: "We can't reach the service",
+  errServiceHint: "The server may still be waking up. Wait a moment, then try again.",
+  // 올린 파일 자체가 문제인 경우(400·413). 여기서는 **다시 찍으라고 하지 않는다** —
+  // 12MB 사진은 다시 찍어도 12MB고, PDF는 다시 찍어도 PDF다. 고를 것을 바꿔야 한다.
+  errBadUploadTitle: "That file won't work",
+  errBadUploadHint: "Choose a photo of a menu — an image file under 10 MB.",
+  chooseAnotherPhoto: "Choose another photo",
   takeNewPhoto: "Take a new photo",
   cartUnavailable: "Cart is unavailable right now.",
   cartChangeFailed: "Could not update the cart. Check your connection and try again.",
@@ -220,8 +229,11 @@ const ko: typeof en = {
   errNotAMenuHint: "가격이 적힌 메뉴판이 화면에 들어오도록 다시 찍어주세요.",
   errUnsupportedTitle: "아직 안내할 수 없는 메뉴입니다",
   errUnsupportedHint: "다른 메뉴를 찍어보거나 직원에게 물어보세요.",
-  errServiceTitle: "메뉴판을 읽지 못했습니다.",
-  errServiceHint: "메뉴판 전체가 들어오도록 밝고 흔들림 없이 다시 찍어주세요.",
+  errServiceTitle: "서비스에 연결할 수 없습니다",
+  errServiceHint: "서버가 아직 깨어나는 중일 수 있습니다. 잠시 후 다시 시도해주세요.",
+  errBadUploadTitle: "이 파일은 사용할 수 없습니다",
+  errBadUploadHint: "메뉴판 사진을 골라주세요 — 10MB 이하 이미지 파일이어야 합니다.",
+  chooseAnotherPhoto: "다른 사진 고르기",
   takeNewPhoto: "다시 찍기",
   cartUnavailable: "장바구니를 불러오지 못했습니다.",
   cartChangeFailed: "장바구니를 고치지 못했습니다. 연결을 확인하고 다시 시도해 주세요.",

@@ -280,6 +280,20 @@ def _is_kin_of_exact(name: str, exact_names: list[str]) -> bool:
     return any(fuzz.ratio(name, exact) >= KIN_RATIO for exact in exact_names)
 
 
+def _is_part_of_longer_exact(name: str, exact_names: list[str]) -> bool:
+    """이 줄에 그대로 적힌 **더 긴** 이름 안에 이 이름이 통째로 들어 있는가.
+
+    "황기갈비탕" 한 줄에서 `갈비탕`과 `갈비`가 둘 다 정확 일치로 잡힌다. 둘 다 글자가
+    실제로 있으니 _is_kin_of_exact로는 걸러지지 않는데(그건 한 글자 차이인 닮은 이름을
+    보는 검사다), 짧은 쪽은 긴 쪽의 일부일 뿐 별개 메뉴가 아니다. 화면에는 같은 줄이
+    "Galbitang"과 "Galbi" 두 카드로 나와, 없는 메뉴를 주문하게 만든다(실측 2026-08-26).
+
+    줄 단위로 매칭하므로(scan_menu_lines) `갈비`와 `갈비탕`이 **각각 다른 줄**에 있는
+    메뉴판은 서로 다른 호출이라 영향받지 않는다 — 둘 다 그대로 후보로 남는다.
+    """
+    return any(len(other) > len(name) and name in other for other in exact_names)
+
+
 def find_source_box(boxes: list[TextBox], food_name: str) -> TextBox | None:
     """음식명이 적힌 글자 상자를 찾는다 — 이 후보가 사진 어디에서 나왔는지 추적하기 위한 것.
 
@@ -364,7 +378,8 @@ def match_food_candidates(
     matches = [
         (food, name, score)
         for food, name, score in scored
-        if name in normalized_text or not _is_kin_of_exact(name, exact_names)
+        if not _is_part_of_longer_exact(name, exact_names)
+        and (name in normalized_text or not _is_kin_of_exact(name, exact_names))
     ]
 
     prices = _resolve_prices(normalized_text, [name for _food, name, _score in matches], boxes)

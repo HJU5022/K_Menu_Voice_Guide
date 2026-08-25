@@ -48,12 +48,16 @@ class PipelineTests(unittest.TestCase):
             "text": "This is Bibimbap.",
             "tts_text": "This is 비빔밥.",
             "style": "GUIDE",
+            "name_kr": "비빔밥",
         }
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             cache_dir = Path(tmp_dir)
             cached_file = cache_dir / "food_1_GUIDE.wav"
             cached_file.write_bytes(b"RIFF-fake-wav")
+            # 이름 음성도 같은 캐시 폴더에서 찾는다 — 이것까지 있어야 합성이 한 번도
+            # 불리지 않는다(아래 assert_not_called).
+            (cache_dir / "name_1.wav").write_bytes(b"RIFF-fake-name-wav")
 
             with patch.object(pipeline, "_TTS_CACHE_DIR", cache_dir):
                 result = pipeline.create_tts_response(1)
@@ -76,6 +80,7 @@ class PipelineTests(unittest.TestCase):
             "text": "This is Bibimbap.",
             "tts_text": "This is 비빔밥.",
             "style": "GUIDE",
+            "name_kr": "비빔밥",
         }
         mock_synthesize.return_value = {
             "audio_path": "/tmp/live.wav",
@@ -87,9 +92,13 @@ class PipelineTests(unittest.TestCase):
             with patch.object(pipeline, "_TTS_CACHE_DIR", Path(tmp_dir)):
                 result = pipeline.create_tts_response(1)
 
-        # 모델에는 화면용 text가 아니라 음식명이 한글 표기로 바뀐 tts_text가 넘어가야 한다
-        mock_synthesize.assert_called_once_with("This is 비빔밥.", "GUIDE")
+        # 모델에는 화면용 text가 아니라 음식명이 한글 표기로 바뀐 tts_text가 넘어가야 한다.
+        # 이름 음성(name_kr)도 캐시가 없으면 같은 경로로 만들어지므로 호출은 두 번이다.
+        mock_synthesize.assert_any_call("This is 비빔밥.", "GUIDE")
+        mock_synthesize.assert_any_call("비빔밥", "GUIDE")
+        self.assertEqual(mock_synthesize.call_count, 2)
         self.assertEqual(result["narration_audio_path"], "/tmp/live.wav")
+        self.assertEqual(result["name_audio_path"], "/tmp/live.wav")
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_narration")
@@ -101,6 +110,7 @@ class PipelineTests(unittest.TestCase):
             "text": "This is Bibimbap.",
             "tts_text": "This is 비빔밥.",
             "style": "GUIDE",
+            "name_kr": "비빔밥",
         }
         mock_synthesize.return_value = {
             "audio_path": None,
@@ -118,7 +128,7 @@ class PipelineTests(unittest.TestCase):
         mock_get_narration.assert_called_once_with(1)
         # 텍스트 생성이 정한 style이 TTS로 그대로 넘어가야 톤(GUIDE/CAUTION)이 맞는다
         # 모델에는 화면용 text가 아니라 음식명이 한글 표기로 바뀐 tts_text가 넘어가야 한다
-        mock_synthesize.assert_called_once_with("This is 비빔밥.", "GUIDE")
+        mock_synthesize.assert_any_call("This is 비빔밥.", "GUIDE")
         # 내부 이름(audio_path/status/latency_ms)이 API용 이름(narration_audio_path 등)으로 바뀐다
         self.assertEqual(
             result,
@@ -128,6 +138,8 @@ class PipelineTests(unittest.TestCase):
                 "narration_audio_path": None,
                 "tts_status": "not_ready",
                 "tts_latency_ms": 1.25,
+                "name_audio_path": None,
+                "name_tts_status": "not_ready",
             },
         )
 
@@ -141,6 +153,7 @@ class PipelineTests(unittest.TestCase):
             "text": "This is Bibimbap.",
             "tts_text": "This is 비빔밥.",
             "style": "GUIDE",
+            "name_kr": "비빔밥",
         }
         mock_synthesize.return_value = {
             "audio_path": None,
@@ -161,6 +174,8 @@ class PipelineTests(unittest.TestCase):
                 "narration_audio_path": None,
                 "tts_status": "not_ready",
                 "tts_latency_ms": 0.0,
+                "name_audio_path": None,
+                "name_tts_status": "not_ready",
             },
         )
 

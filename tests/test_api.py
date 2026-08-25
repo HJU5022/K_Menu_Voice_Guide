@@ -171,6 +171,133 @@ class AnalyzeEndpointTests(unittest.TestCase):
         )
 
 
+class AnalyzeUploadValidationTests(unittest.TestCase):
+    """POST /api/analyze — 잘못된 업로드를 500이 아니라 400/413으로 돌려주는지.
+
+    500은 "서버 잘못"이라는 뜻이라, 화면이 *사용자가 이상한 파일을 올린 것*과
+    *서버가 죽은 것*을 구별하지 못한다. 둘은 사용자가 해야 할 행동이 정반대다
+    (docs/specs/api-layer.md AC-06~AC-10).
+    """
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_rejects_non_image_content_type(self, mock_analyze_image):
+        """AC-06 — 이미지가 아닌 파일은 읽어보지도 않고 400."""
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("note.txt", io.BytesIO(b"not an image"), "text/plain")},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "이미지 파일만 업로드할 수 있습니다.")
+        # 가장 비싼 OCR까지 가지 않고 끊어야 의미가 있다.
+        mock_analyze_image.assert_not_called()
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_rejects_empty_file(self, mock_analyze_image):
+        """AC-07 — 업로드 중 취소·네트워크 끊김에서 실제로 나오는 0바이트."""
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("menu.jpg", io.BytesIO(b""), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "빈 파일입니다.")
+        mock_analyze_image.assert_not_called()
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_rejects_file_over_size_limit(self, mock_analyze_image):
+        """AC-08 — 상한을 넘는 파일은 413."""
+        too_big = b"x" * (K_Menu_Talk.MAX_UPLOAD_BYTES + 1)
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("big.jpg", io.BytesIO(too_big), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.json()["detail"], "사진이 너무 큽니다 (최대 10MB).")
+        mock_analyze_image.assert_not_called()
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_accepts_file_at_the_size_limit(self, mock_analyze_image):
+        """상한 **정확히**는 통과해야 한다 — 경계에서 한 바이트 차이로 막으면 안 된다."""
+        mock_analyze_image.return_value = {
+            "status": "ocr_empty",
+            "ocr_text": "",
+            "candidates": [],
+        }
+        exactly = b"x" * K_Menu_Talk.MAX_UPLOAD_BYTES
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("edge.jpg", io.BytesIO(exactly), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_rejects_file_that_is_not_a_readable_image(self, mock_analyze_image):
+        """AC-09 — 확장자·content-type만 이미지인 파일. 500이 아니라 400이어야 한다."""
+        # 실제 경로에서는 src/ocr/preprocess.py가 이 ValueError를 던진다.
+        mock_analyze_image.side_effect = ValueError("이미지를 불러올 수 없습니다: /tmp/x.jpg")
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("fake.jpg", io.BytesIO(b"not an image"), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "사진을 읽을 수 없습니다.")
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_removes_the_temp_file_on_success(self, mock_analyze_image):
+        """AC-10 — 성공해도 임시 파일이 남지 않는다.
+
+        analyze_image가 받은 경로를 붙잡아 두었다가, 응답이 끝난 뒤 그 파일이
+        사라졌는지 본다. 예전에는 delete=False로 만들고 지우지 않아 요청마다 쌓였다.
+        """
+        seen = {}
+
+        def remember(path):
+            seen["path"] = path
+            # 넘겨받은 시점에는 파일이 있어야 한다 — OCR이 읽어야 하므로.
+            seen["existed_during_call"] = Path(path).exists()
+            return {"status": "ocr_empty", "ocr_text": "", "candidates": []}
+
+        mock_analyze_image.side_effect = remember
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("menu.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(seen["existed_during_call"])
+        self.assertFalse(Path(seen["path"]).exists())
+
+    @patch.object(K_Menu_Talk, "analyze_image")
+    def test_removes_the_temp_file_on_failure(self, mock_analyze_image):
+        """AC-10 — 실패해도 임시 파일이 남지 않는다."""
+        seen = {}
+
+        def blow_up(path):
+            seen["path"] = path
+            raise ValueError("이미지를 불러올 수 없습니다")
+
+        mock_analyze_image.side_effect = blow_up
+
+        response = self.client.post(
+            "/api/analyze",
+            files={"image": ("fake.jpg", io.BytesIO(b"nope"), "image/jpeg")},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Path(seen["path"]).exists())
+
+
 class FoodDetailEndpointTests(unittest.TestCase):
     """GET /api/foods/{id} — 음식 하나의 상세 6개 + 내레이션 + 음성을 돌려주는 엔드포인트."""
 
@@ -195,6 +322,8 @@ class FoodDetailEndpointTests(unittest.TestCase):
             "narration_audio_path": None,
             "tts_status": "not_ready",
             "tts_latency_ms": 0.0,
+            "name_audio_path": None,
+            "name_tts_status": "not_ready",
         }
 
         response = self.client.get("/api/foods/1")
@@ -239,6 +368,8 @@ class FoodDetailEndpointTests(unittest.TestCase):
             "narration_audio_path": source_path,
             "tts_status": "ok",
             "tts_latency_ms": 12.5,
+            "name_audio_path": None,
+            "name_tts_status": "not_ready",
         }
 
         try:
@@ -348,6 +479,10 @@ class SupportedFoodsEndpointTests(unittest.TestCase):
                     "narration_audio_path": None,
                     "tts_status": "not_ready",
                     "tts_latency_ms": 0.0,
+                    # get_food()가 이 두 키를 직접 꺼내 쓴다(K_Menu_Talk.py). 빠지면
+                    # 라우팅을 보는 이 테스트가 엉뚱하게 KeyError로 죽는다.
+                    "name_audio_path": None,
+                    "name_tts_status": "not_ready",
                 },
             ),
         ):

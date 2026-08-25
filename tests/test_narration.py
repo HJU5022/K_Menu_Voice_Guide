@@ -48,6 +48,7 @@ class NarrationTests(unittest.TestCase):
                 "text": "Bibimbap is a mild dish. Pronounced 'ay'. Contains egg.",
                 "tts_text": "비빔밥 is a mild dish. Pronounced 'ay'. Contains egg.",
                 "style": "GUIDE",
+                "name_kr": "비빔밥",
             },
         )
 
@@ -78,6 +79,7 @@ class NarrationTests(unittest.TestCase):
                 "text": "It is spicy. Pronounced 'ay'. Contains egg.",
                 "tts_text": "It is spicy. Pronounced 'ay'. Contains egg.",
                 "style": "CAUTION",
+                "name_kr": "떡볶이",
             },
         )
 

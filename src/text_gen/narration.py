@@ -91,4 +91,8 @@ def get_narration(food_id: int) -> dict[str, str]:
         "text": text,
         "tts_text": _to_tts_text(" ".join(tts_sentences), food),
         "style": style,
+        # 이름만 따로 읽어주는 음성(화면의 스피커 버튼)에 쓸 한글 표기.
+        # 나레이션과 같은 이유로 한글을 넘긴다 — 로마자를 주면 모델이 영어 음운으로 읽는다.
+        # 여기서 실어 보내는 이유는 이 함수가 이미 foods 행을 조회하고 있어서다.
+        "name_kr": (food.get("name_kr") or "").strip(),
     }
