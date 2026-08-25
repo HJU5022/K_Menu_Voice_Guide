@@ -98,7 +98,12 @@ class PipelineTests(unittest.TestCase):
             "latency_ms": 1.25,
         }
 
-        result = pipeline.create_tts_response(1)
+        # 캐시 폴더를 빈 임시 폴더로 갈아끼운다. 안 그러면 개발 기기에 미리 만들어둔
+        # 음성(static/tts_cache)이 먼저 걸려서 합성 함수가 아예 안 불린다 —
+        # CI에는 그 파일이 없어 통과하고 로컬에서만 깨진다.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(pipeline, "_TTS_CACHE_DIR", Path(tmp_dir)):
+                result = pipeline.create_tts_response(1)
 
         mock_get_narration.assert_called_once_with(1)
         # 텍스트 생성이 정한 style이 TTS로 그대로 넘어가야 톤(GUIDE/CAUTION)이 맞는다
@@ -131,7 +136,10 @@ class PipelineTests(unittest.TestCase):
             "latency_ms": 0.0,
         }
 
-        result = pipeline.create_tts_response(1)
+        # 위와 같은 이유로 캐시를 비운다 — 캐시가 걸리면 "TTS 실패"를 재현할 수 없다.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(pipeline, "_TTS_CACHE_DIR", Path(tmp_dir)):
+                result = pipeline.create_tts_response(1)
 
         self.assertEqual(
             result,
