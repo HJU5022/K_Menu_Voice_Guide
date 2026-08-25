@@ -28,10 +28,14 @@ const formatWon = (value: number | null) => (value === null ? "Price not shown" 
 
 // Copy for the two OCR statuses — reused verbatim from app.py's ERROR_MESSAGES /
 // frontend/docs/content-style.md so the wording stays identical across every client.
-const OCR_ERROR_COPY: Record<"ocr_empty" | "unsupported_food", { heading: string; hint: string }> = {
+const OCR_ERROR_COPY: Record<"ocr_empty" | "not_a_menu" | "unsupported_food", { heading: string; hint: string }> = {
   ocr_empty: {
     heading: "We couldn't read this photo",
     hint: "Try brighter lighting, hold the menu straight, and move closer to the text.",
+  },
+  not_a_menu: {
+    heading: "We couldn't find a menu here",
+    hint: "Point the camera at a printed menu with prices, then take the photo again.",
   },
   unsupported_food: {
     heading: "Not in our guide yet",

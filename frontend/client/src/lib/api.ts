@@ -43,7 +43,10 @@ export type ApiCandidate = {
   spice_level: number | null;
 };
 
-export type AnalyzeStatus = "ocr_empty" | "unsupported_food" | "candidates_found";
+// not_a_menu는 글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없을 때다. 얼굴이나 풍경을
+// 찍어도 OCR이 잡음 글자를 만들어내 ocr_empty로는 잡히지 않는데, 이쪽은 **다시 찍으면
+// 해결되고** unsupported_food는 다시 찍어도 결과가 같다 — 안내가 달라야 하는 이유다.
+export type AnalyzeStatus = "ocr_empty" | "not_a_menu" | "unsupported_food" | "candidates_found";
 
 export type AnalyzeResponse = {
   status: AnalyzeStatus;
