@@ -4,7 +4,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Camera, Check, ChevronDown, CircleHelp, Flame,
-  Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Volume2, X,
+  House, Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Volume2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LangContext, useT } from "@/lang";
@@ -12,7 +12,7 @@ import { STRINGS, type Lang, type Strings } from "@/i18n";
 import Landing from "./Landing";
 import {
   analyzeMenu, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
-  EMPTY_CART, apiBaseUrl, isUsingCustomApi,
+  EMPTY_CART, apiBaseUrl, isUsingCustomApi, BadUploadError,
   type ApiCandidate, type CartItemRef, type CartLine, type CartResponse, type FoodDetail, type SupportedFood,
 } from "@/lib/api";
 
@@ -113,6 +113,8 @@ export default function Home() {
   const [errorHeading, setErrorHeading] = useState(STRINGS.en.errServiceTitle);
   const [errorHint, setErrorHint] = useState(STRINGS.en.errServiceHint);
   const [errorRetryTarget, setErrorRetryTarget] = useState<ErrorRetryTarget>("camera");
+  // 되돌아가는 버튼에 적을 말. undefined면 ErrorState가 기본 문구를 쓴다.
+  const [errorRetryLabel, setErrorRetryLabel] = useState<string | undefined>(undefined);
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const [camera, setCamera] = useState(false);
@@ -127,10 +129,13 @@ export default function Home() {
       .catch(() => setCartError(t.cartUnavailable));
   }, []);
 
-  function goToError(heading: string, hint: string, retryTarget: ErrorRetryTarget) {
+  // retryLabel을 안 넘기면 기본값("다시 찍기")을 쓴다 — 대부분의 실패는 다시 찍으면
+  // 해결되기 때문이다. 다시 찍어도 소용없는 실패에서만 다른 문구를 넘긴다.
+  function goToError(heading: string, hint: string, retryTarget: ErrorRetryTarget, retryLabel?: string) {
     setErrorHeading(heading);
     setErrorHint(hint);
     setErrorRetryTarget(retryTarget);
+    setErrorRetryLabel(retryLabel);
     setScreen("error");
   }
 
@@ -152,8 +157,15 @@ export default function Home() {
         const copy = ocrErrorCopy(t, result.status);
         goToError(copy.heading, copy.hint, "camera");
       }
-    } catch {
-      goToError(t.errServiceTitle, t.errServiceHint, "camera");
+    } catch (error) {
+      // 올린 파일이 문제인 경우와 서버가 문제인 경우는 사용자가 할 행동이 정반대다.
+      // 12MB 사진은 다시 찍어도 12MB고 PDF는 다시 찍어도 PDF다 — 그런데 "다시 찍으세요"로
+      // 안내하면 같은 실패를 무한히 반복하게 된다. 그래서 문구도 버튼도 갈라놓는다.
+      if (error instanceof BadUploadError) {
+        goToError(t.errBadUploadTitle, t.errBadUploadHint, "camera", t.chooseAnotherPhoto);
+      } else {
+        goToError(t.errServiceTitle, t.errServiceHint, "camera");
+      }
     }
   }
 
@@ -242,6 +254,7 @@ export default function Home() {
       <ErrorState
         heading={errorHeading}
         hint={errorHint}
+        retryLabel={errorRetryLabel}
         onRetry={() => setScreen(errorRetryTarget)}
       />
     );
@@ -389,7 +402,12 @@ function Candidates({
       <Header {...header} />
       <main className="content-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> {t.back}</button>
+        {/* 뒤로는 촬영 화면(다시 찍기), 처음으로는 첫 화면이다. 지금까지 첫 화면으로
+            가는 길은 머리말의 로고뿐이라 눈에 띄지 않았다. */}
+        <div className="back-row">
+          <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> {t.back}</button>
+          <button className="back-link" onClick={header.onHome}><House size={15} /> {t.startOver}</button>
+        </div>
         {/* The uploaded menu photo is the main visual here — the traveller compares it
             against the candidate cards, so it leads the page instead of sitting as a
             small corner chip. */}
@@ -992,7 +1010,7 @@ function Result({
   );
 }
 
-function ErrorState({ heading, hint, onRetry }: { heading: string; hint: string; onRetry: () => void }) {
+function ErrorState({ heading, hint, onRetry, retryLabel }: { heading: string; hint: string; onRetry: () => void; retryLabel?: string }) {
   const t = useT();
   return (
     <div className="center-state">
@@ -1001,7 +1019,7 @@ function ErrorState({ heading, hint, onRetry }: { heading: string; hint: string;
         <p className="eyebrow">LET'S TRY THAT AGAIN</p>
         <h2>{heading}</h2>
         <p>{hint}</p>
-        <Button className="primary-button" onClick={onRetry}>{t.takeNewPhoto}</Button>
+        <Button className="primary-button" onClick={onRetry}>{retryLabel ?? t.takeNewPhoto}</Button>
       </div>
     </div>
   );

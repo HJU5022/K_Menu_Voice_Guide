@@ -503,3 +503,17 @@ html[lang="ko"] .landing-copy h1 { font-size: clamp(30px, 3.5vw, 48px); line-hei
   color:var(--teal); font-weight:800; font-size:inherit;
   text-decoration:underline; text-underline-offset:2px;
 }
+
+/* 카트 패널은 짙은 초록 바탕이라, 밝은 배경용 버튼 색을 그대로 쓰면 글자가 배경에 묻힌다.
+   실제로 "Clear"가 보이지 않아 있는 줄도 몰랐다(실측 2026-08-26). 이 안에서만 밝게 뒤집는다. */
+.cart-panel .secondary-button {
+  background: transparent;
+  color: #e6efea;
+  border-color: rgba(255,255,255,.4);
+}
+.cart-panel .secondary-button:hover:not(:disabled) { background: rgba(255,255,255,.1); }
+/* 카트가 비었을 때. 눌러도 소용없다는 것은 보이되, 글자 자체는 읽혀야 한다. */
+.cart-panel .secondary-button:disabled { color: rgba(230,239,234,.45); border-color: rgba(255,255,255,.18); }
+
+/* 뒤로(촬영 화면) 옆에 처음으로(첫 화면)를 나란히 둔다. */
+.back-row { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
