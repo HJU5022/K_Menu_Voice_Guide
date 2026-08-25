@@ -49,11 +49,12 @@
 - **시스템 패키지**: `libgl1`, `libglib2.0-0`, `libgomp1`(opencv), `libsndfile1`(soundfile), `build-essential`.
 - **TTS는 별도 가상환경(`/home/user/venv-tts`)에 둔다.** `ENV TTS_VENV_PYTHON`이 그 파이썬을 가리키면 `src/pipeline.py`(31행)가 그것으로 워커를 띄우므로 코드 수정이 필요 없다. 아래 두 함정이 실측으로 확인됐다(2026-08-24, T4 Space).
   - **한 환경에 합칠 수 없다.** `paddlepaddle-gpu`가 `nvidia-*-cu12` 패키지를 정확한 버전으로 고정하는데(cublas 12.9.0.13 등) 최신 torch도 같은 패키지를 다른 버전으로 고정한다. 함께 설치하면 pip이 충돌을 피해 torch를 계속 낮추다 cu11 시절인 **2.0.1**까지 내려가고, 그 torch는 numpy 2.x와 호환되지 않아 TTS가 로딩 단계에서 죽는다. 워커는 paddle을 임포트하지 않으므로(`src/tts/worker.py`) 환경을 가르면 해결된다 — 맥·Windows의 `.venv-tts`와 같은 구조다.
+  - **torch와 torchaudio는 버전을 못 박아야 한다** (2026-08-26 추가). 둘은 같은 버전 번호끼리만 맞물리는데, `qwen-tts`가 `torchaudio`를 끌어오므로 값을 적어두지 않으면 빌드하는 날의 최신을 각각 집어와 짝이 깨진다. 실제로 2026-08-26 빌드가 **torch 2.13.0 + torchaudio 2.11.0**을 설치했다. 같은 어긋남을 Windows에서 겪었을 때는 `qwen_tts` 임포트가 `OSError: [WinError 127]`로 죽어 TTS가 통째로 멈췄다. **캐시가 있으면 증상이 안 보이고 실시간 생성만 조용히 죽는 종류**라 더 위험하다 — 캐시 히트만 확인하고 "TTS 정상"이라고 판단하면 안 된다. 지금 값(`torch==2.6.0`, `torchaudio==2.6.0`)은 Windows GPU에서 음성 생성까지 확인한 조합이다.
   - **C 컴파일러가 있어야 한다.** torch가 GPU 커널 일부를 실행 시점에 Triton으로 즉석 컴파일하는데, slim 이미지에는 컴파일러가 없어 `RuntimeError: Failed to find C compiler`로 워커가 죽는다. 개발 PC(Windows)는 CPU 빌드 torch라 이 경로를 타지 않아 드러나지 않는다.
 - **진단 방법**: 워커의 stderr는 컨테이너 안 `logs/tts_worker.log`에만 남아 Space 로그 화면에서 보이지 않는다. 원인을 볼 때는 파이프를 거치지 않고 `TTS_VENV_PYTHON`으로 `src.tts.infer.synthesize`를 직접 실행해 종료 코드와 stderr를 확인하는 편이 빠르다.
 - **Space Secrets**(이미지·저장소에 넣지 않는다): `SUPABASE_URL`, `SUPABASE_ANON_KEY`. TTS LoRA 저장소가 비공개면 `HF_TOKEN` 추가(EC-04).
 - **`.dockerignore`**: `.env`(비밀값 — 반드시), `.venv*`, `mobile/`, `docs/`, `tests/`, `logs/`, `static/audio`, git 메타 — 빌드 컨텍스트와 이미지에서 제외한다.
-- **사전 생성 TTS 캐시(`static/tts_cache`)는 이미지에 넣는다.** 없으면 요청마다 라이브 생성이라 음식 하나에 60초 이상 걸린다(T4 실측 2026-08-24). 캐시가 있으면 0.8초로 끝난다 — `src/pipeline.py`의 `_load_cached_tts`가 `food_{id}_{STYLE}.wav`를 먼저 찾기 때문이다. 저장소에는 `.gitignore`가 `static/`을 막고 있으므로, 배포용 스냅샷에서 `git add -f static/tts_cache`로 포함시키고 `.gitattributes`에 `*.wav filter=lfs …`를 넣어 LFS로 올린다(EC-05).
+- **사전 생성 TTS 캐시(`static/tts_cache`)는 이미지에 넣는다.** 없으면 요청마다 라이브 생성이라 음식 하나에 60초 이상 걸린다(T4 실측 2026-08-24). 캐시가 있으면 0.8초로 끝난다 — `src/pipeline.py`의 `_load_cached_audio`가 그 파일을 먼저 찾기 때문이다. **파일은 두 종류, 모두 100개다**(2026-08-26): 나레이션 `food_{id}_{STYLE}.wav` 50개와 이름만 읽은 `name_{id}.wav` 50개. 저장소에는 `.gitignore`가 `static/`을 막고 있으므로, 배포용 스냅샷에서 `git add -f static/tts_cache`로 포함시키고 `.gitattributes`에 `*.wav filter=lfs …`를 넣어 LFS로 올린다(EC-05).
 
 ## AC
 

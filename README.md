@@ -215,7 +215,8 @@ proj1-c/
 │
 ├── static/                          # 전체가 .gitignore 대상 — 저장소로 따라오지 않는다
 │   ├── audio/                       #   TTS가 요청마다 만든 wav — /audio/{파일명}으로 서빙
-│   └── tts_cache/                   #   사전 생성 캐시 food_{id}_{STYLE}.wav
+│   └── tts_cache/                   #   사전 생성 캐시 100개 — 나레이션 food_{id}_{STYLE}.wav 50개와
+│                                    #   음식 이름만 읽은 name_{id}.wav 50개 (이름 옆 스피커용)
 │                                    #   커밋되지 않으므로 새 컴퓨터에서는 비어 있다.
 │                                    #   `python -m src.tts.pregenerate`로 다시 만들거나 파일을 직접 옮겨야
 │                                    #   캐시 히트가 나고, 없으면 매 요청 라이브 생성으로 폴백한다
@@ -324,7 +325,7 @@ proj1-c/
 │   ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (하이퍼파라미터 8차, 리스펠링, instruct)
 │   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그
 │   ├── qwen3_tts_lora_final.ipynb    # 실제 학습에 쓴 Colab 노트북
-│   ├── pregenerate_tts_cache_colab.ipynb  # static/tts_cache wav 50개 재생성 절차 (Colab GPU)
+│   ├── pregenerate_tts_cache_colab.ipynb  # static/tts_cache wav 재생성 절차 (Colab GPU)
 │   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과 (아직 채점 전)
 │   ├── measure_ocr.py                # OCR 동일 조건 비교 — base/체크포인트/최종을 같은 코드로
 │   ├── measure_ocr_final.json        #   그 결과 원본 (2026-08-21, 매칭 91.67%)
@@ -361,8 +362,12 @@ proj1-c/
 
 `tts_latency_ms`는 사전 생성 캐시를 읽어오는 데 걸린 시간이다 — 캐시 50개 전량 실측 평균 **1.8ms**
 (2026-08-25, 로컬 NVMe SSD). 캐시가 없어 라이브 생성으로 넘어가면 워밍업 후 약 33초가 걸린다.
-서버 기동 후 **첫 요청**만 Supabase 4개 테이블을 한 번에 읽느라 약 2.5초가 더 붙고, 그 뒤로는
+서버 기동 후 **첫 요청**만 Supabase 테이블을 한 번에 읽느라 약 2.5초가 더 붙고, 그 뒤로는
 메모리 캐시라 사라진다. 근거: `eval/model_comparison.md` 3절
+
+위 수치는 나레이션 캐시 기준이다. 2026-08-26부터 **이름만 읽은 음성**(`name_audio_path`)이
+함께 나가고 그것도 같은 폴더에 캐시된다 — 배포 T4에서 상세 응답 전체가 캐시 히트 시 0.83초,
+이름을 새로 만들면 3~4초였다.
 
 ---
 

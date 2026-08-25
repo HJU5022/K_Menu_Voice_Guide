@@ -16,7 +16,7 @@
 | `measure_match_precision.py` | 매칭 **오탐** 측정 — `measure_ocr.py`가 재현율만 보는 사각지대를 메운다. AI Hub 관광 음식메뉴판 라벨을 정답으로 쓴다 (2026-08-23 추가) |
 | `measure_digits.py` | 숫자(가격) 인식만 따로 재는 벤치마크 — 같은 박스·같은 크롭을 base와 파인튜닝에 각각 먹여 원인을 분리한다. 가격을 그려 넣은 합성 이미지를 써서 테스트셋·GPU 없이 재현된다 |
 | `measure_digits.json` | 위 벤치마크 결과 원본 (2026-08-25 재측정 — base 77.78% vs 파인튜닝 5.56%, `model_comparison.md` 1-1절의 근거) |
-| `pregenerate_tts_cache_colab.ipynb` | `static/tts_cache` wav 50개를 Colab GPU에서 재생성하는 절차. 문구·`LORA_SCALE`이 바뀌면 캐시가 낡으므로 전량 재생성해야 한다 |
+| `pregenerate_tts_cache_colab.ipynb` | `static/tts_cache` 나레이션 wav 50개를 Colab GPU에서 재생성하는 절차. 문구·`LORA_SCALE`이 바뀌면 캐시가 낡으므로 전량 재생성해야 한다. **이름 음성(`name_{id}.wav`) 50개는 이 노트북이 만들지 않는다** — `python -m src.tts.pregenerate`가 둘 다 만든다(2026-08-26) |
 | `tts_pregen_log.csv` | 사전 생성 배치의 항목별 생성 시간·음성 길이·RTF 기록 — **저장소에 없다.** 배치를 돌린 PC에만 생긴다 |
 | `perso_comparison/` | Perso.ai 비교 원본 오디오 4개 (ours/perso × guide/caution) |
 
