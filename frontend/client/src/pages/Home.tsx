@@ -687,7 +687,9 @@ function DishCard({
 }) {
   const t = useT();
   const lang = useContext(LangContext);
-  const cartRef: CartItemRef = { food_id: candidate.food_id, name_kr: candidate.name_kr, name_en: candidate.name_en, price_krw: candidate.price_krw };
+  // menu_text를 같이 보낸다 — 카트가 줄을 구분하는 기준이라, 빼면 메뉴판에 따로 인쇄된
+  // 두 줄(반반족발 / 족발)이 같은 food_id라는 이유로 한 줄로 합쳐진다.
+  const cartRef: CartItemRef = { food_id: candidate.food_id, name_kr: candidate.name_kr, name_en: candidate.name_en, menu_text: candidate.menu_text, price_krw: candidate.price_krw };
   // 맵기를 먼저, 재료를 뒤에 놓는다. 맵기는 "먹을 수 있는가"를 가르는 정보라 먼저 보여야 한다.
   // 어느 쪽에서 왔는지(kind)를 들고 다니는 이유는 색을 다르게 주기 위해서다 — tier 유무로
   // 판별하면 맵기인데 tier가 비어 있는 행이 재료로 섞인다.
