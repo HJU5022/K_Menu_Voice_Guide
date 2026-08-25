@@ -36,7 +36,7 @@ VITE_API_BASE_URL=http://localhost:8000
 2. [docs/ui-flow.md](docs/ui-flow.md) — 전체 사용자 흐름
 3. [docs/screen-spec.md](docs/screen-spec.md) — 화면별 요소·상태
 4. [docs/api-client.md](docs/api-client.md) — API 호출 규칙
-5. [docs/content-style.md](docs/content-style.md) — 영어 문구 기준
+5. [../docs/content-style.md](../docs/content-style.md) — 영어 문구 기준 (웹·앱 공통이라 저장소 공통 문서에 있다)
 6. [docs/deployment.md](docs/deployment.md) — 배포 절차
 
 이 docs 폴더는 화면 재구현(마누스, Hanok Editorial 디자인) 이전에 작성된 원본 기준 문서다 — 정보 구조·문구 규칙은 여전히 유효하며, 실제 컴포넌트 구현은 `client/src/pages/Home.tsx`를 따른다.
