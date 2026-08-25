@@ -53,6 +53,13 @@ ERROR_MESSAGES = {
         "Not in our guide yet",
         "Try a different menu item or ask the restaurant staff.",
     ),
+    # 글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없을 때. 메뉴판이 아닌 것을 찍으면
+    # OCR이 잡음 글자를 만들어내 "글자는 읽혔다"가 되므로, 위의 unsupported_food와
+    # 구별해야 한다 — 이쪽은 다시 찍으면 해결되고 저쪽은 다시 찍어도 소용없다.
+    "not_a_menu": (
+        "We couldn't find a menu here",
+        "Point the camera at a printed menu with prices, then take the photo again.",
+    ),
 }
 
 # 후보 번호에 돌려 쓰는 색 — 앱 `menu_photo_overlay.dart`와 같은 팔레트다.
@@ -145,16 +152,10 @@ def _cart_quantities() -> dict[str, int]:
 def _change_cart(entry: dict, delta: int) -> None:
     """메뉴 줄 하나의 수량을 바꾼다.
 
-    안내 못 하는 줄은 이름 자리에 메뉴판 글자를 그대로 보낸다 — 설명은 못 해도 주문은
-    되기 때문이다(앱 `UnsupportedMenuLine.cartNameKr`와 같다). 서버가 그 글자에서
-    가격을 떼어 화면에 쓸 이름을 만들어 준다(`src/cart/store.py`).
+    목록에는 등록 음식만 올라오므로 이름은 항상 DB에 있는 값이다.
     """
-    if entry["supported"]:
-        name_kr = entry["name_kr"]
-        name_en = entry["name_en"]
-    else:
-        name_kr = entry.get("menu_text") or ""
-        name_en = name_kr
+    name_kr = entry["name_kr"]
+    name_en = entry["name_en"]
 
     _cart_request(
         "POST",
@@ -171,16 +172,16 @@ def _change_cart(entry: dict, delta: int) -> None:
 
 
 def _menu_entries(analysis: dict) -> list[dict]:
-    """후보와 안내 못 하는 줄을 메뉴판에 인쇄된 순서(`line_no`)로 합친다.
+    """안내할 수 있는 후보를 메뉴판에 인쇄된 순서(`line_no`)로 늘어놓는다.
 
-    서버가 둘을 따로 보내는 건 예전 웹 화면이 `candidates`만 알았기 때문이다. 합쳐서
-    줄 순서대로 놓아야 화면이 실제 메뉴판과 같은 순서가 된다 — 앱의 `menuEntries`
-    (`mobile/lib/api.dart`)와 같은 규칙이다.
+    **등록 음식이 아닌 줄은 목록에 올리지 않는다.** 한때는 이름·가격만이라도 보여줬는데,
+    그 줄에 대해 우리가 아는 것이 사실상 없다 — 이름은 OCR이 읽은 글자 그대로고 가격은
+    같은 줄에서 주운 숫자다. 원산지 표시나 가게 공지가 메뉴 카드로 올라오고 엉뚱한
+    가격이 붙는 일이 여기서 나왔다. 믿을 수 있는 것만 보여준다.
 
-    번호와 색은 **이 합친 목록의 순서**로 매긴다.
+    번호와 색은 **이 목록의 순서**로 매긴다.
     """
-    entries = [dict(item, supported=True) for item in analysis.get("candidates", [])]
-    entries += [dict(item, supported=False) for item in analysis.get("unsupported_lines", [])]
+    entries = list(analysis.get("candidates", []))
     # 계약상 후보의 `line_no`는 없을 수도 있다(`int | None`). 그런 줄은 뒤로 보낸다 —
     # 파이썬 정렬은 순서를 유지하므로 자기들끼리는 받은 순서 그대로 남는다.
     entries.sort(key=lambda entry: (entry.get("line_no") is None, entry.get("line_no") or 0))
@@ -633,10 +634,10 @@ def screen_select() -> None:
         st.button("Take a new photo", on_click=_reset)
         return
 
-    # 고를 것이 하나뿐이면 선택 화면을 건너뛴다. 다만 안내 못 하는 줄이 하나라도 있으면
-    # 건너뛰지 않는다 — 건너뛰면 그 줄들이 화면에서 통째로 사라진다(EC-03).
+    # 고를 것이 하나뿐이면 선택 화면을 건너뛴다. 목록에 후보 말고는 아무것도 올라오지
+    # 않으므로, 후보가 하나면 그 화면에서 할 수 있는 일이 없다.
     candidates = analysis.get("candidates", [])
-    if len(candidates) == 1 and not analysis.get("unsupported_lines"):
+    if len(candidates) == 1:
         _select_food(candidates[0])
         st.rerun()
         return
@@ -717,21 +718,16 @@ def _entry_html(entry: dict, index: int) -> str:
 
     항목 순서는 앱 `candidates_screen.dart`와 같다.
     """
-    supported = entry["supported"]
     rows = []
 
-    if supported:
-        # 읽을 사람이 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
-        rows.append(_title_html(entry["name_en"]))
-        rows.append(_muted(html.escape(entry["name_kr"])))
-    else:
-        rows.append(_title_html(entry.get("name_text") or entry.get("menu_text", "")))
-        rows.append(_muted("Not in our guide yet"))
+    # 읽을 사람이 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
+    rows.append(_title_html(entry["name_en"]))
+    rows.append(_muted(html.escape(entry["name_kr"])))
 
     # 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은 말을
     # 두 번 적는 꼴이다(EC-12).
     name_text = entry.get("name_text")
-    if supported and name_text and name_text != entry.get("name_kr"):
+    if name_text and name_text != entry.get("name_kr"):
         rows.append(_muted("Menu: " + html.escape(name_text)))
 
     labels = _modifier_labels(entry.get("modifiers"))
@@ -776,16 +772,12 @@ def _render_entry(entry: dict, index: int, quantity: int = 0) -> None:
         with text_column:
             st.markdown(_entry_html(entry, index), unsafe_allow_html=True)
 
-            # 설명을 볼 수 있는 줄만 누를 수 있게 둔다 — 안내할 내용이 없는데 눌리면
-            # 고장으로 읽힌다(EC-13). 담기는 안내 못 하는 줄에도 열어둔다: 설명은 못
-            # 해도 주문은 되기 때문이다(공기밥 같은 줄).
-            if entry["supported"]:
-                # key는 합친 목록에서의 순서로 만든다. `food_id`도 `line_no`도 유일하지
-                # 않다 — 같은 음식이 두 줄에 나올 수 있고(물만두·군만두), 한 줄에서 서로
-                # 다른 음식이 매칭되기도 한다(EC-08).
-                if st.button("Select", key=f"pick_{index}", width="stretch"):
-                    _select_food(entry)
-                    st.rerun()
+            # key는 목록에서의 순서로 만든다. `food_id`도 `line_no`도 유일하지 않다 —
+            # 같은 음식이 두 줄에 나올 수 있고(물만두·군만두), 한 줄에서 서로 다른
+            # 음식이 매칭되기도 한다(EC-08).
+            if st.button("Select", key=f"pick_{index}", width="stretch"):
+                _select_food(entry)
+                st.rerun()
 
             _render_stepper(entry, index, quantity)
             # 종업원에게 말할 때 쓰는 이름이라 가격을 뗀 쪽을 읽는다 — 들려줄 말에
@@ -959,11 +951,9 @@ def _cart_line_html(line: dict) -> str:
         f'<span style="font-size:1.1rem;font-weight:700">&times;{line["quantity"]}</span>'
         "</div>"
     ]
-    # 영문 이름은 **진짜 영어 이름일 때만** 보여준다. 안내 못 하는 줄은 영어 이름이
-    # 없어서 메뉴판 글자를 그대로 담아 보내는데, 그대로 찍으면 "공기밥" 아래 "공기밥
-    # 1,000"이 또 나오고 가격도 두 번 보인다.
+    # 영문 이름은 한국어 이름과 다를 때만 덧붙인다 — 같으면 같은 말이 두 번 보인다.
     name_en = line.get("name_en")
-    if name_en and name_en != name and name_en != line.get("menu_text"):
+    if name_en and name_en != name:
         rows.append(_muted(html.escape(name_en)))
     total = line.get("line_total_display")
     if total:

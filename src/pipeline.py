@@ -208,19 +208,30 @@ def analyze_image(image_path: str) -> dict:
     # (match_food_candidates_by_line 설명 참고).
     candidates, unsupported = scan_menu_lines(ocr_boxes)
 
-    # 안내 못 하는 줄도 함께 내보낸다. 등록 음식이 50개뿐이라 메뉴판의 대부분이
-    # 매칭되지 않는데(실측 22.9%만 매칭), 그걸 버리면 여행자는 그 메뉴가 아예
-    # 없는 것처럼 본다. 설명은 못 해도 이름과 가격은 보여줄 수 있다.
-    unsupported_lines = [_attach_source(line, mapping) for line in unsupported]
+    # 안내 못 하는 줄은 **화면에 보내지 않는다.** 한때는 이름·가격만이라도 보여줬는데,
+    # 등록 음식이 아니면 그 줄에 대해 우리가 아는 것이 사실상 없다 — 이름은 OCR이 읽은
+    # 글자 그대로고 가격은 같은 줄에서 주운 숫자다. 틀린 정보를 자신 있게 보여주느니
+    # 아예 안 보여주는 편이 낫다는 판단이다(믿을 수 있는 것만 보여준다).
+    #
+    # 다만 **세는 일은 계속한다.** 이 개수가 "이 사진이 메뉴판이 맞는가"를 가르는
+    # 유일한 신호이기 때문이다. 후보가 0개인 상황은 두 가지인데 둘을 구별해야 한다:
+    #
+    #   얼굴 사진      -> 잡음 글자만 읽히고, 가격 붙은 메뉴 줄은 0개
+    #   진짜 메뉴판    -> 메뉴 줄은 여럿인데 그중 등록 음식이 없을 뿐
+    #
+    # 앞은 다시 찍으라고 안내해야 하고, 뒤는 다시 찍어도 소용없다. 후보 개수만 보면
+    # 둘 다 0이라 구별되지 않는다.
+    if candidates:
+        status = "candidates_found"
+    elif unsupported:
+        status = "unsupported_food"
+    else:
+        status = "not_a_menu"
 
-    # status는 예전 뜻 그대로 둔다 — candidates가 비면 unsupported_food다.
-    # 웹앱은 unsupported_lines를 모르므로, 바꾸면 그쪽 화면이 어긋난다.
-    status = "candidates_found" if candidates else "unsupported_food"
     return {
         "status": status,
         "ocr_text": ocr_text,
         "candidates": [_attach_source(candidate, mapping) for candidate in candidates],
-        "unsupported_lines": unsupported_lines,
     }
 
 

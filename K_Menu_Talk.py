@@ -87,7 +87,7 @@ class Candidate(BaseModel):
     name_en: str
     score: int
     modifiers: dict
-    # 메뉴판에서 위에서부터 센 줄 번호. unsupported_lines와 섞어 정렬할 때 쓴다.
+    # 메뉴판에서 위에서부터 센 줄 번호. 화면이 메뉴판에 인쇄된 순서대로 늘어놓을 때 쓴다.
     line_no: int | None = None
     thumbnail_url: str | None = None
     thumbnail_attribution: str | None = None
@@ -107,30 +107,13 @@ class Candidate(BaseModel):
     name_text: str | None = None
 
 
-class UnsupportedMenuLine(BaseModel):
-    """등록 음식과 매칭되지 않은 메뉴 줄 — 설명은 없지만 이름·가격은 보여줄 수 있다.
-
-    가격이 붙어 있는 줄만 담는다. 메뉴판에서 값이 적혀 있다는 건 "파는 것"이라는
-    가장 확실한 신호라, 가게 이름·전화번호·안내문을 걸러내는 기준이 된다.
-    """
-
-    line_no: int
-    menu_text: str
-    # 같은 줄에서 가격만 뗀 것. 이 줄은 등록 음식이 아니라 이름 자리에 줄 글자를
-    # 그대로 쓰는데, 그러면 화면에 가격이 두 번 보인다.
-    name_text: str
-    price_krw: int
-    price_krw_display: str
-    source: CandidateSource | None = None
-
-
 class AnalyzeResponse(BaseModel):
+    # candidates_found | unsupported_food | not_a_menu
+    # not_a_menu는 글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없을 때다(메뉴판이 아닌
+    # 사진). 다시 찍으면 해결되는 상황과 그렇지 않은 상황을 화면이 구별하기 위한 값이다.
     status: str
     ocr_text: str
     candidates: list[Candidate]
-    # 안내 못 하는 메뉴 줄. candidates와 line_no로 순서를 맞춰 한 목록으로 늘어놓으면
-    # 메뉴판에 인쇄된 순서 그대로 보여줄 수 있다.
-    unsupported_lines: list[UnsupportedMenuLine] = []
 
 
 class FoodDetailResponse(BaseModel):

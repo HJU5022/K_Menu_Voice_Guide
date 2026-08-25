@@ -276,89 +276,21 @@ class Candidate implements CartAddable {
   bool get hasThumbnail => thumbnailUrl != null;
 }
 
-/// 등록 음식과 매칭되지 않은 메뉴 줄 — 설명은 없지만 이름·가격은 안다.
-///
-/// 등록 음식이 50개뿐이라 메뉴판의 대부분이 여기 해당한다(실측 22.9%만 매칭).
-/// 이걸 안 보여주면 여행자는 그 메뉴가 아예 없는 것처럼 본다. 주문 확인 화면의
-/// 목적(종업원에게 보여주기)은 설명 없이도 성립하므로, 담을 수 있게 한다.
-class UnsupportedMenuLine implements CartAddable {
-  UnsupportedMenuLine({
-    required this.lineNo,
-    required this.menuText,
-    required this.nameText,
-    required this.priceKrw,
-    required this.priceDisplay,
-    required this.source,
-  });
-
-  factory UnsupportedMenuLine.fromJson(Map<String, dynamic> json) {
-    return UnsupportedMenuLine(
-      lineNo: json['line_no'] as int,
-      menuText: json['menu_text'] as String,
-      // 옛 서버는 이 값을 안 준다. 그때는 줄 글자를 그대로 쓴다(가격이 같이 보인다).
-      nameText: json['name_text'] as String? ?? json['menu_text'] as String,
-      priceKrw: json['price_krw'] as int,
-      priceDisplay: json['price_krw_display'] as String,
-      source: json['source'] == null
-          ? null
-          : CandidateSource.fromJson(json['source'] as Map<String, dynamic>),
-    );
-  }
-
-  @override
-  final int lineNo;
-
-  @override
-  final String menuText;
-
-  /// 위 글자에서 가격만 뗀 것. 카드가 가격을 따로 보여주는 자리에 쓴다.
-  @override
-  final String nameText;
-
-  @override
-  final int? priceKrw;
-
-  final String priceDisplay;
-
-  @override
-  final CandidateSource? source;
-
-  /// 등록된 음식이 아니므로 번호가 없다.
-  @override
-  int? get foodId => null;
-
-  // 이름 자리에 메뉴판 글자를 그대로 쓴다. 주문 화면에서 종업원이 읽을 줄이라
-  // 지어낸 이름보다 인쇄된 글자가 정확하다.
-  @override
-  String get cartNameKr => menuText;
-
-  @override
-  String get cartNameEn => menuText;
-
-  @override
-  String get lineKey => '0|$menuText';
-}
-
 /// `POST /api/analyze`의 응답.
 class AnalyzeResult {
   AnalyzeResult({
     required this.status,
     required this.ocrText,
     required this.candidates,
-    required this.unsupportedLines,
   });
 
   factory AnalyzeResult.fromJson(Map<String, dynamic> json) {
     final rawCandidates = json['candidates'] as List<dynamic>;
-    final rawLines = (json['unsupported_lines'] as List<dynamic>?) ?? const [];
     return AnalyzeResult(
       status: json['status'] as String,
       ocrText: json['ocr_text'] as String,
       candidates: rawCandidates
           .map((item) => Candidate.fromJson(item as Map<String, dynamic>))
-          .toList(),
-      unsupportedLines: rawLines
-          .map((item) => UnsupportedMenuLine.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -367,7 +299,8 @@ class AnalyzeResult {
   /// 성공 값이 "ok"가 아니라 "candidates_found"임에 주의한다.
   ///
   ///   candidates_found  후보를 찾음 — candidates에 1개 이상
-  ///   unsupported_food  글자는 읽었으나 등록된 50개 음식과 매칭 실패
+  ///   unsupported_food  메뉴 줄은 읽었으나 등록된 음식과 매칭 실패
+  ///   not_a_menu        글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없음
   ///   ocr_empty         글자를 전혀 읽지 못함
   final String status;
 
@@ -376,26 +309,28 @@ class AnalyzeResult {
 
   final List<Candidate> candidates;
 
-  /// 안내는 못 하지만 이름·가격은 아는 줄들.
-  final List<UnsupportedMenuLine> unsupportedLines;
-
-  /// 화면에 늘어놓을 메뉴 줄 전체 — 메뉴판에 인쇄된 순서 그대로.
+  /// 화면에 늘어놓을 메뉴 줄 — 메뉴판에 인쇄된 순서 그대로.
   ///
-  /// 서버가 둘을 따로 보내는 건 웹앱이 candidates만 알기 때문이다. 앱은 둘을 합쳐
-  /// `line_no` 순으로 늘어놓아야 화면이 실제 메뉴판과 같은 순서가 된다.
+  /// **안내할 수 있는 후보만 올린다.** 한때는 등록되지 않은 줄도 이름·가격만 실어
+  /// 보여줬는데, 그 줄에 대해 아는 것이 사실상 없어서(이름은 OCR이 읽은 글자,
+  /// 가격은 같은 줄에서 주운 숫자) 원산지 표시나 가게 공지가 메뉴로 올라오고
+  /// 엉뚱한 가격이 붙는 일이 생겼다. 믿을 수 있는 것만 보여준다.
   List<CartAddable> get menuEntries {
-    final entries = <CartAddable>[...candidates, ...unsupportedLines];
+    final entries = <CartAddable>[...candidates];
     entries.sort((a, b) => a.lineNo.compareTo(b.lineNo));
     return entries;
   }
 
-  /// 보여줄 줄이 하나라도 있으면 성공이다 — 설명을 못 하는 줄이라도 담을 수는 있다.
-  bool get isSuccess =>
-      candidates.isNotEmpty || unsupportedLines.isNotEmpty;
+  /// 안내할 수 있는 후보가 하나라도 있으면 성공이다.
+  bool get isSuccess => candidates.isNotEmpty;
 
-  /// 글자는 읽혔지만 등록된 음식이 없는 경우. 안내 문구가 ocrEmpty와 달라야 해서
-  /// 따로 구분한다(EC-03 vs EC-04).
+  /// 메뉴 줄은 읽혔지만 등록된 음식이 없는 경우. 안내 문구가 ocrEmpty와 달라야 해서
+  /// 따로 구분한다(EC-03 vs EC-04). 다시 찍어도 결과가 같다.
   bool get isUnsupportedFood => status == 'unsupported_food';
+
+  /// 메뉴판이 아닌 사진. 얼굴·풍경을 찍어도 OCR이 잡음 글자를 만들어내므로
+  /// isOcrEmpty로는 안 잡힌다. 이쪽은 다시 찍으면 해결된다.
+  bool get isNotAMenu => status == 'not_a_menu';
 
   bool get isOcrEmpty => status == 'ocr_empty';
 }
