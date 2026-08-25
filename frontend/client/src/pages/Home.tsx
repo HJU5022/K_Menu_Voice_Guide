@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   analyzeMenu, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
-  EMPTY_CART,
+  EMPTY_CART, apiBaseUrl, isUsingCustomApi,
   type ApiCandidate, type CartItemRef, type CartLine, type CartResponse, type FoodDetail, type SupportedFood,
 } from "@/lib/api";
 
@@ -220,7 +220,26 @@ export default function Home() {
 }
 
 function Header({ lang, setLang, onSettings }: { lang: string; setLang: (v: string) => void; onSettings: () => void }) {
-  return <header className="topbar"><div className="brand"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></div><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}><option>EN</option><option>KR</option><option>JP</option></select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div></header>;
+  return <header className="topbar"><div className="brand"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></div><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}><option>EN</option><option>KR</option><option>JP</option></select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+}
+
+/** 기본 서버가 아닌 곳을 보고 있을 때만 뜨는 알림.
+ *
+ * 주소창의 `?api=`로 서버를 바꿔놓고 잊으면, 나중에 "왜 결과가 다르지"의 원인을 찾기가
+ * 아주 어렵다. 지금 어디를 보고 있는지 화면에 계속 붙여둔다. 누르면 원래대로 돌아간다. */
+function CustomApiNotice() {
+  return (
+    <button
+      className="custom-api-notice"
+      title="기본 서버로 되돌리려면 누르세요"
+      onClick={() => {
+        window.localStorage.removeItem("kmenu-api-base-url");
+        window.location.href = window.location.pathname;
+      }}
+    >
+      server: {apiBaseUrl.replace(/^https?:\/\//, "")} ×
+    </button>
+  );
 }
 
 function Processing() {

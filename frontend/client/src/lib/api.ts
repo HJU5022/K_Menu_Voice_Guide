@@ -2,7 +2,46 @@
 // Contract source: docs/specs/api-layer.md and docs/specs/cart.md in the main project repo.
 import axios from "axios";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+// 서버 주소는 빌드할 때 JS 안에 박힌다(Vite의 VITE_ 규칙). 그래서 배포본이 다른 서버를
+// 보게 하려면 원래는 다시 빌드해야 했다.
+//
+// 주소창에 `?api=...`를 붙이면 그 주소를 대신 쓰고, 브라우저에 기억해 둔다. 쓰임새는 둘이다.
+//   - 시험: HF의 GPU는 유료라 꺼둘 때가 많다. 그때 개인 GPU를 cloudflared 터널로 열어
+//     `?api=https://xxx.trycloudflare.com`으로 붙이면 재배포 없이 그쪽을 본다.
+//   - 대비: 시연 중 서버 Space가 죽어도 주소 하나로 예비 서버로 옮길 수 있다.
+// `?api=` 만 붙이면(값 없이) 기억을 지우고 원래 주소로 돌아간다.
+//
+// 이 값은 **이 브라우저에서만** 쓰인다. 다른 사람이 보는 화면에는 영향이 없다.
+// 다만 https 페이지는 http 주소를 부를 수 없으므로(브라우저가 막는다), 넘기는 주소도
+// https여야 한다.
+const API_OVERRIDE_KEY = "kmenu-api-base-url";
+
+function resolveBaseUrl(): string {
+  const builtIn = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+  // 서버에서 미리 그려두는 화면이 아니라 브라우저에서만 도는 앱이지만, 혹시 window가
+  // 없는 곳(테스트 등)에서 불려도 죽지 않게 한다.
+  if (typeof window === "undefined") return builtIn;
+
+  const asked = new URLSearchParams(window.location.search).get("api");
+  if (asked !== null) {
+    const trimmed = asked.trim().replace(/\/+$/, "");
+    if (trimmed) {
+      window.localStorage.setItem(API_OVERRIDE_KEY, trimmed);
+    } else {
+      window.localStorage.removeItem(API_OVERRIDE_KEY);
+    }
+  }
+
+  return window.localStorage.getItem(API_OVERRIDE_KEY) || builtIn;
+}
+
+const API_BASE_URL = resolveBaseUrl();
+
+/** 지금 어느 서버를 보고 있는지. 기본값이 아니면 화면에 알린다. */
+export const apiBaseUrl = API_BASE_URL;
+export const isUsingCustomApi =
+  API_BASE_URL !== (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 const client = axios.create({ baseURL: API_BASE_URL });
 

@@ -56,3 +56,23 @@ button:active { transform:scale(.97); }
 
 /* Order summary copy: preserve the requested single-line editorial caption. */
 .order-summary-line{white-space:nowrap;max-width:none;font-size:clamp(10px,1.25vw,14px);letter-spacing:-.02em}
+
+
+/* 기본 서버가 아닌 곳을 보고 있을 때만 뜨는 알림(개발·시연 대비용).
+   보통은 화면에 없다 — 주소창에 ?api=... 를 넣었을 때만 나타난다. */
+.custom-api-notice {
+  /* 화면 오른쪽 아래에 고정한다. 헤더 안에 붙이면 헤더가 기준점을 안 잡아줘서 잘리고,
+     화면마다 헤더 모양이 달라 위치가 흔들린다. 어느 화면에 있든 같은 자리에 둔다. */
+  position: fixed;
+  z-index: 50;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: #7a3a1d;
+  color: #fdf6ec;
+  cursor: pointer;
+}
