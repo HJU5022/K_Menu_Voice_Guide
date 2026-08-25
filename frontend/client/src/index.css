@@ -76,3 +76,32 @@ button:active { transform:scale(.97); }
   color: #fdf6ec;
   cursor: pointer;
 }
+
+
+/* 카드 이름 — 영어를 크게, 한국어를 보조로. 읽는 사람이 영어권 여행자다.
+   예전에는 한국어가 크고 영어가 작았는데, 이름을 못 읽는 사람에게 큰 글자가 소용이 없었다.
+   한국어 줄은 종업원에게 보여줄 때 쓰이므로 남긴다. */
+.dish-title .dish-name-en {
+  font-family: 'DM Serif Display', serif;
+  font-size: 27px;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--teal-dark);
+}
+.dish-title .dish-name-kr {
+  font-family: 'Noto Serif KR', 'Song Myung', serif;
+  font-size: 13px;
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+/* 로고를 누르면 첫 화면으로 간다. button으로 바꾸면서 기본 단추 모양이 붙는 것을 지운다. */
+button.brand {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}

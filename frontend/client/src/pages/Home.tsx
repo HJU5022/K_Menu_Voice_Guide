@@ -14,6 +14,18 @@ import {
 } from "@/lib/api";
 
 type Screen = "camera" | "processing" | "candidates" | "order" | "result" | "error";
+
+/** 헤더가 동작하는 데 필요한 것들.
+ *
+ * 예전에는 화면마다 <Header lang="EN" setLang={() => {}} onSettings={() => {}} /> 처럼
+ * **아무것도 하지 않는 함수**를 넘겼다. 그래서 첫 화면 말고는 톱니바퀴를 눌러도 반응이
+ * 없었고 언어도 바꿀 수 없었다. 실제 동작을 화면마다 넘긴다. */
+type HeaderProps = {
+  lang: string;
+  setLang: (v: string) => void;
+  onSettings: () => void;
+  onHome: () => void;
+};
 type Modal = "settings" | "privacy" | "terms" | null;
 // Where "Scan another menu" / retry on the error screen should send the traveller —
 // a failed photo goes back to the camera, a failed detail fetch goes back to the list
@@ -145,10 +157,23 @@ export default function Home() {
 
   const quantityOf = (foodId: number) => cart.items.find((line) => line.food_id === foodId)?.quantity ?? 0;
 
-  if (screen === "processing") return <Processing />;
+  const header: HeaderProps = {
+    lang,
+    setLang,
+    onSettings: () => setModal("settings"),
+    onHome: () => setScreen("camera"),
+  };
+
+  // 설정·개인정보 창은 어느 화면에서 열든 같은 것이어야 한다. 예전에는 첫 화면의
+  // return 안에만 있어서, 다른 화면에서는 띄울 창 자체가 없었다. 화면마다 이걸 덧붙인다.
+  const modalNode = modal ? <Modal type={modal} onClose={() => setModal(null)} /> : null;
+  const withModal = (node: React.ReactNode) => <>{node}{modalNode}</>;
+
+  if (screen === "processing") return withModal(<Processing />);
   if (screen === "candidates")
-    return (
+    return withModal(
       <Candidates
+        header={header}
         candidates={candidates}
         cart={cart}
         cartError={cartError}
@@ -161,11 +186,11 @@ export default function Home() {
         onClearCart={handleClearCart}
       />
     );
-  if (screen === "order") return <Order cart={cart} onBack={() => setScreen("candidates")} />;
+  if (screen === "order") return withModal(<Order header={header} cart={cart} onBack={() => setScreen("candidates")} />);
   if (screen === "result" && selectedCandidate && selectedDetail)
-    return <Result candidate={selectedCandidate} detail={selectedDetail} onBack={() => setScreen("candidates")} onRefreshDetail={goDetail} />;
+    return withModal(<Result header={header} candidate={selectedCandidate} detail={selectedDetail} onBack={() => setScreen("candidates")} onRefreshDetail={goDetail} />);
   if (screen === "error")
-    return (
+    return withModal(
       <ErrorState
         heading={errorHeading}
         hint={errorHint}
@@ -173,9 +198,9 @@ export default function Home() {
       />
     );
 
-  return (
+  return withModal(
     <div className="app-shell">
-      <Header lang={lang} setLang={setLang} onSettings={() => setModal("settings")} />
+      <Header {...header} />
       <main className="camera-layout">
         <section className="camera-copy reveal">
           <p className="eyebrow"><Sparkles size={14} /> MENU, MADE CLEAR</p>
@@ -197,7 +222,6 @@ export default function Home() {
         </section>
       </main>
       <footer className="site-footer"><span>© 2026 K-Menu Voice Guide</span><span><button onClick={() => setModal("privacy")}>Privacy</button><b>·</b><button onClick={() => setModal("terms")}>Terms</button></span></footer>
-      {modal && <Modal type={modal} onClose={() => setModal(null)} />}
       {/* Hidden real inputs behind the styled buttons above — capture="environment" opens
           the rear camera directly on a phone, the plain input opens the gallery/file picker. */}
       <input
@@ -219,8 +243,10 @@ export default function Home() {
   );
 }
 
-function Header({ lang, setLang, onSettings }: { lang: string; setLang: (v: string) => void; onSettings: () => void }) {
-  return <header className="topbar"><div className="brand"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></div><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}><option>EN</option><option>KR</option><option>JP</option></select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
+  // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
+  // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
+  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label="Go to the start"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></button><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}><option>EN</option><option>KR</option><option>JP</option></select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
 }
 
 /** 기본 서버가 아닌 곳을 보고 있을 때만 뜨는 알림.
@@ -247,8 +273,9 @@ function Processing() {
 }
 
 function Candidates({
-  candidates, cart, cartError, photoUrl, quantityOf, onBack, onOrder, onDetail, onQuantityChange, onClearCart,
+  header, candidates, cart, cartError, photoUrl, quantityOf, onBack, onOrder, onDetail, onQuantityChange, onClearCart,
 }: {
+  header: HeaderProps;
   candidates: ApiCandidate[];
   cart: CartResponse;
   cartError: string;
@@ -264,10 +291,10 @@ function Candidates({
 
   return (
     <div className="app-shell">
-      <Header lang="EN" setLang={() => {}} onSettings={() => {}} />
+      <Header {...header} />
       <main className="content-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Scan another menu</button>
+        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         {/* The uploaded menu photo is the main visual here — the traveller compares it
             against the candidate cards, so it leads the page instead of sitting as a
             small corner chip. */}
@@ -354,8 +381,11 @@ function DishCard({
       )}
       <div className="dish-info">
         <div className="dish-title">
-          <div><p className="dish-kr">{candidate.name_kr}</p><p className="dish-en">{candidate.name_en}</p></div>
-          <span className="match">{featured ? "Best match" : "Menu match"}</span>
+          {/* 읽는 사람이 영어권 여행자라 영어 이름을 크게, 한국어를 보조로 둔다.
+              앱(candidates_screen.dart)과 같은 순서다.
+              "Best match / Menu match" 라벨은 뺐다 — 무엇에 견줘 최고인지 알 수 없어
+              외국인에게는 "이게 더 정확한가?"라는 오해만 남겼다. */}
+          <div><p className="dish-name-en">{candidate.name_en}</p><p className="dish-name-kr">{candidate.name_kr}</p></div>
         </div>
         <div className="dish-meta">
           <span>{formatWon(candidate.price_krw)}</span>
@@ -426,13 +456,13 @@ function CartPanel({
 
 // This screen is handed to Korean restaurant staff, not read by the traveller — every
 // label on it is fixed Korean regardless of the app's own English UI language.
-function Order({ cart, onBack }: { cart: CartResponse; onBack: () => void }) {
+function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartResponse; onBack: () => void }) {
   return (
     <div className="app-shell">
-      <Header lang="EN" setLang={() => {}} onSettings={() => {}} />
+      <Header {...header} />
       <main className="order-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> 메뉴로 돌아가기</button>
+        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <div className="order-sheet">
           <div className="order-intro">
             <p className="eyebrow">직원에게 보여주세요</p>
@@ -461,8 +491,9 @@ function Order({ cart, onBack }: { cart: CartResponse; onBack: () => void }) {
 }
 
 function Result({
-  candidate, detail, onBack, onRefreshDetail,
+  header, candidate, detail, onBack, onRefreshDetail,
 }: {
+  header: HeaderProps;
   candidate: ApiCandidate;
   detail: FoodDetail;
   onBack: () => void;
@@ -494,9 +525,9 @@ function Result({
 
   return (
     <div className="app-shell">
-      <Header lang="EN" setLang={() => {}} onSettings={() => {}} />
+      <Header {...header} />
       <main className="result-shell">
-        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back to dishes</button>
+        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <section className="result-hero">
           <div>
             <p className="eyebrow">A CLOSER GUIDE</p>
@@ -546,7 +577,7 @@ function ErrorState({ heading, hint, onRetry }: { heading: string; hint: string;
         <p className="eyebrow">LET'S TRY THAT AGAIN</p>
         <h2>{heading}</h2>
         <p>{hint}</p>
-        <Button className="primary-button" onClick={onRetry}>Scan another menu</Button>
+        <Button className="primary-button" onClick={onRetry}>Take a new photo</Button>
       </div>
     </div>
   );
