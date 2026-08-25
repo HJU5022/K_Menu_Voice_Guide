@@ -63,7 +63,7 @@
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다. Streamlit 진입점은 **아직 저장소에 남아 있고**, React 화면의 검증이 끝나고 디자인 작업만 남는 시점에 제거한다
+- 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다. Streamlit 진입점은 2026-08-26에 저장소에서 제거했다
 
 ### 카테고리 구성
 
@@ -202,14 +202,11 @@ proj1-c/
 │                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
-│                                     #   fastapi·uvicorn(API), streamlit(옛 app.py 화면 — 제거 예정) ...
+│                                     #   fastapi·uvicorn(API) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
 │
 ├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
 │                                     #   화면을 갖지 않는다. 웹·앱 등 별도 클라이언트가 붙는 쪽
-├── app.py                           # 옛 배포 진입점 — Streamlit. 아직 남아 있는 백업이며 제거 예정
-│                                     #   새 화면 기능은 frontend/에만 넣는다
-│
 ├── Dockerfile                       # API Space(HF Docker SDK, T4)용 이미지
 │                                     #   베이스 이미지를 digest로 못 박는다 — 이름표만 쓰면 빌드가 조용히 바뀐다
 │
@@ -246,7 +243,6 @@ proj1-c/
 │       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
 │       ├── sample-menu-images.md     # 처음 온 사람이 눌러볼 예시 메뉴판 사진
-│       ├── streamlit-app.md          # 옛 Streamlit 화면 — app.py와 함께 제거 예정
 │       ├── supported-foods.md        # 지원 음식 50개 목록·선정 기준
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
 │       └── tts-finetuning.md
@@ -257,7 +253,8 @@ proj1-c/
 │   ├── server/                        #   빌드 산출물 서빙용 Express (API 로직 없음)
 │   ├── shared/                        #   client/server가 같이 쓰는 상수
 │   ├── space/deploy.sh                #   HF Static Space 배포 — VITE_API_BASE_URL을 넣어 빌드한 뒤 통째로 덮어쓴다
-│   └── docs/                          #   화면 기준 문서 (ui-flow, screen-spec, api-client, content-style, deployment)
+│   └── docs/                          #   화면 기준 문서 (ui-flow, screen-spec, web-app, api-client, deployment 등)
+│                                       #   web-app.md = 화면 규칙 상세(예외 18가지) — 옛 docs/specs/streamlit-app.md
 │
 ├── mobile/                           # Flutter 모바일 앱 (iOS·Android)
 │   ├── README.md                      # 앱 구조·실행 방법·자주 겪는 문제
