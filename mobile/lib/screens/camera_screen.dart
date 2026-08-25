@@ -277,7 +277,20 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
-    // 글자는 읽혔지만 아는 음식이 없는 경우 — 위와 원인이 달라 문구도 다르다(EC-04).
+    // 메뉴판이 아닌 것을 찍은 경우 — 얼굴이나 풍경을 찍어도 OCR이 잡음 글자를
+    // 만들어내서 위의 isOcrEmpty로는 안 잡힌다. 가격이 붙은 메뉴 줄이 하나도
+    // 없다는 것이 "이건 메뉴판이 아니다"를 가르는 신호다(`src/pipeline.py`).
+    // 아래 unsupported_food와 달리 **다시 찍으면 해결되는** 상황이라 재촬영을 권한다.
+    if (result.isNotAMenu) {
+      return const _MessagePanel(
+        icon: Icons.no_photography_outlined,
+        title: "We couldn't find a menu here",
+        body: 'Point the camera at a printed menu with prices, '
+            'then take the photo again.',
+      );
+    }
+
+    // 메뉴 줄은 읽혔지만 아는 음식이 없는 경우 — 위와 원인이 달라 문구도 다르다(EC-04).
     // 다시 찍어도 소용없는 상황이므로 재촬영을 권하지 않는다.
     if (result.isUnsupportedFood) {
       // OCR 원문은 보여주지 않는다. 메뉴판이 아닌 것을 찍거나 사진이 흐리면

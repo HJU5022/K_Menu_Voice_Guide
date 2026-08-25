@@ -49,9 +49,9 @@ class CandidatesScreen extends StatefulWidget {
 
   /// 촬영 화면이 넘겨준 메뉴 줄 목록 — **메뉴판에 인쇄된 순서 그대로**.
   ///
-  /// 안내 가능한 후보([Candidate])와 이름·가격만 아는 줄([UnsupportedMenuLine])이
-  /// 섞여 있다. 등록 음식이 50개뿐이라 메뉴판의 대부분이 후자인데(실측 22.9%만
-  /// 매칭), 그걸 빼면 여행자는 그 메뉴가 아예 없는 것처럼 본다.
+  /// 안내할 수 있는 후보([Candidate])만 들어온다. 등록되지 않은 줄은 서버가 아예
+  /// 보내지 않는다 — 그 줄에 대해 아는 것이 사실상 없어서 원산지 표시나 가게 공지가
+  /// 메뉴로 올라오고 엉뚱한 가격이 붙는 일이 있었다.
   ///
   /// 목록 자체는 이 화면에서 바뀌지 않는다 — 분석 결과를 다시 부를 이유가 없다.
   /// 바뀌는 건 장바구니뿐이라, State가 드는 것도 장바구니뿐이다.
@@ -165,21 +165,12 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
                   _runCartRequest(() => changeCartItem(entry, quantityDelta: delta));
                 }
 
-                // 안내할 수 있는 줄과 이름·가격만 아는 줄은 카드 모양이 다르다.
-                if (entry is Candidate) {
-                  return _CandidateCard(
-                    candidate: entry,
-                    index: index,
-                    quantity: _quantityOf(entry),
-                    // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
-                    onTap: () => _openDetail(context, entry),
-                    onChangeQuantity: onChange,
-                  );
-                }
-                return _UnsupportedCard(
-                  line: entry as UnsupportedMenuLine,
+                return _CandidateCard(
+                  candidate: entry as Candidate,
                   index: index,
                   quantity: _quantityOf(entry),
+                  // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
+                  onTap: () => _openDetail(context, entry),
                   onChangeQuantity: onChange,
                 );
               },
@@ -349,84 +340,6 @@ class _CandidateCard extends StatelessWidget {
               _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 안내할 수 없는 메뉴 줄의 카드 — 메뉴판 글자와 가격만 보여준다.
-///
-/// 등록 음식이 50개뿐이라 메뉴판의 대부분이 여기 해당한다(실측 22.9%만 매칭).
-/// 설명을 못 한다고 화면에서 빼면 여행자는 그 메뉴가 아예 없는 것처럼 본다.
-/// 주문 확인 화면의 목적(종업원에게 보여주기)은 설명 없이도 성립하므로 담게 한다.
-///
-/// 누를 수 없게 둔다 — 열어봐야 보여줄 내용이 없다. 대신 왜 설명이 없는지 적는다.
-class _UnsupportedCard extends StatelessWidget {
-  const _UnsupportedCard({
-    required this.line,
-    required this.index,
-    required this.quantity,
-    required this.onChangeQuantity,
-  });
-
-  final UnsupportedMenuLine line;
-  final int index;
-  final int quantity;
-  final void Function(int delta) onChangeQuantity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      // 안내 가능한 카드와 눈에 띄게 달라야 한다 — 같아 보이면 눌러도 안 열리는
-      // 카드가 섞여 있는 것처럼 느껴진다.
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CandidateBadge(index: index),
-                const SizedBox(height: 6),
-                const Icon(Icons.help_outline, size: 40, color: Colors.black26),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 메뉴판에 인쇄된 글자에서 가격만 뗀 것. 우리가 아는 이름이 없으니
-                  // 이게 전부다. 가격은 바로 아래에 따로 두므로 여기서는 뺀다 —
-                  // 그대로 쓰면 "김치전/부추전 ₩7,000" 밑에 "₩7,000"이 또 붙는다.
-                  Text(
-                    line.nameText,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    line.priceDisplay,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'No guide for this one — you can still add it to your order.',
-                    style: TextStyle(fontSize: 11, color: Colors.black45),
-                  ),
-                ],
-              ),
-            ),
-            _SpeakButton(text: line.nameText),
-            _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
-          ],
         ),
       ),
     );

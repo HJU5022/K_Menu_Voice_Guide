@@ -396,14 +396,19 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
     def test_analyze_image_returns_unsupported_food_with_ocr_text(
         self, mock_recognize_boxes_with_mapping, mock_match_candidates
     ):
-        """글자는 읽었는데 등록 음식이 없으면 unsupported_food.
+        """메뉴 줄은 읽었는데 등록 음식이 없으면 unsupported_food.
 
         ocr_empty와 구분해야 한다 — 프론트가 "다시 찍어주세요"와 "미지원 음식입니다"
         중 어떤 안내를 띄울지 이 status로 결정하기 때문이다.
+
+        매칭 안 된 줄은 응답에 싣지 않는다. 그 줄에 대해 아는 것이 사실상 없어서
+        원산지 표시나 가게 공지가 메뉴로 올라오는 원인이 됐다. 다만 **개수는 본다** —
+        메뉴 줄이 하나라도 있어야 "메뉴판이긴 하다"고 말할 수 있다.
         """
-        boxes = [(0, 0, 100, 20, "미지원음식")]
+        boxes = [(0, 0, 100, 20, "미지원음식 9,000")]
         mock_recognize_boxes_with_mapping.return_value = (boxes, IDENTITY_MAPPING)
-        mock_match_candidates.return_value = ([], [])
+        unsupported = [{"line_no": 0, "menu_text": "미지원음식 9,000", "price_krw": 9000}]
+        mock_match_candidates.return_value = ([], unsupported)
 
         result = pipeline.analyze_image("dummy.jpg")
 
@@ -411,13 +416,34 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
             result,
             {
                 "status": "unsupported_food",
-                "ocr_text": "미지원음식",
+                "ocr_text": "미지원음식 9,000",
                 "candidates": [],
-                "unsupported_lines": [],
             },
         )
         # 줄 단위 매칭은 상자를 그대로 받는다 — 줄 나누기를 매칭 쪽이 한다.
         mock_match_candidates.assert_called_once_with(boxes)
+
+    @patch("src.pipeline.scan_menu_lines")
+    @patch("src.pipeline.recognize_boxes_with_mapping")
+    def test_analyze_image_returns_not_a_menu_when_no_priced_lines(
+        self, mock_recognize_boxes_with_mapping, mock_match_candidates
+    ):
+        """글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없으면 not_a_menu.
+
+        얼굴이나 풍경을 찍어도 OCR은 잡음 글자를 만들어내므로 ocr_empty로는 안 잡힌다.
+        unsupported_food와도 구분해야 한다 — 이쪽은 **다시 찍으면 해결되고**, 저쪽은
+        다시 찍어도 결과가 같다. 화면이 서로 다른 안내를 띄우는 근거다.
+        """
+        boxes = [(0, 0, 100, 20, "ㄴㅇㄹ")]
+        mock_recognize_boxes_with_mapping.return_value = (boxes, IDENTITY_MAPPING)
+        mock_match_candidates.return_value = ([], [])
+
+        result = pipeline.analyze_image("dummy.jpg")
+
+        self.assertEqual(
+            result,
+            {"status": "not_a_menu", "ocr_text": "ㄴㅇㄹ", "candidates": []},
+        )
 
     @patch("src.pipeline._synthesize_via_subprocess")
     @patch("src.pipeline.get_details")
@@ -454,7 +480,6 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
                 "ocr_text": "닭갈비 9,000 갈비 12,000",
                 # match가 위치를 못 붙인 후보는 source가 null이다 (여기선 match를 mock했으므로)
                 "candidates": [{**candidate, "source": None} for candidate in candidates],
-                "unsupported_lines": [],
             },
         )
         # 좌표를 매칭 단계까지 그대로 넘겨야 줄을 나누고 가격을 위치로 짝지을 수 있다

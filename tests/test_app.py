@@ -44,21 +44,7 @@ def _candidate(**overrides) -> dict:
     return candidate
 
 
-def _unsupported(**overrides) -> dict:
-    """안내는 못 하지만 이름·가격은 읽힌 줄 (`UnsupportedMenuLine`)."""
-    line = {
-        "line_no": 1,
-        "menu_text": "공기밥 1,000",
-        "name_text": "공기밥",
-        "price_krw": 1000,
-        "price_krw_display": "₩1,000",
-        "source": None,
-    }
-    line.update(overrides)
-    return line
-
-
-def _select_screen(candidates, unsupported=(), image=None, cart=None) -> AppTest:
+def _select_screen(candidates, image=None, cart=None) -> AppTest:
     """후보 선택 화면을 그린 상태로 돌려준다."""
     app = AppTest.from_file(APP_PATH)
     app.session_state["step"] = "select"
@@ -66,7 +52,6 @@ def _select_screen(candidates, unsupported=(), image=None, cart=None) -> AppTest
         "status": "candidates_found",
         "ocr_text": "갈비탕",
         "candidates": list(candidates),
-        "unsupported_lines": list(unsupported),
     }
     if image is not None:
         app.session_state["image"] = image
@@ -251,33 +236,16 @@ def test_ac10_썸네일이_없으면_출처도_그리지_않는다():
 # --- AC-11 ------------------------------------------------------------------
 
 
-def test_ac11_미지원_줄도_목록에_남고_누를_수_없다():
-    app = _select_screen(
-        [_candidate(line_no=2, name_text="갈비탕")],
-        [
-            _unsupported(line_no=1, name_text="공기밥"),
-            _unsupported(line_no=3, name_text="음료수", price_krw_display="₩2,000"),
-        ],
-    )
-
-    texts = _texts(app)
-    assert any("공기밥" in text for text in texts)
-    assert any("음료수" in text for text in texts)
-    # 고를 수 있는 줄은 후보 하나뿐이다.
-    assert len(_select_buttons(app)) == 1
-
-
 def test_ac11_목록이_메뉴판에_인쇄된_순서로_늘어선다():
-    app = _select_screen(
-        [_candidate(line_no=2, name_en="Galbitang")],
-        [
-            _unsupported(line_no=1, name_text="공기밥"),
-            _unsupported(line_no=3, name_text="음료수"),
-        ],
-    )
+    """서버가 준 순서가 아니라 `line_no`(메뉴판에서 위에서부터 센 줄 번호) 순이다."""
+    app = _select_screen([
+        _candidate(line_no=3, food_id=3, name_en="Bibimbap", name_kr="비빔밥"),
+        _candidate(line_no=1, food_id=1, name_en="Galbitang", name_kr="갈비탕"),
+        _candidate(line_no=2, food_id=2, name_en="Kimchi Stew", name_kr="김치찌개"),
+    ])
 
     joined = "\n".join(_texts(app))
-    assert joined.index("공기밥") < joined.index("Galbitang") < joined.index("음료수")
+    assert joined.index("Galbitang") < joined.index("Kimchi Stew") < joined.index("Bibimbap")
 
 
 # --- AC-12 ------------------------------------------------------------------
@@ -340,13 +308,6 @@ def test_ac12_사진이_없으면_사진창을_그리지_않는다():
 
 
 # --- AC-13 ------------------------------------------------------------------
-
-
-def test_ac13_후보가_하나라도_미지원_줄이_있으면_건너뛰지_않는다():
-    app = _select_screen([_candidate()], [_unsupported()])
-
-    assert not app.exception
-    assert [element.value for element in app.subheader] == ["Which dish is it?"]
 
 
 def test_ac02_후보가_하나뿐이고_미지원_줄이_없으면_결과로_바로_간다():
@@ -534,7 +495,6 @@ def test_목록으로_돌아가도_분석_결과가_남아있다():
         "ocr_text": "갈비탕",
         "candidates": [_candidate(), _candidate(food_id=2, name_en="Kimchi Stew",
                                                 name_kr="김치찌개")],
-        "unsupported_lines": [],
     }
     app = _result_screen(analysis=analysis)
 
@@ -587,29 +547,6 @@ def test_담기_요청은_줄을_가리키는_값을_함께_보낸다():
     assert sent["menu_text"] == "물만두 8,000"
     assert sent["price_krw"] == 8000
     assert sent["quantity_delta"] == 1
-
-
-def test_안내_못_하는_줄도_담을_수_있고_이름_자리에_메뉴판_글자를_보낸다():
-    app = _select_screen(
-        [_candidate()],
-        [_unsupported(menu_text="공기밥 1,000", name_text="공기밥")],
-    )
-
-    # 설명은 못 해도 주문은 된다 — 담기 버튼은 열어둔다.
-    assert [element.label for element in app.button].count("Add to order") == 2
-    # 설명 보기는 여전히 막는다.
-    assert len(_select_buttons(app)) == 1
-
-    response = MagicMock()
-    response.json.return_value = _cart()
-    with patch("requests.request", return_value=response) as request:
-        # 두 번째 "Add to order"가 미지원 줄이다.
-        [_, unsupported_add] = [e for e in app.button if e.label == "Add to order"]
-        unsupported_add.click().run()
-
-    sent = request.call_args.kwargs["json"]
-    assert sent["food_id"] is None
-    assert sent["name_kr"] == "공기밥 1,000"
 
 
 def test_같은_food_id_두_줄은_각각_따로_담긴다():
@@ -698,7 +635,6 @@ def test_주문_확인에서_돌아가도_카트가_남아있다():
         "status": "candidates_found",
         "ocr_text": "",
         "candidates": [_candidate(), _candidate(food_id=2, name_en="K", name_kr="김치찌개")],
-        "unsupported_lines": [],
     }
     app.run()
 
@@ -707,6 +643,29 @@ def test_주문_확인에서_돌아가도_카트가_남아있다():
     # 보여주고 돌아와 수량을 고칠 수 있어야 한다(cart.md EC-08).
     assert app.session_state["step"] == "select"
     assert app.session_state["cart"] == cart
+
+
+def test_메뉴판이_아니면_다시_찍으라고_안내한다():
+    """글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없는 경우(not_a_menu).
+
+    얼굴이나 풍경을 찍어도 OCR이 잡음 글자를 만들어내 ocr_empty로는 안 잡힌다.
+    "아직 가이드에 없어요"로 안내하면 다시 찍어도 소용없다고 읽혀서, 사진만 고치면
+    되는 사용자가 포기하게 된다.
+    """
+    app = AppTest.from_file(APP_PATH)
+    app.session_state["step"] = "select"
+    app.session_state["analysis"] = {
+        "status": "not_a_menu",
+        "ocr_text": "ㄴㅇㄹ",
+        "candidates": [],
+    }
+    app.run()
+
+    assert [element.value for element in app.subheader] == [
+        "We couldn't find a menu here"
+    ]
+    # 다시 찍는 것이 해결책이므로 그 길을 열어둔다.
+    assert any(element.label == "Take a new photo" for element in app.button)
 
 
 def _upload(app: AppTest) -> AppTest:
@@ -723,7 +682,6 @@ def _analyze_response(status: str = "candidates_found") -> MagicMock:
             _candidate(),
             _candidate(food_id=2, name_en="K", name_kr="김치찌개"),
         ] if status == "candidates_found" else [],
-        "unsupported_lines": [],
     }
     return response
 
@@ -761,25 +719,6 @@ def test_사진_인식에_실패하면_카트를_그대로_둔다():
     assert app.session_state["cart"] == cart
 
 
-def test_안내_못_하는_줄은_주문_확인에서_영문_줄을_그리지_않는다():
-    app = AppTest.from_file(APP_PATH)
-    app.session_state["step"] = "cart"
-    app.session_state["cart"] = _cart([
-        _cart_line(food_id=None, name_kr="공기밥 1,000", name_en="공기밥 1,000",
-                   menu_text="공기밥 1,000", name_text="공기밥"),
-    ])
-    app.run()
-
-    texts = _texts(app)
-    assert any("공기밥" in text for text in texts)
-    # 영어 이름이 없어 메뉴판 글자를 담아 보낸 줄이다. 그대로 찍으면 같은 말이 두 번
-    # 나오고 가격도 두 번 보인다.
-    assert not any("공기밥 1,000" in text for text in texts)
-
-
-# --- 발음 재생 · 사진 확대 (브라우저 기능) -----------------------------------
-
-
 def test_발음_버튼은_가격을_뺀_이름을_읽는다():
     app = _select_screen([
         _candidate(name_kr="갈비탕", name_text="황기갈비탕", menu_text="황기갈비탕 15,000"),
@@ -789,16 +728,6 @@ def test_발음_버튼은_가격을_뺀_이름을_읽는다():
     # 종업원에게 들려줄 말에 숫자가 끼면 어수선하다 — 줄 글자가 아니라 가격을 뗀 쪽이다.
     assert "황기갈비탕" in _speak_targets(app)
     assert not any("15,000" in target for target in _speak_targets(app))
-
-
-def test_안내_못_하는_줄에도_발음_버튼이_있다():
-    app = _select_screen(
-        [_candidate()],
-        [_unsupported(menu_text="공기밥 1,000", name_text="공기밥")],
-    )
-
-    # 설명은 못 해도 종업원에게 말할 수는 있어야 한다.
-    assert "공기밥" in _speak_targets(app)
 
 
 def test_상세_화면에도_발음_버튼이_있다():

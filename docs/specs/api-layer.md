@@ -11,7 +11,7 @@
 
 - **해결 목표**: 기존 `src/pipeline.py`의 `analyze_image()`, `create_tts_response()`, `src/text_gen/detail.py`의 `get_details()`를 HTTP로 노출한다.
 - **성공 기준**:
-  1. 이미지를 업로드하면 OCR 상태(`ocr_empty`/`unsupported_food`/`candidates_found`)와 후보 목록을 JSON으로 받는다.
+  1. 이미지를 업로드하면 OCR 상태(`ocr_empty`/`not_a_menu`/`unsupported_food`/`candidates_found`)와 후보 목록을 JSON으로 받는다.
   2. `food_id`로 상세정보(6개 카테고리)와 나레이션 결과(텍스트·스타일·오디오 상태)를 JSON으로 받는다.
   3. 등록되지 않은 `food_id`는 404를 반환한다.
 - **Out of Scope**: 프론트엔드 코드 자체, 인증/로그인, 주문·결제 기능, Flutter 클라이언트 코드, 배포(HF Spaces/Tailscale) 설정. 장바구니(`/api/cart`)는 별도 Spec(`docs/specs/cart.md`)에서 다룬다.
@@ -34,6 +34,7 @@
 | EC-02 | 업로드된 파일이 이미지가 아니거나 손상됨 | `analyze_image()` 내부 `recognize()`가 던지는 예외를 그대로 전달(500) — 기존 파이프라인 동작과 동일, 여기서 새로 방어하지 않음 |
 | EC-03 | TTS 모델이 아직 준비 안 됨 (GPU 없음 등) | 기존 `tts_status: "not_ready"`를 그대로 응답에 담아 전달 — 이 레이어에서 예외로 바꾸지 않음 |
 | EC-04 | OCR 결과 없음/미지원 음식 | `analyze_image()`가 이미 반환하는 `ocr_empty`/`unsupported_food` 상태를 그대로 전달 |
+| EC-05 | 메뉴판이 아닌 사진 | 글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없으면 `not_a_menu`. 얼굴·풍경을 찍어도 OCR이 잡음 글자를 만들어내 `ocr_empty`로는 안 잡히는데, 이쪽은 **다시 찍으면 해결되는** 상황이라 화면이 다른 안내를 띄워야 한다 |
 | EC-05 | 음식에 등록된 썸네일이 없음 | `thumbnail_url`/`thumbnail_attribution`을 `null`로 반환 — 프론트는 이 경우 번호 아이콘으로 대체 표시 |
 
 ## How
@@ -44,7 +45,7 @@ POST /api/analyze
 
 응답 200:
 {
-  "status": "ocr_empty" | "unsupported_food" | "candidates_found",
+  "status": "ocr_empty" | "not_a_menu" | "unsupported_food" | "candidates_found",
   "ocr_text": string,
   "candidates": [
     {
@@ -71,7 +72,11 @@ POST /api/analyze
 (`김치전/부추전 W7,000` → `김치전/부추전`). 화면은 가격을 이미 따로 보여주므로
 줄 글자를 그대로 쓰면 같은 값이 두 번 보인다. 줄을 구분하는 기준은 계속
 `menu_text`다 — `name_text`는 표시 전용이고, 뗄 것이 없으면 줄 글자와 같다.
-`unsupported_lines`도 같은 필드를 갖는다.
+**등록 음식과 매칭되지 않은 줄은 응답에 싣지 않는다**(2026-08-25 결정). 한때는
+`unsupported_lines`로 이름·가격만 함께 보냈는데, 그 줄에 대해 아는 것이 OCR이 읽은
+글자와 같은 줄에서 주운 숫자뿐이라 원산지 표시·가게 공지가 메뉴로 올라오고 엉뚱한
+가격이 붙었다. 다만 서버는 그런 줄의 **개수를 보고 `not_a_menu`를 판정한다** —
+메뉴 줄이 하나도 없으면 애초에 메뉴판이 아니다.
 
 ```
 GET /api/foods/{food_id}
