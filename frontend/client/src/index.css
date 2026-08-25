@@ -299,3 +299,54 @@ button.menu-photo-frame {
   background: none;
   cursor: zoom-in;
 }
+
+
+/* 카메라 창 — 찍는 동안은 화면 전체를 쓴다. 메뉴판을 화면에 맞추려면 크게 보여야 한다. */
+.camera-backdrop { background: rgba(8, 12, 11, 0.94); }
+.camera-stage {
+  position: relative;
+  width: min(1000px, 96vw);
+  height: min(78vh, 860px);
+  display: grid;
+  place-items: center;
+}
+.camera-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.camera-waiting {
+  position: absolute;
+  color: #fdf6ec;
+  font-size: 13px;
+}
+.camera-tools {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+}
+.camera-tools button {
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fdf6ec;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+/* 셔터는 어느 카메라 앱에서나 같은 모양이라 설명 없이도 무엇인지 안다. */
+.camera-tools .camera-shutter {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fdf6ec;
+  border: 4px solid rgba(0, 0, 0, 0.35);
+  padding: 0;
+}
+.camera-tools .camera-shutter:disabled { opacity: 0.45; cursor: default; }

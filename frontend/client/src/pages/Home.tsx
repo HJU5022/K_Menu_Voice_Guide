@@ -109,6 +109,7 @@ export default function Home() {
   const [errorRetryTarget, setErrorRetryTarget] = useState<ErrorRetryTarget>("camera");
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [camera, setCamera] = useState(false);
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -248,16 +249,23 @@ export default function Home() {
             <div className="plate-label">MENU PLATE · 01</div><div className="frame-caption"><span className="live-dot" /> Point at the menu <b>·</b> live guide</div>
           </div>
           <div className="camera-actions">
-            {/* 촬영은 이 서비스의 핵심 동작이다 — 식당에서 메뉴판을 찍는 것. 기기를 보고
-                숨기지 않는다. 데스크톱 브라우저는 capture 속성을 무시해 파일 선택창을
-                여는데, 그건 그 브라우저의 동작이지 우리가 감출 이유가 아니다. */}
-            <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {t.takePhoto}</Button>
+            {/* 촬영은 이 서비스의 핵심 동작이다 — 식당에서 메뉴판을 찍는 것.
+                카메라를 직접 열어 찍는다. 권한이 거부되거나 카메라가 없는 기기에서는
+                파일 선택으로 넘어간다(아래 CameraCapture 설명 참고). */}
+            <Button className="primary-button" onClick={() => setCamera(true)}><Camera size={18} /> {t.takePhoto}</Button>
             <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> {t.uploadPhoto}</Button>
           </div>
           <p className="helper">{t.cameraHelper}</p>
         </section>
       </main>
       <footer className="site-footer"><span>© 2026 K-Menu Voice Guide</span><span><button onClick={() => setModal("privacy")}>{t.privacy}</button><b>·</b><button onClick={() => setModal("terms")}>{t.terms}</button></span></footer>
+      {camera && (
+        <CameraCapture
+          onClose={() => setCamera(false)}
+          onCaptured={(file) => { setCamera(false); handlePhoto(file); }}
+          onUnavailable={() => { setCamera(false); cameraInputRef.current?.click(); }}
+        />
+      )}
       {/* Hidden real inputs behind the styled buttons above — capture="environment" opens
           the rear camera directly on a phone, the plain input opens the gallery/file picker. */}
       <input
@@ -421,6 +429,92 @@ function Candidates({
       </main>
       {lightbox && <Lightbox image={lightbox} onClose={() => setLightbox(null)} />}
       {viewer && <PhotoViewer url={viewer} onClose={() => setViewer(null)} />}
+    </div>
+  );
+}
+
+/** 카메라를 직접 열어 메뉴판을 찍는 창.
+ *
+ * 예전에는 `<input capture="environment">`에 기댔다. 그 속성은 **모바일에서만 뜻이 있어**
+ * 데스크톱 브라우저는 그냥 파일 선택창을 열었고, 노트북으로는 촬영 자체가 불가능했다.
+ * getUserMedia로 카메라를 직접 열면 데스크톱(웹캠)과 폰(후면 카메라)에서 모두 찍을 수 있다.
+ *
+ * **권한을 거부하거나 카메라가 없으면** 조용히 실패하지 않고 파일 선택으로 넘긴다 —
+ * 사용자는 어떻게든 사진을 올릴 수 있어야 한다.
+ *
+ * 스트림은 창을 닫을 때 반드시 멈춘다. 안 그러면 카메라 표시등이 계속 켜져 있어
+ * "이 사이트가 나를 보고 있나" 하는 인상을 준다. */
+function CameraCapture({
+  onClose, onCaptured, onUnavailable,
+}: {
+  onClose: () => void;
+  onCaptured: (file: File) => void;
+  onUnavailable: () => void;
+}) {
+  const t = useT();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function open() {
+      try {
+        // 뒷면 카메라를 **선호**하되 강제하지 않는다(ideal). 웹캠뿐인 기기에서
+        // exact로 걸면 카메라가 아예 안 열린다.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setReady(true);
+      } catch {
+        // 권한 거부·카메라 없음·보안 컨텍스트 아님 — 어느 쪽이든 사용자가 할 수 있는
+        // 다음 수단(파일 선택)으로 넘긴다.
+        if (!cancelled) onUnavailable();
+      }
+    }
+
+    open();
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+    // onUnavailable은 부모가 매번 새로 만들지만, 이 효과는 창이 열릴 때 한 번만 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function shoot() {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        onCaptured(new File([blob], "menu.jpg", { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      0.92,
+    );
+  }
+
+  return (
+    <div className="modal-backdrop camera-backdrop" onClick={onClose}>
+      <div className="camera-stage" onClick={(e) => e.stopPropagation()}>
+        <video ref={videoRef} autoPlay playsInline muted />
+        {!ready && <p className="camera-waiting">{t.cameraOpening}</p>}
+        <div className="camera-tools">
+          <button type="button" onClick={onClose}>{t.close}</button>
+          <button type="button" className="camera-shutter" onClick={shoot} disabled={!ready} aria-label={t.takePhoto} />
+          <button type="button" onClick={onUnavailable}>{t.uploadInstead}</button>
+        </div>
+      </div>
     </div>
   );
 }
