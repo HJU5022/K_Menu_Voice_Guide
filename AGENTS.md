@@ -14,9 +14,10 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 - **TTS**: Qwen3-TTS-12Hz-1.7B-Base + PEFT(LoRA) 파인튜닝 (어댑터: `k-bite-team/k-menu-qwen3-tts-lora`)
 - **데이터베이스**: Supabase
 - **서버**: FastAPI (`K_Menu_Talk.py`가 `/api/analyze`, `/api/foods/{id}`, `/api/cart` 노출)
-- **웹 화면**: Streamlit (`app.py`) — Hugging Face Spaces Streamlit SDK 진입점. `src/`를 임포트하지 않고 `K_Menu_Talk.py`를 HTTP로 호출하는 화면 전용 클라이언트다(2026-08-23 전환). React 웹앱은 같은 날 저장소에서 제거했다
+- **웹 화면**: React + TypeScript (`frontend/`) — `K_Menu_Talk.py`를 HTTP로 호출하는 화면 전용 클라이언트다. 계산을 직접 하지 않고, API 주소는 `VITE_API_BASE_URL` 하나로만 받는다(`frontend/client/src/lib/api.ts`). 2026-08-23에 Streamlit으로 갈아탔다가 2026-08-25에 React로 되돌렸다
+- **Streamlit (`app.py`) — 한시적 백업**: React 화면의 검증이 끝나고 디자인 작업만 남는 시점에 저장소에서 **제거할 예정**이다. 그때까지만 남겨둔다. 새 화면 기능은 `frontend/`에만 넣고 `app.py`에는 넣지 않는다 — 두 벌을 나란히 유지하면 화면 기능이 갈라진다
 - **모바일 앱**: Flutter (최종 목표, `mobile/`). 같은 `K_Menu_Talk.py`를 HTTP로 호출한다 — 웹과 앱은 계약이 같은 두 개의 별도 클라이언트이지, 한쪽이 다른 쪽을 대체하지 않는다
-- **배포**: Hugging Face Spaces를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 GPU Space(`K_Menu_Talk.py`, Nvidia T4) 한 곳에 몰고, `app.py`는 그 API를 부르기만 하는 무료 CPU Space에 올린다 — 웹에도 계산을 두면 GPU 비용이 두 배가 되기 때문이다(`docs/specs/streamlit-app.md`, `docs/specs/fastapi-space-deploy.md`)
+- **배포**: Hugging Face Spaces를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 GPU Space 한 곳(`K_Menu_Talk.py`, Docker SDK, Nvidia T4 — 루트 `Dockerfile`, 배포 스크립트 `deploy/api-space/deploy.sh`)에 몰고, 웹은 그 API를 부르기만 하는 **무료 static Space**에 빌드 결과물(`pnpm run build`)만 올린다(`frontend/space/deploy.sh`). 웹에도 계산을 두면 GPU 비용이 두 배가 되기 때문이다. static SDK는 컨테이너 빌드 단계가 없어 배포가 몇 초에 끝난다(`docs/specs/fastapi-space-deploy.md`, `frontend/space/README.md`)
 
 ## Spec 먼저, 구현은 그다음
 
