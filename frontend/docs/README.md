@@ -10,5 +10,6 @@
 | [api-client.md](api-client.md) | 환경변수·요청·응답·로딩·실패 처리 |
 | [content-style.md](content-style.md) | 관광객용 영어 문구와 용어 통일 |
 | [deployment.md](deployment.md) | 프론트 빌드·환경변수·배포 확인 |
+| [web-app.md](web-app.md) | 화면 규칙 상세 — 후보 목록 구성·번호/색 짝짓기·예외 18가지·장바구니 (옛 Streamlit Spec에서 옮겨옴) |
 
 화면 또는 API 경계가 바뀌면 관련 문서와 PR 설명을 함께 갱신한다. 임시 화면·가짜 데이터는 범위와 교체 조건을 문서 또는 PR에 남긴다.

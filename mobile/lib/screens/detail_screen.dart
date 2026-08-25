@@ -6,7 +6,7 @@
 ///   3. narration_audio_path의 음성을 재생한다(audioplayers).
 ///
 /// 카테고리 6개와 화면 제목은 프론트엔드와 통일한다
-/// (`docs/content-style.md` 기준, app.py의 DETAIL_CARDS와 같은 순서):
+/// (`docs/content-style.md` 기준, 웹 `Home.tsx`의 DETAIL_CARDS와 같은 순서):
 ///   DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY / PRONUNCIATION / SPICY
 ///
 /// TTS 실패는 화면 실패가 아니다 — tts_status가 "ok"가 아니거나
@@ -39,7 +39,7 @@ import 'settings_button.dart';
 /// 화면에 보여줄 카테고리 순서와 제목.
 ///
 /// 서버가 주는 details는 순서가 없는 묶음이라, 무엇을 어떤 순서로 보여줄지는
-/// 화면이 정한다. 순서와 영어 제목은 웹앱(app.py의 DETAIL_CARDS)과 맞췄다 —
+/// 화면이 정한다. 순서와 영어 제목은 웹앱(Home.tsx의 DETAIL_CARDS)과 맞췄다 —
 /// 같은 서비스인데 웹과 앱의 문구가 다르면 안 된다.
 const List<({String key, String title, IconData icon})> _detailCards = [
   (key: 'DESCRIPTION', title: 'Description', icon: Icons.restaurant_menu),
@@ -294,7 +294,7 @@ class _NameHeader extends StatelessWidget {
 
 /// 맵기 눈금 — 불꽃 5칸 중 spice_level 만큼 채운다.
 ///
-/// 웹앱(app.py 결과 화면)이 "🌶️" × level + "·" × (5 - level)로 그리던 것과 같은 규칙이다.
+/// 웹앱 결과 화면이 "🌶️" × level + "·" × (5 - level)로 그리던 것과 같은 규칙이다.
 /// 상세 카드의 SPICY 텍스트가 설명이라면 이건 한눈에 보는 눈금이라, 둘 다 필요하다.
 /// 아이콘은 SPICY 카드가 이미 쓰고 있는 것을 그대로 재사용한다.
 class _SpiceGauge extends StatelessWidget {

@@ -48,6 +48,3 @@ fastapi
 uvicorn
 python-multipart      # UploadFile(이미지 업로드) 처리에 필요
 httpx                  # fastapi.testclient.TestClient 의존성
-
-# 배포 UI — Hugging Face Spaces(Streamlit SDK) 배포 진입점 app.py가 사용 (2026-08-21)
-streamlit

@@ -1,4 +1,35 @@
-# Spec — Streamlit 배포 진입점 (app.py)
+# Spec — 웹 화면 (frontend/)
+
+> **상태 (2026-08-26)**
+>
+> **현재 구현은 React + TypeScript(`frontend/`)이고, 무료 HF Static Space에 빌드 결과물만
+> 올린다.** Streamlit 진입점(`app.py`)과 테마 설정(`.streamlit/`), 그 테스트
+> (`tests/test_app.py`)는 이 날짜에 저장소에서 제거했다. 파일 이름도
+> `docs/specs/streamlit-app.md`에서 바꿨고, 자리도 옮겼다 — 웹 화면 스펙은 화면 코드 옆
+> (`frontend/docs/`)에 둔다는 규칙 때문이다(`AGENTS.md`의 "예외 — 웹 화면").
+>
+> **어디까지 유효한가 — 읽는 사람이 헷갈리지 않게 미리 밝힌다.**
+>
+> - **유효하다**: Why·Goal·What(Edge Case 표)·AC, 그리고 How 안의 화면 규칙 — 목록 구성,
+>   번호·색 짝짓기, 목록 위 한 줄 안내, 상세 화면 구성, 장바구니 규칙. 이것들은 화면을
+>   무엇으로 만들든 지켜야 하는 내용이라 React 화면에도 그대로 적용된다.
+> - **폐기된 구현의 기록이다**: How 안의 Streamlit API 서술 — `session_state` 계약,
+>   `st.markdown`·`st.image`·`st.iframe`·`st.camera_input`, `.streamlit/config.toml` 테마.
+>   React 구현이 같은 규칙을 어떤 코드로 지키는지는 **아직 이 문서와 대조하지 않았다.**
+>   실제 코드는 `frontend/client/src/pages/Home.tsx`와 `frontend/client/src/lib/api.ts`다.
+> - **이미 어긋난 것 하나**: 장바구니 ID를 웹은 이제 localStorage에 둔다(새로고침해도
+>   카트가 남는다). `docs/specs/cart.md`에서 정정했다.
+>
+> **왜 Streamlit을 걷어냈나 — 시간순**
+>
+> 1. 처음에는 **Streamlit Cloud**에 올리려 했는데 **모델을 올릴 수 없어 포기**했다.
+> 2. 그래서 Hugging Face Spaces로 옮겨, Streamlit 화면을 Docker Space에 올렸다.
+> 3. 2026-08-23, 계산을 FastAPI Space(GPU) 한 곳에 몰고 `app.py`는 그 API를 HTTP로
+>    부르는 화면 전용 클라이언트로 바꿨다(아래 Why의 "결정(2026-08-23)").
+> 4. 2026-08-25, 화면을 **React로 되돌렸다.** 정적 빌드는 무료 Static Space에 올라가므로
+>    돈이 드는 GPU Space를 API 한 곳만 두면 된다. 컨테이너 빌드 단계가 없어 배포도 몇 초에
+>    끝난다(`frontend/space/README.md`).
+> 5. 2026-08-26, 두 벌을 나란히 두면 화면 기능이 갈라지므로 Streamlit 쪽을 제거했다.
 
 ## Why
 
@@ -181,7 +212,7 @@ session_state 계약
 
 - 둘 다 JavaScript가 필요해 `st.iframe`으로 넣는다. **`st.components.v1.html`은 쓰지 않는다** — 폐기 예정이라 Space가 새 streamlit을 설치하는 시점에 사라질 수 있다(`requirements.txt`가 버전을 고정하지 않는다).
 - `st.iframe`은 호출마다 iframe을 하나씩 만든다. 발음 버튼을 **줄마다** 두기로 했으므로(2026-08-24 결정, 앱과 같은 자리) 줄 수만큼 iframe이 생긴다. 이 비용을 알고 택했다.
-- **읽어줄 글자는 스크립트가 아니라 데이터 속성으로 넘긴다.** 스크립트 안에 직접 끼워 넣으면 메뉴판에서 읽어온 글자에 스크립트를 닫는 태그가 섞였을 때 거기서 코드가 끊기고, 그 뒤가 화면에 글자로 새어 나온다. (주석에 그 태그를 예시로 적었다가 실제로 겪었다 — `tests/test_app.py`가 이제 이것을 막는다.)
+- **읽어줄 글자는 스크립트가 아니라 데이터 속성으로 넘긴다.** 스크립트 안에 직접 끼워 넣으면 메뉴판에서 읽어온 글자에 스크립트를 닫는 태그가 섞였을 때 거기서 코드가 끊기고, 그 뒤가 화면에 글자로 새어 나온다. (주석에 그 태그를 예시로 적었다가 실제로 겪었다. 이것을 막던 `tests/test_app.py`는 2026-08-26에 함께 제거됐다 — React 화면에는 같은 회귀 테스트가 없다.)
 - 읽어줄 값은 **가격을 뗀 이름**(`name_text`)이다. 종업원에게 들려줄 말에 숫자가 끼면 어수선하다.
 - 사진은 **표시용으로 긴 변을 줄여서** 페이지에 싣는다(1400px, JPEG). 확대·이동은 사진을 페이지에 통째로 실어야 동작하므로, 촬영본을 그대로 넣으면 그만큼 무거워진다.
 - 사진 확대창이 `st.image`를 대신한다. `st.image`에도 확대 버튼이 붙지만 마우스를 올려야 나타나 **폰에서는 보이지 않는다** — 이 서비스를 쓸 사람은 대부분 폰이다.
@@ -191,7 +222,6 @@ session_state 계약
 - 색은 `.streamlit/config.toml`의 `[theme.light]`·`[theme.dark]` 두 벌로 준다. **`base`는 정하지 않는다** — 정하면 보는 사람의 기기 설정을 무시하고 한쪽으로 고정된다.
 - 요소 안에서 보조 글자를 흐리게 할 때는 **회색 값을 박지 않고 `opacity`만 낮춘다.** 배경색을 모르는 채 색을 고르면 한쪽 모드에서 안 보인다.
 - Streamlit 내부 클래스명을 덮어쓰는 CSS는 쓰지 않는다.
-- **배포 주의**: 웹 Space의 Dockerfile이 `COPY app.py .`로 app.py만 복사한다. `.streamlit/config.toml`이 배포에 실리려면 그쪽에 복사 한 줄을 더해야 한다. 없어도 앱은 뜬다 — 테마만 기본값이 된다.
 
 ## AC
 

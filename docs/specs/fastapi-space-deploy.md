@@ -2,7 +2,7 @@
 
 ## Why
 
-- **페르소나**: 배포를 맡은 정운, 그리고 이 API를 부르는 두 클라이언트 — 웹(Streamlit Space)과 모바일 앱(`mobile/lib/api.dart`).
+- **페르소나**: 배포를 맡은 정운, 그리고 이 API를 부르는 두 클라이언트 — 웹(static Space의 React, `frontend/`)과 모바일 앱(`mobile/lib/api.dart`).
 - **상황**: 배포 구조를 확정했다(2026-08-23) — 계산은 **FastAPI Space(GPU) 한 곳**에 몰고, 웹은 무료 CPU Space에서, 앱은 `config.dart` 주소만 바꿔 같은 API를 부른다. GPU 실측(RTX 3080 Ti)에서 OCR이 92상자 기준 CPU 22.8초 → GPU 0.8초로 확인돼 계산은 GPU가 필수다.
 - **문제**:
   1. HF Spaces에 FastAPI 전용 SDK가 없다 — **Docker Space**로 올려야 하는데 저장소에 Dockerfile이 없다.
@@ -18,7 +18,7 @@
   3. TTS 워커가 서버와 같은 파이썬으로 떠서 음성을 생성한다 (`tts_status: "ok"`).
   4. 비밀값(Supabase 키)이 이미지에 들어가지 않는다 — Space **Secrets**로만 주입한다.
 - **Out of Scope**:
-  - **Streamlit Space 배포** — Streamlit SDK Space는 Dockerfile 없이 `requirements.txt`로 뜬다. `app.py`의 HTTP 전환은 `docs/specs/streamlit-app.md`가 다룬다.
+  - **웹 Space 배포** — 웹은 빌드 결과물만 올리는 무료 static Space라 이 Dockerfile과 무관하다. 화면 쪽은 `frontend/docs/web-app.md`와 `frontend/space/README.md`가 다룬다.
   - HF Space 생성·하드웨어 선택·Secrets 등록의 **수행 절차 자체** (이 Spec은 무엇이 필요한지만 명시한다).
   - 모바일 `config.dart` 주소 변경, 모델 가중치 사전 캐싱(빌드타임 다운로드) 최적화, CI/CD.
 
