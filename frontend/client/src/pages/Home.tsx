@@ -110,17 +110,6 @@ export default function Home() {
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 카메라로 바로 찍을 수 있는 기기인가.
-  //
-  // `capture="environment"`는 **모바일에서만 뜻이 있다.** 데스크톱 브라우저는 그 속성을
-  // 그냥 무시하고 평범한 파일 선택창을 연다. 그래서 "Take a photo"를 눌렀는데 업로드
-  // 창이 뜨고, 버튼 두 개가 똑같은 일을 했다. 찍을 수 없는 기기에서는 촬영 버튼을
-  // 아예 보이지 않게 한다 — 되지 않는 것을 권하지 않는다.
-  const canTakePhoto = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    const touchLike = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-    return touchLike || /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
-  }, []);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // A cart outlives a single scan, so it loads once on start rather than after each photo.
@@ -259,9 +248,10 @@ export default function Home() {
             <div className="plate-label">MENU PLATE · 01</div><div className="frame-caption"><span className="live-dot" /> Point at the menu <b>·</b> live guide</div>
           </div>
           <div className="camera-actions">
-            {canTakePhoto && (
-              <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {t.takePhoto}</Button>
-            )}
+            {/* 촬영은 이 서비스의 핵심 동작이다 — 식당에서 메뉴판을 찍는 것. 기기를 보고
+                숨기지 않는다. 데스크톱 브라우저는 capture 속성을 무시해 파일 선택창을
+                여는데, 그건 그 브라우저의 동작이지 우리가 감출 이유가 아니다. */}
+            <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {t.takePhoto}</Button>
             <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> {t.uploadPhoto}</Button>
           </div>
           <p className="helper">{t.cameraHelper}</p>
