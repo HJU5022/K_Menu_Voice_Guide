@@ -43,7 +43,20 @@ export const apiBaseUrl = API_BASE_URL;
 export const isUsingCustomApi =
   API_BASE_URL !== (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
-const client = axios.create({ baseURL: API_BASE_URL });
+// 상한이 없으면 서버가 응답하지 않을 때 화면이 영원히 "처리 중"으로 돈다. GPU Space는
+// 5분 놀면 잠들고 다시 깨는 데 오래 걸리므로(실측 약 15분), 콜드 스타트를 정상으로 보되
+// 그보다 훨씬 못 미치는 지점에서 끊고 안내를 띄운다.
+const REQUEST_TIMEOUT_MS = 90_000;
+
+const client = axios.create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS });
+
+/** 올린 파일 자체가 문제라 서버가 받기를 거부한 경우(400·413).
+ *
+ * 서버가 죽은 것과 갈라놓는 이유는 사용자가 할 행동이 정반대이기 때문이다 — 이쪽은
+ * 다른 사진을 골라야 하고, 서버 장애는 기다렸다 다시 시도해야 한다. HTTP 상태코드를
+ * 아는 것은 이 모듈뿐이므로, 화면이 axios를 알지 않아도 되게 여기서 종류를 정해 던진다.
+ */
+export class BadUploadError extends Error {}
 
 // There is no sign-in, so a cart belongs to this browser. The id is generated once and
 // kept in localStorage; the server treats an unknown id as an empty cart (no 404).
@@ -167,8 +180,16 @@ export type CartItemRef = { food_id: number; name_kr: string; name_en: string; p
 export async function analyzeMenu(image: File): Promise<AnalyzeResponse> {
   const form = new FormData();
   form.append("image", image);
-  const { data } = await client.post<AnalyzeResponse>("/api/analyze", form);
-  return data;
+  try {
+    const { data } = await client.post<AnalyzeResponse>("/api/analyze", form);
+    return data;
+  } catch (error) {
+    // 400은 이미지가 아니거나 비었거나 열리지 않는 파일, 413은 10MB 초과다
+    // (docs/specs/api-layer.md EC-07~EC-09). 나머지는 그대로 올려보내 서버 장애로 다룬다.
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    if (status === 400 || status === 413) throw new BadUploadError();
+    throw error;
+  }
 }
 
 export async function listSupportedFoods(): Promise<SupportedFood[]> {
