@@ -62,7 +62,7 @@ const boxLabel = (index: number) => String(index + 1).padStart(2, "0");
 const formatWon = (value: number | null) => (value === null ? "Price not shown" : `₩${value.toLocaleString("en-US")}`);
 
 // Copy for the two OCR statuses — reused verbatim from app.py's ERROR_MESSAGES /
-// frontend/docs/content-style.md so the wording stays identical across every client.
+// docs/content-style.md so the wording stays identical across every client.
 /** 서버가 준 status에 맞는 안내 문구를 고른다.
  *
  * 셋을 갈라두는 이유: 원인이 다르면 사용자가 할 일도 다르다. 흐리게 찍혔으면 다시 찍으면
