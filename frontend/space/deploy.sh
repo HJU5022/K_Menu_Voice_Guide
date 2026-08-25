@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 웹 화면을 Hugging Face Space(HJU5022/K_Menu_Web)에 배포한다.
+# 웹 화면을 Hugging Face Space에 배포한다(기본 대상: HJU5022/K_Menu_Web).
 #
 # 이 Space에는 **빌드 결과물만** 올라간다. 소스는 GitHub에 있고, 여기에 올리는 것은
 # `pnpm run build`가 만든 index.html·JS·CSS와 Space 설정 README 하나뿐이다.
@@ -10,22 +10,30 @@
 # 다시 빌드해야 한다 — Space에 환경변수를 넣는 것으로는 바뀌지 않는다.
 #
 # 쓰는 법:
-#   frontend/space/deploy.sh
-#   frontend/space/deploy.sh https://다른-api-주소       (주소를 바꿔 배포할 때)
+#   frontend/space/deploy.sh                                   기본 Space에 배포
+#   frontend/space/deploy.sh HJU5022/K_Menu_Web_React          다른 Space에 배포
+#   frontend/space/deploy.sh HJU5022/K_Menu_Web https://다른-api-주소
+#
+# **이 스크립트는 대상 Space를 통째로 덮어쓴다(--force).** 기존 Streamlit 화면이 올라가
+# 있는 Space를 대상으로 하면 그 화면이 사라진다. 검증 중이라면 새 Space를 만들어
+# 그쪽으로 올리고, 확인이 끝난 뒤에 옮기는 편이 안전하다.
 #
 # 처음 한 번은 Hugging Face 로그인이 필요하다. 토큰은 huggingface.co/settings/tokens에서
 # write 권한으로 만들고, git이 물어보면 사용자명은 HF 아이디, 비밀번호 자리에 토큰을 넣는다.
 
 set -euo pipefail
 
-API_BASE_URL="${1:-https://hju5022-k-menu.hf.space}"
-SPACE_URL="https://huggingface.co/spaces/HJU5022/K_Menu_Web"
+SPACE_ID="${1:-HJU5022/K_Menu_Web}"
+API_BASE_URL="${2:-https://hju5022-k-menu.hf.space}"
+SPACE_URL="https://huggingface.co/spaces/$SPACE_ID"
 
 FRONTEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$FRONTEND_DIR/dist/public"
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 
+echo "==> 대상 Space: $SPACE_ID"
+echo "    이 Space의 기존 내용은 통째로 덮어쓴다."
 echo "==> 빌드 (API 주소: $API_BASE_URL)"
 cd "$FRONTEND_DIR"
 VITE_API_BASE_URL="$API_BASE_URL" npx --yes pnpm@10 run build
@@ -51,4 +59,4 @@ git remote add space "$SPACE_URL"
 git push --force space main
 
 echo
-echo "완료. 확인: https://hju5022-k-menu-web.hf.space"
+echo "완료. 확인: https://$(echo "$SPACE_ID" | tr '/_' '--' | tr 'A-Z' 'a-z').hf.space"
