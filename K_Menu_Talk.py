@@ -32,6 +32,8 @@ logging.basicConfig(
 # 그대로 노출된다(실측 2026-08-24) — WARNING 이상만 남긴다.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
+logger = logging.getLogger(__name__)
+
 import shutil
 import tempfile
 from pathlib import Path
@@ -193,13 +195,58 @@ def _publish_audio(local_path: str | None) -> str | None:
     return f"/audio/{dest.name}"
 
 
+# 업로드 상한. 모바일 사진이 보통 2~5MB라 정상 사용을 막지 않는 값이다
+# (docs/specs/api-layer.md EC-09).
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+# 한 번에 읽어 쓰는 크기. 통째로 읽으면(`await image.read()`) 상한을 넘는 파일도 일단
+# 메모리에 다 올라간 뒤에야 크기를 알 수 있다 — 실측 2026-08-26에 12MB가 3.3초에 걸쳐
+# 전량 수신된 뒤에야 실패했다. 끊어 읽으면 넘는 순간 바로 끊을 수 있다.
+UPLOAD_CHUNK_BYTES = 1024 * 1024
+
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze(image: UploadFile = File(...)):
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
-        tmp_file.write(await image.read())
-        tmp_path = tmp_file.name
+    """메뉴판 사진을 받아 음식 후보를 돌려준다.
 
-    return analyze_image(tmp_path)
+    입력이 잘못된 경우를 500이 아니라 400/413으로 답하는 이유: 500은 "서버 잘못"이라는
+    뜻이라, 화면이 *사용자가 이상한 파일을 올린 것*과 *서버가 죽은 것*을 구별하지 못한다.
+    둘은 사용자가 해야 할 행동이 정반대다 — 앞은 다른 사진을 고르면 되고, 뒤는 기다렸다
+    다시 시도해야 한다 (docs/specs/api-layer.md EC-02·EC-07~EC-10).
+    """
+    # 가장 싼 검사부터. 헤더만 보면 되므로 파일을 읽기 전에 끊는다.
+    if not (image.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드할 수 있습니다.")
+
+    tmp_path = None
+    try:
+        written = 0
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+            while chunk := await image.read(UPLOAD_CHUNK_BYTES):
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413, detail="사진이 너무 큽니다 (최대 10MB)."
+                    )
+                tmp_file.write(chunk)
+
+        # 업로드 중 취소·네트워크 끊김에서 실제로 나온다.
+        if written == 0:
+            raise HTTPException(status_code=400, detail="빈 파일입니다.")
+
+        try:
+            return analyze_image(tmp_path)
+        except ValueError:
+            # 확장자와 content-type만 이미지인 파일은 여기서야 걸린다 — 실제로 열리는지가
+            # 유일하게 확실한 판정이라, 가장 비싼 이 검사를 마지막에 둔다.
+            logger.warning("이미지로 열리지 않는 업로드 (%s)", image.filename, exc_info=True)
+            raise HTTPException(status_code=400, detail="사진을 읽을 수 없습니다.")
+    finally:
+        # 성공·실패 어느 쪽이든 지운다. 예전에는 delete=False로 만들고 지우지 않아
+        # 요청마다 Space 디스크에 쌓였다 (EC-10).
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 @app.get("/api/foods", response_model=list[SupportedFood])

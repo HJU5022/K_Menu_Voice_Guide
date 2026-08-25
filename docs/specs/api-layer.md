@@ -31,11 +31,15 @@
 | # | 상황 | 처리 방식 |
 |---|---|---|
 | EC-01 | 존재하지 않는 `food_id` 조회 | `get_details()`의 `ValueError`를 잡아 404 반환 |
-| EC-02 | 업로드된 파일이 이미지가 아니거나 손상됨 | `analyze_image()` 내부 `recognize()`가 던지는 예외를 그대로 전달(500) — 기존 파이프라인 동작과 동일, 여기서 새로 방어하지 않음 |
+| EC-02 | 업로드된 파일이 이미지가 아니거나 손상됨 | **400**과 함께 "사진을 읽을 수 없습니다"를 반환한다. 한때는 파이프라인 예외를 그대로 500으로 흘려보냈는데(2026-08-26 이전), 500은 "서버 잘못"이라는 뜻이라 화면이 사용자 입력 문제와 서버 장애를 구별하지 못했다 — 실측으로 텍스트 파일·12MB 파일이 모두 500으로 나와 화면에 똑같이 "다시 찍으세요"가 떴다 |
 | EC-03 | TTS 모델이 아직 준비 안 됨 (GPU 없음 등) | 기존 `tts_status: "not_ready"`를 그대로 응답에 담아 전달 — 이 레이어에서 예외로 바꾸지 않음 |
 | EC-04 | OCR 결과 없음/미지원 음식 | `analyze_image()`가 이미 반환하는 `ocr_empty`/`unsupported_food` 상태를 그대로 전달 |
 | EC-05 | 메뉴판이 아닌 사진 | 글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없으면 `not_a_menu`. 얼굴·풍경을 찍어도 OCR이 잡음 글자를 만들어내 `ocr_empty`로는 안 잡히는데, 이쪽은 **다시 찍으면 해결되는** 상황이라 화면이 다른 안내를 띄워야 한다 |
-| EC-05 | 음식에 등록된 썸네일이 없음 | `thumbnail_url`/`thumbnail_attribution`을 `null`로 반환 — 프론트는 이 경우 번호 아이콘으로 대체 표시 |
+| EC-06 | 음식에 등록된 썸네일이 없음 | `thumbnail_url`/`thumbnail_attribution`을 `null`로 반환 — 프론트는 이 경우 번호 아이콘으로 대체 표시 |
+| EC-07 | 업로드 파일이 이미지가 아님 (`content-type`) | **400** "이미지 파일만 업로드할 수 있습니다." 가장 싼 검사라 파일을 읽기 전에 먼저 한다 |
+| EC-08 | 업로드 본문이 0바이트 | **400** "빈 파일입니다." 업로드 중 취소·네트워크 끊김에서 실제로 나온다 |
+| EC-09 | 업로드가 **10MB 초과** | **413** "사진이 너무 큽니다 (최대 10MB)." 상한 근거는 아래 How 참고 |
+| EC-10 | 임시 파일 정리 | 성공·실패 어느 쪽이든 `finally`에서 지운다. 예전에는 `delete=False`로 만들고 지우지 않아 요청마다 Space 디스크에 쌓였다 |
 
 ## How
 
@@ -97,7 +101,27 @@ GET /api/foods/{food_id}
 
 - 대상 파일: `K_Menu_Talk.py` (README에 이미 "배포 진입점"으로 문서화된 파일 — Gradio 대신 FastAPI 앱을 둠)
 - 업로드된 이미지는 임시 파일로 저장 후 기존 `analyze_image(image_path)`에 그대로 전달한다 (OCR 쪽 함수 시그니처를 바꾸지 않음).
+
 - 응답 스키마는 Pydantic 모델로 고정한다 — FastAPI가 `/docs`에 자동으로 계약을 문서화하므로, 프론트엔드가 이 페이지를 보고 연동할 수 있다.
+
+**업로드 검증 (`POST /api/analyze`)**
+
+```
+응답 400: {"detail": "이미지 파일만 업로드할 수 있습니다."}   content-type이 image/ 로 시작하지 않음
+응답 400: {"detail": "빈 파일입니다."}                      본문 0바이트
+응답 400: {"detail": "사진을 읽을 수 없습니다."}              저장은 됐으나 이미지로 열리지 않음
+응답 413: {"detail": "사진이 너무 큽니다 (최대 10MB)."}       10MB 초과
+```
+
+검사 순서는 **싼 것부터**다 — content-type(헤더만 봄) → 크기(읽으면서 셈) → 0바이트 →
+실제 디코드(가장 비쌈). 확장자만 바꾼 파일은 content-type으로 걸러지지 않으므로
+**실제로 열리는지**가 마지막 판정이다.
+
+상한을 10MB로 잡은 근거: 모바일 사진이 보통 2~5MB라 정상 사용을 막지 않는다.
+
+크기는 **읽으면서 센다.** `await image.read()`로 통째로 읽은 뒤 크기를 재면 이미 메모리에
+다 올라간 뒤라 상한의 의미가 없다 — 실측(2026-08-26)에서 12MB가 3.3초에 걸쳐 전량 수신된
+뒤에야 실패했다. 1MB씩 끊어 쓰며 누적이 상한을 넘으면 그 자리에서 중단한다.
 
 ## AC
 
@@ -125,3 +149,28 @@ GET /api/foods/{food_id}
 - GIVEN: `foods` 테이블의 `thumbnail_url`·`thumbnail_attribution` 컬럼에 값이 있다.
 - WHEN: `POST /api/analyze`가 그 음식을 후보로 반환한다.
 - THEN: 후보 객체에 `thumbnail_url`과 `thumbnail_attribution`이 그대로 실려 있다. 값이 없는 음식은 두 필드 모두 `null`이다 (테스트: `tests/test_ocr_match.py`, `tests/test_cache.py`).
+
+**AC-06 · 이미지가 아닌 업로드 거절**
+- GIVEN: `content-type`이 `text/plain`인 파일이 있다.
+- WHEN: `POST /api/analyze`에 업로드한다.
+- THEN: 응답 400과 `detail: "이미지 파일만 업로드할 수 있습니다."`를 받는다. `analyze_image()`는 호출되지 않는다.
+
+**AC-07 · 빈 파일 거절**
+- GIVEN: 0바이트 파일이 `image/jpeg`로 올라온다.
+- WHEN: `POST /api/analyze`에 업로드한다.
+- THEN: 응답 400과 `detail: "빈 파일입니다."`를 받는다.
+
+**AC-08 · 크기 상한 초과 거절**
+- GIVEN: 10MB를 넘는 파일이 `image/jpeg`로 올라온다.
+- WHEN: `POST /api/analyze`에 업로드한다.
+- THEN: 응답 413과 `detail: "사진이 너무 큽니다 (최대 10MB)."`를 받는다. `analyze_image()`는 호출되지 않는다.
+
+**AC-09 · 이미지로 열리지 않는 파일 거절**
+- GIVEN: `content-type`은 `image/jpeg`지만 내용이 이미지가 아니라 `analyze_image()`가 `ValueError`를 던진다.
+- WHEN: `POST /api/analyze`에 업로드한다.
+- THEN: 응답 400과 `detail: "사진을 읽을 수 없습니다."`를 받는다 (500이 아니다).
+
+**AC-10 · 임시 파일 정리**
+- GIVEN: 업로드가 성공하든 실패하든 상관없다.
+- WHEN: `POST /api/analyze` 처리가 끝난다.
+- THEN: 그 요청이 만든 임시 파일이 디스크에 남아 있지 않다.
