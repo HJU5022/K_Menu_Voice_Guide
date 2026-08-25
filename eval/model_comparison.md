@@ -48,7 +48,7 @@
 - Latency 측정 조건
   - 라이브 생성(콜드 61.3초 / 워밍업 33초): 원격 RTX 3080 Ti · 상주 워커(PR #45) · 3회 실측 (2026-08-21)
   - 캐시 히트(1.8ms): 로컬 Intel Core 7 240H · NVMe SSD · `src.pipeline.create_tts_response()` 50개 전량 반복 (2026-08-25) — 3절 참고
-- ⚠️ UTMOS 3.92~4.07은 **`LORA_SCALE` 0.3 시절** 측정치다. 음식명 표기는 그때와 같은 리스펠링이지만 2026-08-25에 scale을 0.15로 낮추었으므로(`docs/specs/tts-finetuning.md`), 현재 배포 설정 기준 UTMOS는 **재측정 필요**하다 (GPU 필요, 미실행). TTS 입력의 발음 안내 문장도 PRONUNCIATION → PRONUNCIATION_TTS로 바뀌어 측정 당시와 다르다
+- ⚠️ UTMOS 3.92~4.07은 **`LORA_SCALE` 0.3 · 음식명 리스펠링 표기 시절** 측정치다. 2026-08-25에 scale을 0.15로 낮추고 TTS가 읽는 음식명을 한글 표기로 바꿨으므로(`docs/specs/tts-finetuning.md`), 현재 배포 설정 기준 UTMOS는 **재측정 필요**하다 (GPU 필요, 미실행). TTS 입력의 발음 안내 문장도 PRONUNCIATION → PRONUNCIATION_TTS로 바뀌어 측정 당시와 다르다
 - **최종 선택**: Qwen3-TTS 1.7B Base + LoRA 파인튜닝 (경위: `eval/TTS_MODULE.md` 1절)
 
 ## 3. Plan B 판단 — **전환 결정 (2026-08-21)**

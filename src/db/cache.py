@@ -15,7 +15,7 @@ def _load() -> dict[str, list[dict]]:
         _cache = {
             "foods": client.table("foods")
             .select(
-                "id, name_kr, name_en, name_respell, spice_level, "
+                "id, name_kr, name_en, spice_level, "
                 "thumbnail_url, thumbnail_attribution"
             )
             .execute()
@@ -37,7 +37,7 @@ def _load() -> dict[str, list[dict]]:
 
 
 def get_foods() -> list[dict]:
-    """Return all foods rows (id, name_kr, name_en, name_respell, spice_level)."""
+    """Return all foods rows (id, name_kr, name_en, spice_level)."""
     return _load()["foods"]
 
 

@@ -18,7 +18,7 @@ DB에 직접 접근하는 코드는 전부 여기에만 둡니다. 다른 폴더
 
 | 테이블 | 내용 |
 |---|---|
-| `foods` | 음식 기본 정보 (음식명, TTS용 리스펠링 표기, spice_level, 대표사진 URL·출처) |
+| `foods` | 음식 기본 정보 (음식명, spice_level, 대표사진 URL·출처). `name_kr`은 TTS가 읽는 이름으로도 씁니다 |
 | `food_details` | 카테고리 6개 상세 설명 (PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY) + TTS 전용 `PRONUNCIATION_TTS` |
 | `food_narration` | style별 내레이션 문장 |
 | `menu_modifiers` | 메뉴에 붙는 수식어 (예: "매운") — 매칭 후 따로 뽑아내는 데 씀 |
@@ -68,54 +68,26 @@ select (select count(*) from foods)          as foods,
 
 다시 넣을 때는 **상세 6종·내레이션·썸네일을 먼저 준비하고 음식 행을 넣는 순서**를 권합니다. 순서가 반대면 지금과 같은 상태가 반복됩니다.
 
-## ⚠️ 아직 실행 안 된 것 — `foods.name_respell` 컬럼
+## TTS가 읽는 음식명 — 컬럼 추가 없이 `name_kr`을 씁니다
 
-TTS에 넘기는 문장에서 음식명을 리스펠링 표기로 바꾸기 위한 컬럼입니다(`Tteokbokki` → `Duck-bok-kee`). 예전에는 이 표가 `src/tts/infer.py`에 파이썬 dict로 하드코딩돼 있었는데, 음식이 늘 때마다 코드를 고쳐야 했고 DB와 어긋나도 알 방법이 없어서 컬럼으로 옮겼습니다. 화면에 표시되는 텍스트는 원본 로마자 표기를 그대로 유지하고, 치환은 TTS 입력에만 적용합니다(`src/text_gen/narration.py`의 `_to_tts_text()`).
+TTS에 넘기는 문장에서는 음식명만 **한글 표기로 바꿔서** 읽힙니다(`Tteokbokki` → `떡볶이`). 영어 문장 안의 로마자 음식명을 모델이 영어 음운으로 읽어버리는 문제를, 표기를 한글로 바꿔 한국어 음운으로 읽게 해서 푸는 방식입니다(경위: `docs/specs/tts-finetuning.md`). 치환은 `src/text_gen/narration.py`의 `_to_tts_text()`가 하고, 값은 **이미 있는 `foods.name_kr`을 그대로** 씁니다. 화면에 표시되는 텍스트는 로마자 표기 그대로입니다 — 여행자가 소리 내어 읽어야 하는 정보이기 때문입니다.
 
-**컬럼이 없으면 `cache.py`의 `foods` SELECT가 통째로 실패해 앱 전체가 죽습니다.** 행이 없을 때 폴백하는 `PRONUNCIATION_TTS`와 달리, 이건 코드보다 **먼저** 실행돼야 합니다.
+**그래서 이번 변경에는 실행할 SQL이 없습니다.** 컬럼 추가도, 데이터 주입도 필요 없습니다. `name_kr`은 이미 50행 전부 채워져 있고 `cache.py`가 예전부터 select하던 컬럼입니다.
 
-**대응 — 아직 실행 안 됨. 조장이 Supabase SQL Editor에서 실행합니다.** 앱의 anon key는 RLS로 SELECT만 허용되므로 대시보드(또는 service_role) 권한이 필요합니다. 위 `foods` 200행 정리와는 순서를 가리지 않습니다 — 아래는 `id`가 아니라 `name_en`으로 매칭하기 때문입니다.
+## 취소된 것 — `foods.name_respell` 컬럼 추가 SQL
+
+한때 영문 리스펠링 표기(`Tteokbokki` → `Duck-bok-kee`)를 담을 `foods.name_respell` 컬럼을 만들고 21개 행에 값을 넣는 SQL을 이 문서에 실행 대기로 적어뒀었습니다. **실행하지 않기로 했습니다** — 표기를 리스펠링으로 바꿔도 발음이 정확해지지 않아 TTS가 읽는 표기 자체를 한글로 바꿨기 때문입니다(경위: `docs/specs/tts-finetuning.md`).
+
+2026-08-25 기준 DB에 이 컬럼은 **없습니다**(조회 시 `column foods.name_respell does not exist`, 42703). `src/db/cache.py`도 더 이상 이 컬럼을 select하지 않으므로, 그대로 두면 됩니다.
+
+혹시 이미 실행해서 컬럼이 생긴 환경이 있다면 지워도 됩니다 — 읽는 코드가 없습니다. 컬럼이 남아 있어도 앱은 정상 동작하므로 급한 작업은 아닙니다.
 
 ```sql
--- 1) 컬럼을 추가한다. 이미 있으면 넘어간다
-alter table foods add column if not exists name_respell text;
-
--- 2) 리스펠링이 필요하다고 판정된 21개에만 값을 넣는다.
---    id가 아니라 name_en으로 매칭한다 — foods.id는 identity 컬럼이라 재시드하면 값이 달라진다
-update foods as f
-set name_respell = v.name_respell
-from (values
-  ('Agujjim',           'Ah-goo-jim'),
-  ('Bibim Naengmyeon',  'Bee-bim Nang-myun'),
-  ('Bibimbap',          'Bee-bim-bahp'),
-  ('Cheonggukjang',     'Chung-gook-jang'),
-  ('Doenjang Jjigae',   'Dwen-jang Jee-geh'),
-  ('Dongtae Jjigae',    'Dong-teh Jee-geh'),
-  ('Dubu Kimchi',       'Doo-boo Kim-chee'),
-  ('Jeyuk Bokkeum',     'Jeh-yook Bok-kum'),
-  ('Kimchi Bokkeumbap', 'Kim-chee Bok-kum-bap'),
-  ('Kimchi Jjigae',     'Kim-chee Jee-geh'),
-  ('Kongguksu',         'Kong-gook-soo'),
-  ('Maeuntang',         'May-oon-tang'),
-  ('Mulhoe',            'Mul-hweh'),
-  ('Nakji Bokkeum',     'Nahk-jee Boh-kum'),
-  ('Ojingeo Bokkeum',   'Oh-jing-uh Bok-kum'),
-  ('Sundae',            'Soon-deh'),
-  ('Sundubu Jjigae',    'Soon-doo-boo Jee-geh'),
-  ('Tteokbokki',        'Duck-bok-kee'),
-  ('Tteokgalbi',        'Duck-gal-bee'),
-  ('Tteokguk',          'Duck-gook'),
-  ('Yukhoe',            'Yook-hweh')
-) as v(name_en, name_respell)
-where f.name_en = v.name_en;
-
--- 3) 결과 확인 — 21이면 정상
-select count(*) as respelled from foods where name_respell is not null;
+-- 컬럼이 있으면 지운다. 없으면 아무 일도 하지 않는다
+alter table foods drop column if exists name_respell;
 ```
 
-값의 출처는 커밋 `8176e66`의 `src/tts/infer.py` `RESPELL_MAP` 21개입니다. 학습 완료된 어댑터로 원본 표기 vs 리스펠링 표기를 각각 생성해 청취 비교한 결과이며, 50개 중 21개만 리스펠링이 필요하고 29개는 원본 표기가 이미 적절하다고 판정했습니다(경위: `eval/TTS_MODULE.md` 4절).
-
-**29개는 일부러 NULL로 둡니다.** `_to_tts_text()`가 값이 비어 있으면 치환하지 않으므로, NULL은 실패가 아니라 "원본 로마자 표기로 읽는다"는 뜻입니다. 상위 200개 시드로 들어온 음식도 같은 이유로 NULL이며, 청취 스크리닝을 거친 뒤에만 값을 채웁니다.
+리스펠링 표 21개의 값 자체는 `eval/TTS_MODULE.md` 4절(청취 스크리닝 결과)과 커밋 `8176e66`의 `RESPELL_MAP`에 남아 있습니다.
 
 ## 썸네일 저장 규칙
 

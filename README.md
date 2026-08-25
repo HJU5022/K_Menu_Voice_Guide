@@ -169,9 +169,9 @@ AI Hub '관광 음식메뉴판 데이터'(이미지 100,113장, 한식 28.1%)를
 
 `food_details` 테이블 (음식 × 카테고리, 최대 180행): `food_id`, `category`, `detail_text`
 
-카테고리는 화면용 6개(PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY)에 음성 전용 `PRONUNCIATION_TTS` 1개를 더한다. 화면용 발음 문장은 로마자 표기를 알려주는데, TTS 입력에서는 음식명이 리스펠링 표기(`foods.name_respell`)로 치환되어 거의 같은 소리를 연달아 두 번 읽게 되기 때문이다 (`src/text_gen/narration.py`).
+카테고리는 화면용 6개(PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY)에 음성 전용 `PRONUNCIATION_TTS` 1개를 더한다. 화면용 발음 문장은 로마자 표기를 알려주는데, TTS 입력에서는 음식명이 한글 표기로 치환되어 같은 이름을 한국어 발음으로 한 번, 로마자로 한 번 연달아 읽게 되기 때문이다 (`src/text_gen/narration.py`).
 
-`foods` 테이블에는 TTS 전용 발음 표기 컬럼 `name_respell`이 있다. 청취 스크리닝에서 리스펠링이 필요하다고 판정된 21개에만 값이 있고, 나머지 29개는 NULL(=원본 로마자 표기로 읽는다)이다.
+TTS에 넘기는 문장에서는 음식명만 한글 표기로 바꿔서 읽힌다(`Tteokbokki` → `떡볶이`). 값은 이미 있는 `foods.name_kr`을 그대로 쓰므로 표기 전용 컬럼은 없다. 화면에 보이는 텍스트는 로마자 그대로다 — 여행자가 소리 내어 읽어야 하는 정보이기 때문이다.
 
 `food_narration` 테이블 (음식 × 스타일, 최대 60행): `food_id`, `style`(GUIDE/CAUTION), `narration_text`
 

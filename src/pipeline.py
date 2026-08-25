@@ -180,7 +180,7 @@ def create_tts_response(food_id: int) -> dict[str, object]:
     (README 9절 "TTS 생성 실패 | 상세 텍스트 우선 출력" 참고).
     """
     narration = get_narration(food_id)
-    # 화면에는 로마자 원문(text), 모델에는 음식명이 리스펠링 표기로 바뀐 tts_text를 넘긴다.
+    # 화면에는 로마자 원문(text), 모델에는 음식명이 한글 표기로 바뀐 tts_text를 넘긴다.
     tts_result = _load_cached_tts(food_id, narration["style"]) or _synthesize_via_subprocess(
         narration["tts_text"], narration["style"]
     )

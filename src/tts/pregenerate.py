@@ -87,7 +87,7 @@ def main() -> None:
             continue
 
         # 라이브 경로(pipeline.create_tts_response)와 같은 텍스트를 써야 캐시와 폴백이
-        # 같은 음성을 낸다 — 음식명이 리스펠링 표기로 바뀐 tts_text다.
+        # 같은 음성을 낸다 — 음식명이 한글 표기로 바뀐 tts_text다.
         result = pipeline._synthesize_via_subprocess(narration["tts_text"], narration["style"])
         if result.get("status") != "ok" or not result.get("audio_path"):
             print(f"{label} — 실패 (status={result.get('status')})")

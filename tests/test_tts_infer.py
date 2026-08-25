@@ -5,8 +5,8 @@
 즉 "음성이 좋은가"가 아니라 "입력을 올바르게 가공해서 넘겼는가"를 검사한다.
 
 검사하는 두 가지:
-- **텍스트 통과**: 받은 문장을 손대지 않고 그대로 넘긴다. 음식명 리스펠링 치환은
-  `src/text_gen/narration.py`가 DB(`foods.name_respell`)를 보고 맡는다 — 예전에는 여기에
+- **텍스트 통과**: 받은 문장을 손대지 않고 그대로 넘긴다. 음식명을 한글 표기로 바꾸는 일은
+  `src/text_gen/narration.py`가 DB(`foods.name_kr`)를 보고 맡는다 — 예전에는 여기에 리스펠링
   표를 하드코딩했으나, 여기서 또 건드리면 이미 치환된 이름을 두 번 처리하게 된다.
 - **instruct**: GUIDE/CAUTION에 맞는 톤 지시문을 함께 넘긴다.
 
@@ -81,15 +81,16 @@ class TtsInferTests(unittest.TestCase):
     def test_synthesize_passes_text_through_unchanged(self):
         """받은 텍스트를 손대지 않고 모델에 넘기는지.
 
-음식명 리스펠링 치환은 narration.py가 DB를 보고 담당한다(예전에는 여기에 표가
-        하드코딩돼 있었다). 여기서 또 건드리면 이미 치환된 이름을 두 번 처리하게 되므로,
+음식명을 한글 표기로 바꾸는 일은 narration.py가 DB를 보고 담당한다(예전에는 여기에
+        리스펠링 표가 하드코딩돼 있었다). 여기서 또 건드리면 이미 치환된 이름을 두 번
+        처리하게 되므로,
         통과시키는 것 자체가 계약이다 — 회귀 방지용.
         """
         fake = FakeModel()
         with patch.object(infer, "_load_model", return_value=fake):
-            infer.synthesize("This dish is called Duck-bok-kee.", "CAUTION")
+            infer.synthesize("This dish is called 떡볶이.", "CAUTION")
 
-        self.assertEqual(fake.last_call["text"], "This dish is called Duck-bok-kee.")
+        self.assertEqual(fake.last_call["text"], "This dish is called 떡볶이.")
         self.assertEqual(fake.last_call["instruct"], infer.INSTRUCT_MAP["CAUTION"])
 
 
