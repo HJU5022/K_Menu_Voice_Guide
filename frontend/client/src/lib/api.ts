@@ -67,12 +67,19 @@ function cartHeaders() {
 
 export type CandidateSource = { text: string; left: number; top: number; width: number; height: number };
 
+// 메뉴 줄에 붙은 수식어 하나. 서버는 한국어 키워드와 **영어 번역을 함께** 보낸다
+// (menu_modifiers 테이블). 화면에 내보내는 것은 keyword_en 쪽이다 — 읽는 사람이
+// 한국어를 못 읽는 여행자이고, 같은 음식이 여러 줄 나올 때(돼지김치찌개/참치김치찌개)
+// 이것이 서로를 구분할 수 있는 유일한 수단이기 때문이다.
+// tier(1~5)는 category='spice'에만 있고 재료에는 없다.
+export type Modifier = { keyword: string; keyword_en: string | null; tier?: number | null };
+
 export type ApiCandidate = {
   food_id: number;
   name_kr: string;
   name_en: string;
   score: number;
-  modifiers: { spice: string[]; ingredient: string[] };
+  modifiers: { spice: Modifier[]; ingredient: Modifier[] };
   thumbnail_url: string | null;
   thumbnail_attribution: string | null;
   source: CandidateSource | null;

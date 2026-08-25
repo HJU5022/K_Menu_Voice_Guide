@@ -215,6 +215,33 @@ button.brand {
   font-family: 'Noto Serif KR', 'Song Myung', serif;
 }
 
+/* 메뉴 줄의 수식어를 영어 태그로 늘어놓는 자리(맵기 → 재료 순).
+   글자가 작고 개수가 들쭉날쭉해서, 줄이 모자라면 다음 줄로 접히게 둔다. */
+.dish-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.dish-mod {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  color: var(--teal);
+  white-space: nowrap;
+}
+/* 맵기는 재료와 색을 달리한다 — 골라도 되는 정보(재료)와 조심해야 하는 정보(맵기)를
+   같은 모양으로 늘어놓으면 매운 것을 못 먹는 사람이 그냥 지나친다. */
+.dish-mod-spice {
+  color: var(--coral);
+  border-color: #e9b6a8;
+  background: var(--coral-soft);
+}
+
 
 /* 한국어일 때의 글꼴·줄바꿈.
    제목에 쓰는 'DM Serif Display'에는 한글이 없어서, 한국어를 넣으면 대체 글꼴로 떨어지며

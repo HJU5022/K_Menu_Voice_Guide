@@ -53,7 +53,11 @@ POST /api/analyze
       "name_kr": string,
       "name_en": string,
       "score": int,
-      "modifiers": {...},
+      "modifiers": {
+        "spice":      [{"keyword": string, "keyword_en": string | null, "tier": 1..5}],
+        "ingredient": [{"keyword": string, "keyword_en": string | null}]
+      },
+      "spice_level": 1 | 2 | 3 | 4 | 5 | null,
       "menu_text": string | null,
       "name_text": string | null,
       "thumbnail_url": string | null,
@@ -62,6 +66,12 @@ POST /api/analyze
   ]
 }
 ```
+
+**수식어는 영어와 함께 싣는다.** 화면이 보여주는 것은 `keyword_en` 쪽이다 — 이 서비스를
+쓰는 사람은 한국어를 읽지 못한다. 같은 음식이 여러 줄 나올 때(`돼지김치찌개` /
+`참치김치찌개`) 후보 이름은 둘 다 "Kimchi Jjigae"로 같으므로, 이 태그가 서로를 구분할
+수 있는 유일한 수단이다. `spice_level`은 그 음식 자체의 맵기이며 후보 카드의 불꽃 눈금에
+쓴다(수식어의 `tier`와는 별개 값이다).
 
 **후보는 메뉴판 "줄" 단위다.** 같은 `food_id`가 여러 번 나올 수 있다 — 메뉴판에
 "물만두"와 "군만두"가 둘 다 있으면 후보도 둘이고, 둘 다 `food_id`는 같다.
