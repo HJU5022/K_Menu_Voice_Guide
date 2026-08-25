@@ -116,6 +116,7 @@ export default function Home() {
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const [camera, setCamera] = useState(false);
+  const [cameraNotice, setCameraNotice] = useState<CameraFailure | null>(null);
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -267,9 +268,22 @@ export default function Home() {
             {/* 촬영은 이 서비스의 핵심 동작이다 — 식당에서 메뉴판을 찍는 것.
                 카메라를 직접 열어 찍는다. 권한이 거부되거나 카메라가 없는 기기에서는
                 파일 선택으로 넘어간다(아래 CameraCapture 설명 참고). */}
-            <Button className="primary-button" onClick={() => setCamera(true)}><Camera size={18} /> {t.takePhoto}</Button>
+            <Button className="primary-button" onClick={() => { setCameraNotice(null); setCamera(true); }}><Camera size={18} /> {t.takePhoto}</Button>
             <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> {t.uploadPhoto}</Button>
           </div>
+          {cameraNotice && (
+            <p className="camera-notice" role="status">
+              {cameraNotice === "denied"
+                ? "Camera access is blocked. Allow the camera for this site in your browser (usually a icon in the address bar), then tap Take a photo again."
+                : cameraNotice === "none"
+                  ? "No camera found on this device."
+                  : "This browser can't open the camera here."}
+              {" "}
+              <button type="button" className="link-button" onClick={() => cameraInputRef.current?.click()}>
+                Choose a photo instead
+              </button>
+            </p>
+          )}
           <p className="helper">{t.cameraHelper}</p>
         </section>
       </main>
@@ -277,8 +291,9 @@ export default function Home() {
       {camera && (
         <CameraCapture
           onClose={() => setCamera(false)}
-          onCaptured={(file) => { setCamera(false); handlePhoto(file); }}
-          onUnavailable={() => { setCamera(false); cameraInputRef.current?.click(); }}
+          onCaptured={(file) => { setCamera(false); setCameraNotice(null); handlePhoto(file); }}
+          onUnavailable={(reason) => { setCamera(false); setCameraNotice(reason); }}
+          onPickFile={() => { setCamera(false); cameraInputRef.current?.click(); }}
         />
       )}
       {/* Hidden real inputs behind the styled buttons above — capture="environment" opens
@@ -468,12 +483,17 @@ function Candidates({
  *
  * 스트림은 창을 닫을 때 반드시 멈춘다. 안 그러면 카메라 표시등이 계속 켜져 있어
  * "이 사이트가 나를 보고 있나" 하는 인상을 준다. */
+type CameraFailure = "denied" | "none" | "unsupported";
+
 function CameraCapture({
-  onClose, onCaptured, onUnavailable,
+  onClose, onCaptured, onUnavailable, onPickFile,
 }: {
   onClose: () => void;
   onCaptured: (file: File) => void;
-  onUnavailable: () => void;
+  // 카메라가 안 열린 경우 — 왜 안 됐는지 부모가 안내한다.
+  onUnavailable: (reason: CameraFailure) => void;
+  // 창 안의 "대신 사진 올리기" — 실패가 아니라 사용자가 고른 것이라 안내를 띄우지 않는다.
+  onPickFile: () => void;
 }) {
   const t = useT();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -495,10 +515,16 @@ function CameraCapture({
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
         setReady(true);
-      } catch {
-        // 권한 거부·카메라 없음·보안 컨텍스트 아님 — 어느 쪽이든 사용자가 할 수 있는
-        // 다음 수단(파일 선택)으로 넘긴다.
-        if (!cancelled) onUnavailable();
+      } catch (err) {
+        // 왜 못 열었는지까지 올려보낸다. 예전에는 이유를 삼키고 조용히 파일 선택창을
+        // 열었는데, 사용자에게는 "촬영을 눌렀더니 업로드 창이 뜬다"로만 보였다
+        // (실측 2026-08-26). 권한 거부는 사용자가 직접 풀 수 있는 문제라, 무엇이
+        // 막혔는지 알려주지 않으면 고칠 방법이 없다.
+        if (cancelled) return;
+        const name = (err as { name?: string } | null)?.name;
+        if (name === "NotAllowedError" || name === "SecurityError") onUnavailable("denied");
+        else if (name === "NotFoundError" || name === "OverconstrainedError") onUnavailable("none");
+        else onUnavailable("unsupported");
       }
     }
 
@@ -536,7 +562,7 @@ function CameraCapture({
         <div className="camera-tools">
           <button type="button" onClick={onClose}>{t.close}</button>
           <button type="button" className="camera-shutter" onClick={shoot} disabled={!ready} aria-label={t.takePhoto} />
-          <button type="button" onClick={onUnavailable}>{t.uploadInstead}</button>
+          <button type="button" onClick={onPickFile}>{t.uploadInstead}</button>
         </div>
       </div>
     </div>
@@ -827,28 +853,45 @@ function Result({
   onBack: () => void;
   onRefreshDetail: (c: ApiCandidate) => void;
 }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // 소리가 두 갈래다 — 이름만 읽는 것(이름 옆 스피커)과 설명 전체(아래 재생바).
+  // 서버가 각각 다른 파일로 주므로(name_audio_path / narration_audio_path) 하나를
+  // 재생하면 다른 하나는 멈춘다. 겹쳐 나오면 둘 다 안 들린다.
+  const nameAudioRef = useRef<HTMLAudioElement | null>(null);
+  const narrationRef = useRef<HTMLAudioElement | null>(null);
+  const [isNamePlaying, setIsNamePlaying] = useState(false);
   const spiceLevel = detail.spice_level ?? candidate.spice_level;
-  const audioUrl = useMemo(() => resolveAudioUrl(detail.narration_audio_path), [detail.narration_audio_path]);
+  const narrationUrl = useMemo(
+    () => (detail.tts_status === "ok" ? resolveAudioUrl(detail.narration_audio_path) : null),
+    [detail.tts_status, detail.narration_audio_path],
+  );
+  const nameUrl = useMemo(
+    () => resolveAudioUrl(detail.name_audio_path ?? null),
+    [detail.name_audio_path],
+  );
 
-  function toggleAudio() {
-    if (detail.tts_status !== "ok" || !audioUrl) {
-      // Nothing to play yet (TTS wasn't ready when details were fetched) — ask for the
-      // detail again rather than inventing a separate "retry TTS" endpoint.
+  function toggleName() {
+    if (!nameUrl) {
+      // 아직 만들어지지 않았다(상세를 받아올 때 TTS가 준비되지 않았던 경우).
+      // "TTS만 다시" 하는 엔드포인트를 따로 만들지 않고 상세를 다시 받는다.
       onRefreshDetail(candidate);
       return;
     }
-    if (!audioRef.current) audioRef.current = new Audio(audioUrl);
-    if (audioRef.current.src !== audioUrl) audioRef.current.src = audioUrl;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.onended = () => setIsPlaying(false);
-      audioRef.current.play();
-      setIsPlaying(true);
+    narrationRef.current?.pause();
+    if (!nameAudioRef.current) nameAudioRef.current = new Audio(nameUrl);
+    if (nameAudioRef.current.src !== nameUrl) nameAudioRef.current.src = nameUrl;
+    if (isNamePlaying) {
+      nameAudioRef.current.pause();
+      setIsNamePlaying(false);
+      return;
     }
+    nameAudioRef.current.onended = () => setIsNamePlaying(false);
+    nameAudioRef.current.play();
+    setIsNamePlaying(true);
+  }
+
+  function stopName() {
+    nameAudioRef.current?.pause();
+    setIsNamePlaying(false);
   }
 
   return (
@@ -860,7 +903,21 @@ function Result({
           <div>
             <p className="eyebrow">A CLOSER GUIDE</p>
             <h1><span className="kr-display">{detail.name_kr}</span></h1>
-            <p className="result-en">{detail.name_en}</p>
+            {/* 이름 옆 스피커 — 이 버튼은 이름만 읽는다. 설명은 아래 재생바가 맡는다.
+                화면에는 로마자(Galbitang)가 보이지만 소리는 한글 이름을 읽은 것이다. */}
+            <p className="result-en">
+              {detail.name_en}
+              <button
+                type="button"
+                className={`name-speaker${isNamePlaying ? " is-playing" : ""}`}
+                onClick={toggleName}
+                aria-pressed={isNamePlaying}
+                aria-label={nameUrl ? `Hear how to say ${detail.name_en}` : "Name audio is not ready — tap to try again"}
+                title={nameUrl ? "Hear the name" : "Not ready — tap to try again"}
+              >
+                <Volume2 size={16} />
+              </button>
+            </p>
             <div className="result-pills"><span>{formatWon(candidate.price_krw)}</span></div>
           </div>
           <div className="result-image">
@@ -869,10 +926,27 @@ function Result({
             ) : (
               <div style={{ width: "100%", height: 310, background: "var(--sand)" }} />
             )}
-            <button className="audio-button" onClick={toggleAudio}>
-              <Volume2 size={18} /> {detail.tts_status === "ok" ? (isPlaying ? "Pause" : "Hear the name") : "Try audio again"}
-            </button>
           </div>
+        </section>
+        {/* 듣는 문장을 눈으로도 따라갈 수 있게 나레이션 원문을 같이 놓는다.
+            재생바는 이름 스피커와 떨어뜨려 둔다 — 무엇을 누르면 무엇이 나오는지 헷갈리면
+            이름만 듣고 싶은 사람이 설명을 통째로 듣게 된다. */}
+        <section className="narration-block">
+          <p className="narration-text">{detail.narration_text}</p>
+          {narrationUrl ? (
+            <audio
+              ref={narrationRef}
+              className="narration-player"
+              controls
+              preload="none"
+              src={narrationUrl}
+              onPlay={stopName}
+            />
+          ) : (
+            <button className="audio-button" onClick={() => onRefreshDetail(candidate)}>
+              <Volume2 size={18} /> Try audio again
+            </button>
+          )}
         </section>
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         <div className="detail-grid">
