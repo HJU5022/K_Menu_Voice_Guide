@@ -4,18 +4,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Camera, Check, ChevronDown, CircleHelp, Flame,
-  Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Sparkles, Volume2, X,
+  Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Volume2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LangContext, useT } from "@/lang";
 import { STRINGS, type Lang, type Strings } from "@/i18n";
+import Landing from "./Landing";
 import {
   analyzeMenu, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
   EMPTY_CART, apiBaseUrl, isUsingCustomApi,
   type ApiCandidate, type CartItemRef, type CartLine, type CartResponse, type FoodDetail, type SupportedFood,
 } from "@/lib/api";
 
-type Screen = "camera" | "processing" | "candidates" | "order" | "result" | "error";
+/** 화면 흐름 — landing → camera → candidates → result ↔ order.
+ *
+ * **새 URL을 만들지 않는다.** 배포처인 Hugging Face static Space에는 SPA fallback이 없어서
+ * `/landing` 같은 경로는 새로고침이나 직접 접근 한 번에 404가 된다(App.tsx가 "/index.html"을
+ * 따로 받는 것도 같은 이유다). 화면 이동은 전부 이 상태값 하나로 한다. */
+type Screen = "landing" | "camera" | "processing" | "candidates" | "order" | "result" | "error";
 
 /** 헤더가 동작하는 데 필요한 것들.
  *
@@ -83,7 +89,7 @@ const DETAIL_CARDS: [key: string, label: string][] = [
 ];
 
 export default function Home() {
-  const [screen, setScreen] = useState<Screen>("camera");
+  const [screen, setScreen] = useState<Screen>("landing");
   const [modal, setModal] = useState<Modal>(null);
   const [lang, setLang] = useState("en");
   // Home은 Provider 바깥이라 useT()가 기본값을 읽는다. 여기서는 고른 언어로 직접 꺼낸다.
@@ -189,7 +195,7 @@ export default function Home() {
     lang,
     setLang,
     onSettings: () => setModal("settings"),
-    onHome: () => setScreen("camera"),
+    onHome: () => setScreen("landing"),
   };
 
   // 설정·개인정보 창은 어느 화면에서 열든 같은 것이어야 한다. 예전에는 첫 화면의
@@ -200,6 +206,16 @@ export default function Home() {
     <LangContext.Provider value={lang as Lang}>{node}{modalNode}</LangContext.Provider>
   );
 
+  // 랜딩은 껍데기·머리말·꼬리말을 촬영 화면과 **똑같이** 쓴다(언어 선택과 설정이
+  // 화면마다 달라지지 않게). 알맹이만 Landing.tsx가 그린다.
+  if (screen === "landing")
+    return withModal(
+      <div className="app-shell">
+        <Header {...header} />
+        <Landing onStart={() => setScreen("camera")} />
+        <SiteFooter onPrivacy={() => setModal("privacy")} onTerms={() => setModal("terms")} />
+      </div>
+    );
   if (screen === "processing") return withModal(<Processing />);
   if (screen === "candidates")
     return withModal(
@@ -234,13 +250,12 @@ export default function Home() {
       <Header {...header} />
       <main className="camera-layout">
         <section className="camera-copy reveal">
-          <p className="eyebrow"><Sparkles size={14} /> {t.heroEyebrow}</p>
-          <h1>{t.heroTitle}</h1>
-          {/* 예전 문구("A clearer way to choose dinner, one dish at a time.")는 분위기만
-              전할 뿐 무엇을 해주는지 말하지 않았다. 처음 온 사람이 사진을 올릴지 말지
-              정하려면 무엇이 돌아오는지 알아야 한다. */}
-          <p className="lead">{t.heroLead}</p>
-          <div className="trust-note"><ShieldCheck size={17} /><span>{t.privacyNote}</span></div>
+          <h1>{t.cameraTitle}</h1>
+          {/* 서비스 설명(heroEyebrow·heroLead)과 사진 처리 안내(privacyNote)는 랜딩으로
+              옮겼다. 여기서 같은 말을 되풀이하면 "Get started"를 눌렀는데 제자리인 것처럼
+              읽힌다. 이 자리에는 **좋은 사진을 얻는 법**만 남긴다 — 메뉴판이 화면 밖으로
+              잘리면 OCR이 그 줄을 통째로 놓친다. */}
+          <p className="lead">{t.cameraLead}</p>
         </section>
         <section className="camera-panel reveal delay-1">
           <div className="photo-frame" style={{ backgroundImage: CAMERA_HERO_IMAGE }}>
@@ -258,7 +273,7 @@ export default function Home() {
           <p className="helper">{t.cameraHelper}</p>
         </section>
       </main>
-      <footer className="site-footer"><span>© 2026 K-Menu Voice Guide</span><span><button onClick={() => setModal("privacy")}>{t.privacy}</button><b>·</b><button onClick={() => setModal("terms")}>{t.terms}</button></span></footer>
+      <SiteFooter onPrivacy={() => setModal("privacy")} onTerms={() => setModal("terms")} />
       {camera && (
         <CameraCapture
           onClose={() => setCamera(false)}
@@ -292,6 +307,15 @@ function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
   // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
   // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
   return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+}
+
+/** 꼬리말 — 랜딩과 촬영 화면이 같은 것을 쓴다.
+ *
+ * 예전에는 촬영 화면의 return 안에 직접 적혀 있었다. 랜딩이 생기면서 두 곳이 필요해졌는데,
+ * 같은 마크업을 두 벌 두면 한쪽만 고쳐져 개인정보·이용약관 링크가 화면마다 달라진다. */
+function SiteFooter({ onPrivacy, onTerms }: { onPrivacy: () => void; onTerms: () => void }) {
+  const t = useT();
+  return <footer className="site-footer"><span>© 2026 K-Menu Voice Guide</span><span><button onClick={onPrivacy}>{t.privacy}</button><b>·</b><button onClick={onTerms}>{t.terms}</button></span></footer>;
 }
 
 /** 기본 서버가 아닌 곳을 보고 있을 때만 뜨는 알림.

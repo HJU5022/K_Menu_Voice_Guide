@@ -350,3 +350,84 @@ button.menu-photo-frame {
   padding: 0;
 }
 .camera-tools .camera-shutter:disabled { opacity: 0.45; cursor: default; }
+
+
+/* 랜딩 — 처음 들어온 사람이 5초 안에 "메뉴판을 찍으면 영어로 설명해 준다"를 알고
+   시작 단추를 누르게 하는 화면.
+
+   새 디자인 언어를 들이지 않는다. 촬영 화면이 쓰던 종이 판(.camera-panel)과 눈썹·제목·
+   리드(.eyebrow·.lead·.trust-note) 규칙을 그대로 돌려 쓴다 — 첫 화면만 다른 옷을 입으면
+   시작 단추를 누른 뒤 딴 서비스로 넘어온 것처럼 읽힌다.
+
+   자리 배치는 grid-template-areas로 못 박는다. 폰에서는 **세 단계가 사진보다 먼저** 와야
+   하고(사진은 자리만 차지할 뿐 알려주는 것이 없다), 넓은 화면에서는 그 사진이 오른쪽
+   위로 올라가야 한다. 적힌 순서에 맡기면 둘 중 하나는 반드시 어긋난다. */
+.landing-layout {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 64px 40px 84px;
+  display: grid;
+  grid-template-columns: 1.02fr 0.98fr;
+  grid-template-areas: "copy visual" "steps steps";
+  gap: 30px 70px;
+  align-items: center;
+}
+.landing-copy { grid-area: copy; padding-left: 8px; }
+.landing-visual { grid-area: visual; margin: 0; transform: rotate(-1.1deg); }
+.landing-steps-section { grid-area: steps; }
+
+/* 제목은 촬영 화면(.camera-copy h1)보다 한 단계 작다. 저기는 세 단어짜리 구호이고 여기는
+   다섯 단어짜리 문장이라, 같은 크기로 두면 폰에서 넉 줄이 되어 시작 단추가 화면 밖으로
+   밀린다. 한국어일 때 글꼴이 'Noto Serif KR'로 바뀌는 것은 위쪽 html[lang="ko"] 규칙이
+   맡는다(그쪽이 더 구체적이라 여기 적은 font-family를 이긴다 — 일부러 그렇게 둔다). */
+.landing-copy h1 {
+  font-family: 'DM Serif Display', serif;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  color: var(--teal-dark);
+  font-size: clamp(38px, 4.6vw, 66px);
+  margin: 0 0 22px;
+  max-width: 520px;
+}
+/* 한글은 글자 하나가 넓어 같은 크기면 화면을 넘긴다. */
+html[lang="ko"] .landing-copy h1 { font-size: clamp(30px, 3.5vw, 48px); line-height: 1.28; }
+
+.landing-cta { margin-top: 34px; min-height: 52px; padding: 0 28px; font-size: 13px; }
+/* 시작 단추에 딸린 안내라 촬영 화면의 .trust-note만큼 떨어뜨리지 않는다. */
+.landing-copy .trust-note { margin-top: 18px; }
+
+.landing-photo { min-height: 380px; }
+/* 촬영 화면의 어두운 덮개는 그 위에 얹은 흰 글씨를 읽히게 하려고 있다. 여기에는 얹는
+   글씨가 없으니, 사진이 까닭 없이 어두워 보이지 않게 옅게 깐다. */
+.landing-visual .photo-wash { background: linear-gradient(180deg, rgba(14, 69, 73, .05), rgba(14, 69, 73, .3)); }
+
+/* 세 단계 — 번호·작은 아이콘·제목만 적는다. 설명을 붙이면 폰에서 길어져 정작 눌러야 할
+   시작 단추가 멀어진다. 칸은 인쇄된 표처럼 점선으로 나눈다(.section-heading과 같은 점선). */
+.landing-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
+.landing-step { display: flex; align-items: center; gap: 14px; padding: 22px 24px 22px 0; border-top: 1px dotted #b8a997; }
+.landing-step + .landing-step { padding-left: 24px; border-left: 1px dotted #b8a997; }
+/* 번호를 두 자리로 적는 것은 후보 목록에서 사진 위 상자에 붙는 번호와 같은 표기다. */
+.landing-step-no { font-family: 'DM Serif Display', serif; font-size: 25px; line-height: 1; color: var(--coral); flex: none; }
+.landing-step-icon { display: grid; place-items: center; color: var(--teal); flex: none; }
+.landing-step p { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--teal-dark); }
+
+@media (max-width: 850px) {
+  .landing-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas: "copy" "steps" "visual";
+    gap: 34px;
+    padding: 34px 22px 60px;
+  }
+  /* .camera-panel의 기울기를 물려받았으므로 여기서 되돌린다(위 850px 규칙보다 뒤에 있다). */
+  .landing-visual { transform: none; }
+  /* 폰에서 사진이 화면을 다 먹으면 세 단계와 시작 단추가 아래로 밀려난다. */
+  .landing-photo { min-height: 220px; }
+  .landing-steps { grid-template-columns: 1fr; }
+  .landing-step, .landing-step + .landing-step { padding: 16px 0; border-left: 0; }
+}
+@media (max-width: 560px) {
+  .landing-copy { padding-left: 0; }
+  /* 식당에서 한 손으로 누른다 — 단추는 화면 너비를 다 쓰고 손가락만큼 두껍게. */
+  .landing-cta { width: 100%; }
+}
