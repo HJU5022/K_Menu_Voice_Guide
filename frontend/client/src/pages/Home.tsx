@@ -47,6 +47,16 @@ type ErrorRetryTarget = "camera" | "candidates";
 // /manus-storage/... proxy path, which only resolves inside Manus's own hosted preview.
 const CAMERA_HERO_IMAGE = "url('/assets/kmenu-menu-table.jpg')";
 
+/** 사진 위 상자와 목록 번호에 돌려 쓰는 색.
+ *
+ * 앱 `mobile/lib/screens/menu_photo_overlay.dart`의 팔레트와 **같은 값**이어야 한다.
+ * 사진의 상자와 목록의 배지가 같은 색·같은 번호일 때만 "이 카드가 사진의 저기"를
+ * 눈으로 이을 수 있다. 6개를 넘으면 색이 돌지만 번호가 같이 붙어 헷갈리지 않는다. */
+const BOX_COLORS = ["#D32F2F", "#1976D2", "#388E3C", "#F57C00", "#7B1FA2", "#0097A7"];
+const boxColor = (index: number) => BOX_COLORS[index % BOX_COLORS.length];
+/** 번호는 두 자리로 적는다(01, 02 …) — 앱과 같게 맞춘다. */
+const boxLabel = (index: number) => String(index + 1).padStart(2, "0");
+
 const formatWon = (value: number | null) => (value === null ? "Price not shown" : `₩${value.toLocaleString("en-US")}`);
 
 // Copy for the two OCR statuses — reused verbatim from app.py's ERROR_MESSAGES /
@@ -303,6 +313,14 @@ function Candidates({
 }) {
   const [lightbox, setLightbox] = useState<{ url: string; attribution: string | null } | null>(null);
 
+  // 메뉴판에 인쇄된 순서(line_no)로 늘어놓는다. 서버가 주는 순서는 점수 순이라 사진과
+  // 목록의 순서가 어긋나 눈으로 짝짓기 어려웠다. 줄 번호가 없는 후보는 뒤로 보낸다
+  // (이름이 여러 글자 조각에 걸쳐 잘리면 서버가 줄을 특정하지 못한다).
+  // **사진 위 상자와 카드가 반드시 같은 목록을 봐야** 번호와 색이 어긋나지 않는다.
+  const ordered = [...candidates].sort(
+    (a, b) => (a.line_no ?? Number.MAX_SAFE_INTEGER) - (b.line_no ?? Number.MAX_SAFE_INTEGER),
+  );
+
   return (
     <div className="app-shell">
       <Header {...header} />
@@ -314,8 +332,41 @@ function Candidates({
             small corner chip. */}
         {photoUrl && (
           <div className="menu-photo-hero">
-            <img src={photoUrl} alt="Uploaded menu" />
-            <p>Menu photo <b>ready to compare</b></p>
+            {/* 상자는 사진 **자체의 크기**를 기준으로 얹어야 한다. 그래서 사진을 감싸는
+                칸이 사진 크기에 딱 맞아야 한다(inline-block). 칸이 사진보다 크면 남는
+                여백만큼 상자가 밀린다. */}
+            <div className="menu-photo-frame">
+              <img src={photoUrl} alt="Uploaded menu" />
+              {ordered.map((candidate, index) =>
+                candidate.source ? (
+                  <span
+                    key={`${candidate.food_id}-${index}`}
+                    className="menu-photo-box"
+                    style={{
+                      left: `${candidate.source.left * 100}%`,
+                      top: `${candidate.source.top * 100}%`,
+                      width: `${candidate.source.width * 100}%`,
+                      height: `${candidate.source.height * 100}%`,
+                      borderColor: boxColor(index),
+                    }}
+                  >
+                    <b style={{ background: boxColor(index) }}>{boxLabel(index)}</b>
+                  </span>
+                ) : null,
+              )}
+            </div>
+            <p>
+              Menu photo <b>ready to compare</b>
+              {/* 상자가 안 붙은 줄이 있으면 그 수를 밝힌다. 상자가 2개인데 목록이 6줄이면
+                  "왜 4개는 표시가 없지"가 되는데, 이름이 여러 글자 조각에 걸쳐 잘리면
+                  서버가 위치를 특정하지 못해 생기는 정상 동작이다. */}
+              {ordered.some((c) => !c.source) && (
+                <span className="photo-note">
+                  {" "}· {ordered.filter((c) => !c.source).length} of {ordered.length} could not be
+                  located on the photo
+                </span>
+              )}
+            </p>
           </div>
         )}
         <div className="section-heading">
@@ -327,13 +378,14 @@ function Candidates({
         </div>
         <div className="candidate-layout">
           <div className="dish-list">
-            {candidates.map((candidate, index) => (
+            {ordered.map((candidate, index) => (
               <DishCard
                 // The same dish can legitimately appear as two candidates (matched from two
                 // separate menu lines, e.g. two sizes/variants) sharing one food_id — index
                 // keeps the React key unique even though the food_id repeats.
                 key={`${candidate.food_id}-${index}`}
                 candidate={candidate}
+                index={index}
                 count={quantityOf(candidate.food_id)}
                 onQuantityChange={onQuantityChange}
                 onDetail={onDetail}
@@ -365,9 +417,11 @@ function Lightbox({ image, onClose }: { image: { url: string; attribution: strin
 }
 
 function DishCard({
-  candidate, count, onQuantityChange, onDetail, onOpenImage, featured,
+  candidate, index, count, onQuantityChange, onDetail, onOpenImage, featured,
 }: {
   candidate: ApiCandidate;
+  /** 목록에서 몇 번째인가 — 사진 위 상자와 짝을 맞추는 데 쓴다. */
+  index: number;
   count: number;
   onQuantityChange: (item: CartItemRef, delta: number) => void;
   onDetail: (c: ApiCandidate) => void;
@@ -377,6 +431,8 @@ function DishCard({
   const cartRef: CartItemRef = { food_id: candidate.food_id, name_kr: candidate.name_kr, name_en: candidate.name_en, price_krw: candidate.price_krw };
   return (
     <article className={`dish-card ${featured ? "featured" : ""}`}>
+      {/* 사진 위 상자와 같은 번호·같은 색. 이것이 카드와 사진을 잇는 유일한 단서다. */}
+      <span className="dish-index" style={{ background: boxColor(index) }}>{boxLabel(index)}</span>
       {candidate.thumbnail_url ? (
         <button
           type="button"
@@ -399,7 +455,16 @@ function DishCard({
               앱(candidates_screen.dart)과 같은 순서다.
               "Best match / Menu match" 라벨은 뺐다 — 무엇에 견줘 최고인지 알 수 없어
               외국인에게는 "이게 더 정확한가?"라는 오해만 남겼다. */}
-          <div><p className="dish-name-en">{candidate.name_en}</p><p className="dish-name-kr">{candidate.name_kr}</p></div>
+          <div>
+            <p className="dish-name-en">{candidate.name_en}</p>
+            <p className="dish-name-kr">{candidate.name_kr}</p>
+            {/* 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은
+                말을 두 번 적는 꼴이다. 이 줄이 없으면 "족발 ₩31,000"과 "족발 ₩33,000"이
+                같은 메뉴가 두 번 뜬 것처럼 보인다(실제로는 반반족발과 족발처럼 다른 줄이다). */}
+            {candidate.name_text && candidate.name_text !== candidate.name_kr && (
+              <p className="dish-menu-text" lang="ko">Menu: {candidate.name_text}</p>
+            )}
+          </div>
         </div>
         <div className="dish-meta">
           <span>{formatWon(candidate.price_krw)}</span>

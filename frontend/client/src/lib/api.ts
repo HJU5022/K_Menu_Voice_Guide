@@ -80,6 +80,14 @@ export type ApiCandidate = {
   price_krw_display: string | null;
   // 1-5, or null when the food row has no spice_level (docs/specs/api-layer.md, added 2026-08-22).
   spice_level: number | null;
+  // 이 후보가 나온 메뉴판 줄의 글자 그대로. 같은 음식이 여러 줄에 있으면 후보도 여러 개
+  // 나오는데(반반족발 / 마늘족발 → 둘 다 "족발"), 그때 무엇이 다른지 알려주는 유일한
+  // 단서다. 이걸 안 보여주면 화면에는 같은 이름이 두 번 뜬 것처럼 보인다.
+  menu_text: string | null;
+  // 같은 줄에서 가격만 뗀 것. 화면은 가격을 따로 보여주므로 이름 자리에는 이쪽을 쓴다.
+  name_text: string | null;
+  // 메뉴판에서 위에서부터 센 줄 번호. 화면을 메뉴판에 인쇄된 순서로 늘어놓는 데 쓴다.
+  line_no: number | null;
 };
 
 // not_a_menu는 글자는 읽혔지만 가격 붙은 메뉴 줄이 하나도 없을 때다. 얼굴이나 풍경을

@@ -151,3 +151,66 @@ button.brand {
   max-height: 60vh;
   background: var(--sand);
 }
+
+
+/* 사진 위 번호 상자 — 어느 카드가 사진의 어디에서 나왔는지 잇는다.
+   상자는 사진 크기를 기준으로 얹으므로, 감싸는 칸이 사진에 딱 맞아야 한다.
+   칸이 사진보다 크면(예: width:100%인 블록) 남는 여백만큼 상자가 밀린다. */
+.menu-photo-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.menu-photo-frame img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background: var(--sand);
+  box-shadow: var(--shadow-soft);
+}
+.menu-photo-hero { text-align: center; }
+.menu-photo-box {
+  position: absolute;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  pointer-events: none;
+}
+/* 번호는 상자 왼쪽 위 바깥에 붙인다. 안에 넣으면 메뉴 글자를 가린다 —
+   앱에서 배지가 글자를 덮는 문제로 이미 겪은 일이다. */
+.menu-photo-box b {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  transform: translateY(-100%);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  padding: 3px 5px;
+  border-radius: 2px 2px 0 0;
+}
+
+/* 목록 카드의 번호 — 사진 위 상자와 같은 번호·같은 색. */
+.dish-card { position: relative; }
+.dish-index {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  padding: 3px 7px;
+  border-radius: 2px;
+}
+.photo-note { color: var(--muted); }
+
+.dish-title .dish-menu-text {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'Noto Serif KR', 'Song Myung', serif;
+}
