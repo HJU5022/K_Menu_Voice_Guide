@@ -514,3 +514,32 @@ insert into menu_modifiers (keyword, category, keyword_en, spice_tier) values
   ('곤이', 'ingredient', 'Fish Intestines', null),
   ('천엽', 'ingredient', 'Omasum', null)
 on conflict (keyword) do nothing;
+
+-- 2026-08-26 추가. 관광 메뉴판 데이터셋(6,197개 메뉴명)에서 등록 음식 이름 앞뒤에 실제로
+-- 붙는 조각을 세어 뽑았다. 여기 없던 탓에 "황기갈비탕"·"토종된장찌개"처럼 수식어가 분명히
+-- 인쇄된 줄에서도 태그가 하나도 안 나왔다.
+--
+-- 한 글자 수식어(소·생·닭·왕)는 넣지 않았다. "소면"·"생맥주"처럼 상관없는 낱말 안에
+-- 걸려서 엉뚱한 재료가 붙는다.
+insert into menu_modifiers (keyword, category, keyword_en, spice_tier) values
+  ('한우',   'ingredient', 'Korean Beef',          null),
+  ('돼지',   'ingredient', 'Pork',                 null),
+  ('흑돼지', 'ingredient', 'Black Pork',           null),
+  ('삼겹',   'ingredient', 'Pork Belly',           null),
+  ('차돌',   'ingredient', 'Brisket',              null),
+  ('대패',   'ingredient', 'Shaved Pork',          null),
+  ('오삼',   'ingredient', 'Squid and Pork Belly', null),
+  ('황기',   'ingredient', 'Astragalus',           null),
+  ('한방',   'ingredient', 'Medicinal Herbs',      null),
+  ('토종',   'ingredient', 'Native Breed',         null),
+  ('모듬',   'ingredient', 'Assorted',             null),
+  ('모둠',   'ingredient', 'Assorted',             null),
+  ('반반',   'ingredient', 'Half and Half',        null),
+  ('양념',   'ingredient', 'Marinated',            null),
+  ('비빔',   'ingredient', 'Mixed',                null),
+  ('훈제',   'ingredient', 'Smoked',               null),
+  ('돌솥',   'ingredient', 'Hot Stone Pot',        null),
+  ('뚝배기', 'ingredient', 'Earthen Pot',          null),
+  ('철판',   'ingredient', 'Griddled',             null),
+  ('원조',   'ingredient', 'Original',             null)
+on conflict (keyword) do nothing;
