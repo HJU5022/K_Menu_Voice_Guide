@@ -11,6 +11,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      {/* Hugging Face의 static Space는 첫 페이지를 "/" 가 아니라 "/index.html" 주소로
+          내보낸다. 그 경로를 첫 화면으로 받지 않으면 배포본에서만 404가 뜬다
+          (로컬 개발 서버는 "/" 로 열려서 이 문제가 안 보인다). */}
+      <Route path="/index.html" component={Home} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

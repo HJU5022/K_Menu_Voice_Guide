@@ -73,4 +73,5 @@ git remote add space "$SPACE_URL"
 git push --force space main
 
 echo
-echo "완료. 확인: https://$(echo "$SPACE_ID" | tr '/_' '--' | tr 'A-Z' 'a-z').hf.space"
+# static SDK는 일반 Space와 도메인이 다르다 — 가운데에 .static 이 들어간다.
+echo "완료. 확인: https://$(echo "$SPACE_ID" | tr '/_' '--' | tr 'A-Z' 'a-z').static.hf.space"
