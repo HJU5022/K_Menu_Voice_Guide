@@ -31,7 +31,6 @@
 | `specs/ocr-finetuning.md` | 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준 |
 | `specs/ocr-preprocess-runtime.md` | 추론 경로에 OpenCV 전처리 연결 |
 | `specs/sample-menu-images.md` | 처음 온 사람이 눌러볼 예시 메뉴판 사진 |
-| `specs/streamlit-app.md` | 옛 Streamlit 화면(`app.py`) — 플랫폼 선정 근거·화면 구성. **`app.py`와 함께 제거 예정**이라 새 작업의 기준이 아니다 |
 | `specs/supported-foods.md` | 지원 음식 50개 목록·선정 기준 |
 | `specs/text-generation.md` | 카테고리 6개 조합 + spice_level→style 결정 로직 |
 | `specs/tts-finetuning.md` | TTS 파인튜닝 방식·목표 (실제 실험 결과는 [`eval/TTS_MODULE.md`](../eval/TTS_MODULE.md)) |

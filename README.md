@@ -189,7 +189,7 @@ Hugging Face Space를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 `K_M
 
 웹과 앱은 같은 HTTP 계약(`docs/specs/api-layer.md`)을 쓰지만, **서버 주소를 넣는 방법이 다르다.** 웹은 Vite 규칙상 빌드 시점에 `VITE_API_BASE_URL`이 JS 안에 박히므로 주소를 바꾸려면 다시 빌드해야 하고(`frontend/space/deploy.sh`가 빌드와 업로드를 같이 한다), 앱은 `mobile/lib/config.dart` 한 곳만 고쳐 로컬·터널·배포 환경을 전환한다(`docs/specs/flutter-mobile-app.md`). 웹 Space 배포는 대상 Space를 매번 통째로 덮어쓴다(`--force`) — 소스는 GitHub에 있고 Space에는 산출물만 둔다.
 
-2026-08-25까지는 Streamlit 진입점(`app.py`)이 웹 화면이었다. 처음에는 화면과 파이프라인을 한 프로세스에서 직접 연결했고, 08-23에 API를 HTTP로 부르는 화면 전용 클라이언트로 바꿨다. React 도입 뒤에도 **아직 지우지 않았다** — React 화면의 검증이 끝나고 디자인 작업만 남는 시점에 `app.py`·`.streamlit/`·`docs/specs/streamlit-app.md`를 함께 제거한다. 그때까지는 백업으로만 두고, 새 화면 기능은 `frontend/`에만 넣는다(두 벌을 나란히 유지하면 화면 기능이 갈라진다).
+2026-08-25까지는 Streamlit 진입점(`app.py`)이 웹 화면이었다. 애초에 Streamlit을 고른 뒤 **Streamlit Cloud에 올리려 했으나 모델을 올릴 수 없어 포기하고** Hugging Face Spaces로 옮겼다. 처음에는 화면과 파이프라인을 한 프로세스에서 직접 연결했고, 08-23에 API를 HTTP로 부르는 화면 전용 클라이언트로 바꿨다가, 08-25에 React를 도입하고 **08-26에 Streamlit 진입점·테마 설정·테스트를 저장소에서 제거했다**(경위는 `frontend/docs/web-app.md` 머리말).
 
 ### 디렉토리 구조
 

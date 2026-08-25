@@ -4,7 +4,8 @@
 필요하기 때문이다(docs/specs/api-layer.md 참고). 이 파일에는 요청/응답 변환만 두고,
 OCR·텍스트·TTS 로직은 그대로 src/ 아래에 둔다.
 
-웹 화면은 `app.py`(Streamlit)가 맡는다 — 그쪽은 이 API를 거치지 않고 src/를 직접 부른다.
+웹 화면은 `frontend/`(React)가 맡는다 — 이 API를 HTTP로 부르는 별도 클라이언트이며,
+src/를 직접 임포트하지 않는다.
 """
 
 # 다른 어떤 import보다도 먼저 torch를 로드해야 한다 — src/pipeline.py가 쓰는 paddleocr을

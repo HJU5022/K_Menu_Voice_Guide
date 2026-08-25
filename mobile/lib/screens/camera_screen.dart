@@ -106,7 +106,7 @@ class _CameraScreenState extends State<CameraScreen> {
       // 뒤로 오면 이 화면이 그대로 남아 있어 다시 찍기가 편하다.
       if (result.isSuccess) {
         // 후보가 하나뿐이면 고를 것이 없으므로 선택 화면을 건너뛰고 바로 상세로
-        // 간다. 웹앱(app.py)도 같게 동작한다(`streamlit-app.md` EC-03).
+        // 간다. 웹앱(frontend/)도 같게 동작한다(`frontend/docs/web-app.md` EC-03).
         // 뒤로가기를 누르면 이 촬영 화면으로 돌아온다 — 중간에 아무것도 안 고른
         // 선택 화면이 끼어 있으면 한 번 더 눌러야 해서 오히려 번거롭다.
         // 새 메뉴판을 성공적으로 분석했으면 카트를 비운다 — 카트는 앱이 아니라

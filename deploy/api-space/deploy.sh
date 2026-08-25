@@ -36,14 +36,12 @@ trap 'rm -rf "$STAGING_DIR"' EXIT
 # 실행에 안 쓰여서 빼는 것 (2.4MB 중 1.1MB를 차지한다):
 #   tests/       테스트
 #   docs/        문서
-#   app.py       Streamlit 웹 화면 — 화면은 React로 옮겼고, 이 서버와 무관하다
-#   .streamlit/  Streamlit 테마 설정
 #
 # models/ 와 data/ 는 README 한 장씩(각 4KB)이라 남긴다 — 코드 주석이 그 문서를
 # 가리키므로, 컨테이너 안에서 코드를 읽을 때 링크가 끊기지 않는다.
 EXCLUDE_PATHS=(
   ':(exclude)mobile' ':(exclude)eval' ':(exclude)frontend'
-  ':(exclude)tests' ':(exclude)docs' ':(exclude)app.py' ':(exclude).streamlit'
+  ':(exclude)tests' ':(exclude)docs'
 )
 
 echo "==> 대상 Space: $SPACE_ID"
