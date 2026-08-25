@@ -14,7 +14,10 @@ def _load() -> dict[str, list[dict]]:
     if _cache is None:
         _cache = {
             "foods": client.table("foods")
-            .select("id, name_kr, name_en, spice_level, thumbnail_url, thumbnail_attribution")
+            .select(
+                "id, name_kr, name_en, spice_level, "
+                "thumbnail_url, thumbnail_attribution"
+            )
             .execute()
             .data,
             "food_details": client.table("food_details")
