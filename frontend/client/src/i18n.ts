@@ -18,12 +18,30 @@ const en = {
   settings: "Settings",
   goHome: "Go to the start",
 
-  // 첫 화면
+  // 랜딩 — 처음 들어온 사람이 무엇을 해주는 서비스인지 먼저 알게 하는 화면.
+  //
+  // **heroTitle·heroLead는 한국어가 원본이다.** 영어를 먼저 쓰고 옮기면 "아는 음식을 찾아"
+  // 처럼 한국어에서 뜻이 뒤집히는 문장이 나온다(누가 아는 음식인지 읽는 사람은 모른다).
+  // 이 두 줄을 고칠 때는 ko를 먼저 자연스럽게 쓰고 en을 거기서 옮긴다.
+  //
+  // heroEyebrow·heroLead·privacyNote는 예전에 촬영 화면 위에 얹혀 있던 것을 여기로 **옮긴**
+  // 것이다. 두 화면에 같은 말을 겹쳐 두면 "Get started"를 눌러도 제자리인 줄 안다.
   heroEyebrow: "MENU, MADE CLEAR",
-  heroTitle: "Scan a Korean menu.",
+  heroTitle: "Know what you're ordering.",
   heroLead:
-    "Photograph a Korean menu. We find the dishes we know and explain each one in English — what it is, what goes in it, and how spicy.",
+    "Photograph a Korean menu. We find the dishes we can guide you through and explain each one — what it is, what goes in it, and how spicy.",
   privacyNote: "Your photo is used only to identify menu text. It is not stored.",
+  // 세 단계는 **제목만** 적는다. 이 화면이 하는 일은 설득이 아니라 "이렇게 쓰면 된다"를
+  // 5초 안에 보여주는 것이고, 설명을 붙이면 폰에서 CTA가 화면 밖으로 밀린다.
+  landingStepsEyebrow: "HOW IT WORKS",
+  landingStep1: "Photograph the menu",
+  landingStep2: "Pick a dish",
+  landingStep3: "Listen in English",
+  landingCta: "Get started",
+
+  // 촬영/업로드 — 서비스 설명은 랜딩이 끝냈다. 여기는 사진을 넣는 일만 한다.
+  cameraTitle: "Scan the menu.",
+  cameraLead: "Fit the whole menu in the frame, or upload a photo you already have.",
   takePhoto: "Take a photo",
   uploadPhoto: "Upload a menu photo",
   cameraHelper: "Read the Korean original before ordering. We help you understand the choice.",
@@ -120,10 +138,18 @@ const ko: typeof en = {
   goHome: "처음 화면으로",
 
   heroEyebrow: "메뉴판, 알아보기 쉽게",
-  heroTitle: "한국 메뉴판을 찍어보세요.",
+  heroTitle: "무슨 음식인지 알고 주문하세요.",
   heroLead:
-    "메뉴판을 찍으면 아는 음식을 찾아 설명해 드립니다 — 어떤 음식인지, 무엇이 들어가는지, 얼마나 매운지.",
+    "한국어 메뉴판을 사진으로 찍어보세요. 안내할 수 있는 음식을 찾아 하나씩 설명해 드립니다 — 어떤 음식인지, 무엇이 들어가는지, 얼마나 매운지.",
   privacyNote: "사진은 메뉴 글자를 읽는 데만 쓰고 저장하지 않습니다.",
+  landingStepsEyebrow: "이렇게 씁니다",
+  landingStep1: "메뉴판 촬영하기",
+  landingStep2: "음식 선택하기",
+  landingStep3: "영어 설명 듣기",
+  landingCta: "시작하기",
+
+  cameraTitle: "메뉴판을 촬영해 주세요.",
+  cameraLead: "메뉴판 전체가 화면에 들어오게 찍거나, 가지고 있는 사진을 올려주세요.",
   takePhoto: "사진 찍기",
   uploadPhoto: "메뉴판 사진 올리기",
   cameraHelper: "주문 전에 한국어 원문을 함께 확인하세요. 고르는 것을 돕는 안내입니다.",
