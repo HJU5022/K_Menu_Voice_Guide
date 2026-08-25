@@ -54,6 +54,7 @@ const en = {
 
   // 후보 목록
   back: "Back",
+  startOver: "Start over",
   photoReady: "Menu photo",
   photoReadyStrong: "ready to compare",
   notLocated: (missing: number, total: number) =>
@@ -168,6 +169,7 @@ const ko: typeof en = {
   processingBody: "이름과 가격, 주문에 도움이 되는 것들을 살펴보고 있습니다.",
 
   back: "뒤로",
+  startOver: "처음으로",
   photoReady: "올린 메뉴판",
   photoReadyStrong: "비교해 보세요",
   notLocated: (missing: number, total: number) =>
