@@ -63,7 +63,7 @@
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: Flutter 앱 (최종 목표). 웹은 Streamlit(`app.py`) 하나로 간다 — React 웹앱은 2026-08-23에 제거했다
+- 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸고, Streamlit 진입점은 같은 날 저장소에서 제거했다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다
 
 ### 카테고리 구성
 
@@ -183,11 +183,13 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 
 ### 배포 전략
 
-진입점이 두 개다. `K_Menu_Talk.py`는 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출하고(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨), `app.py`는 화면과 파이프라인을 한 프로세스에서 직접 연결하는 Streamlit 진입점이다. 후자는 HTTP 계약이 없으므로 API가 필요한 클라이언트를 대체하지 못한다.
+Hugging Face Space를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 `K_Menu_Talk.py`(FastAPI)가 도는 Docker Space(T4 GPU) 한 곳에 몰고, 웹 화면(`frontend/`)은 **빌드 결과물만** 무료 Static Space에 올린다 — 화면 쪽에도 계산을 두면 GPU 비용이 두 배가 된다. `K_Menu_Talk.py`는 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출한다(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨).
 
-Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라 "FastAPI + 별도 정적 호스팅" 구조를 그대로 옮길 수 없어, 배포용으로 `app.py`(Streamlit SDK)를 따로 두었다. 하드웨어는 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고, Streamlit Community Cloud는 RAM이 약 1GB라 `paddlepaddle`+PaddleOCR이 올라가지 않는다(조사 2026-08-21, `docs/specs/streamlit-app.md`). 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 진행했다.
+하드웨어는 API Space 쪽에 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없다(조사 2026-08-21). OCR 실측이 92상자 기준 CPU 22.8초 → GPU 0.8초(2026-08-23, RTX 3080 Ti)로 나와, 계산은 GPU에 있어야 한다는 것이 숫자로 굳었다. 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 터널로 임시 공유 링크를 만드는 방식으로 진행했다.
 
-모바일 앱(`mobile/`)도 같은 FastAPI를 호출한다. 앱은 JSON 계약이 있어야 붙을 수 있으므로, 화면과 계산을 한 프로세스에 두는 진입점(`app.py`)으로는 대체되지 않는다 — `K_Menu_Talk.py`는 앱을 위해 계속 유지된다. 앱이 서버를 가리키는 주소는 `mobile/lib/config.dart` 한 곳에만 두어, 로컬·터널·배포 환경을 한 줄 수정으로 전환한다(`docs/specs/flutter-mobile-app.md`).
+웹과 앱은 같은 HTTP 계약(`docs/specs/api-layer.md`)을 쓰지만, **서버 주소를 넣는 방법이 다르다.** 웹은 Vite 규칙상 빌드 시점에 `VITE_API_BASE_URL`이 JS 안에 박히므로 주소를 바꾸려면 다시 빌드해야 하고(`frontend/space/deploy.sh`가 빌드와 업로드를 같이 한다), 앱은 `mobile/lib/config.dart` 한 곳만 고쳐 로컬·터널·배포 환경을 전환한다(`docs/specs/flutter-mobile-app.md`). 웹 Space 배포는 대상 Space를 매번 통째로 덮어쓴다(`--force`) — 소스는 GitHub에 있고 Space에는 산출물만 둔다.
+
+2026-08-25까지는 Streamlit 진입점(`app.py`)이 웹 화면이었다. 처음에는 화면과 파이프라인을 한 프로세스에서 직접 연결했고, 08-23에 API를 HTTP로 부르는 화면 전용 클라이언트로 바꿨다가, React 도입과 함께 제거했다.
 
 ### 디렉토리 구조
 
@@ -200,13 +202,16 @@ proj1-c/
 │                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
-│                                     #   fastapi·uvicorn(API), streamlit(HF Spaces 배포 UI) ...
+│                                     #   fastapi·uvicorn(API) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
 │
 ├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
-│                                     #   화면을 갖지 않는다. 앱 등 별도 클라이언트가 붙는 쪽
-├── app.py                           # 배포 진입점 — Streamlit. 화면과 파이프라인을 한 프로세스에서 연결
-│                                     #   HF Spaces(Streamlit SDK)의 기본 진입점 이름이라 루트에 둔다
+│                                     #   화면을 갖지 않는다. 웹·앱 등 별도 클라이언트가 붙는 쪽
+├── Dockerfile                       # API Space(HF Docker SDK, T4)용 이미지
+│                                     #   베이스 이미지를 digest로 못 박는다 — 이름표만 쓰면 빌드가 조용히 바뀐다
+│
+├── deploy/
+│   └── api-space/                    # API Space 배포 — deploy.sh(커밋에 든 파일만 올린다) + Space 설정 README
 │
 ├── static/                          # 전체가 .gitignore 대상 — 저장소로 따라오지 않는다
 │   ├── audio/                       #   TTS가 요청마다 만든 wav — /audio/{파일명}으로 서빙
@@ -224,7 +229,7 @@ proj1-c/
 ├── docs/
 │   ├── README.md
 │   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 화면 내용과 합쳐 정리 예정
-│   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (Streamlit·앱 공통)
+│   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (웹·앱 공통)
 │   └── specs/
 │       ├── _example.md
 │       ├── api-layer.md              # FastAPI 엔드포인트 계약
@@ -234,6 +239,14 @@ proj1-c/
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
 │       └── tts-finetuning.md
+│
+├── frontend/                         # React + TypeScript 웹 화면 (Vite, pnpm) — 계산하지 않고 API만 호출한다
+│   ├── README.md                      # 범위·실행·빌드·구조
+│   ├── client/                        #   실제 앱 — src/pages/Home.tsx가 화면 상태, src/lib/api.ts가 HTTP 계약
+│   ├── server/                        #   빌드 산출물 서빙용 Express (API 로직 없음)
+│   ├── shared/                        #   client/server가 같이 쓰는 상수
+│   ├── space/deploy.sh                #   HF Static Space 배포 — VITE_API_BASE_URL을 넣어 빌드한 뒤 통째로 덮어쓴다
+│   └── docs/                          #   화면 기준 문서 (ui-flow, screen-spec, api-client, content-style, deployment)
 │
 ├── mobile/                           # Flutter 모바일 앱 (iOS·Android)
 │   ├── README.md                      # 앱 구조·실행 방법·자주 겪는 문제
