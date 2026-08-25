@@ -63,7 +63,7 @@
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸고, Streamlit 진입점은 같은 날 저장소에서 제거했다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다
+- 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다. Streamlit 진입점은 **아직 저장소에 남아 있고**, React 화면의 검증이 끝나고 디자인 작업만 남는 시점에 제거한다
 
 ### 카테고리 구성
 
@@ -189,7 +189,7 @@ Hugging Face Space를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 `K_M
 
 웹과 앱은 같은 HTTP 계약(`docs/specs/api-layer.md`)을 쓰지만, **서버 주소를 넣는 방법이 다르다.** 웹은 Vite 규칙상 빌드 시점에 `VITE_API_BASE_URL`이 JS 안에 박히므로 주소를 바꾸려면 다시 빌드해야 하고(`frontend/space/deploy.sh`가 빌드와 업로드를 같이 한다), 앱은 `mobile/lib/config.dart` 한 곳만 고쳐 로컬·터널·배포 환경을 전환한다(`docs/specs/flutter-mobile-app.md`). 웹 Space 배포는 대상 Space를 매번 통째로 덮어쓴다(`--force`) — 소스는 GitHub에 있고 Space에는 산출물만 둔다.
 
-2026-08-25까지는 Streamlit 진입점(`app.py`)이 웹 화면이었다. 처음에는 화면과 파이프라인을 한 프로세스에서 직접 연결했고, 08-23에 API를 HTTP로 부르는 화면 전용 클라이언트로 바꿨다가, React 도입과 함께 제거했다.
+2026-08-25까지는 Streamlit 진입점(`app.py`)이 웹 화면이었다. 처음에는 화면과 파이프라인을 한 프로세스에서 직접 연결했고, 08-23에 API를 HTTP로 부르는 화면 전용 클라이언트로 바꿨다. React 도입 뒤에도 **아직 지우지 않았다** — React 화면의 검증이 끝나고 디자인 작업만 남는 시점에 `app.py`·`.streamlit/`·`docs/specs/streamlit-app.md`를 함께 제거한다. 그때까지는 백업으로만 두고, 새 화면 기능은 `frontend/`에만 넣는다(두 벌을 나란히 유지하면 화면 기능이 갈라진다).
 
 ### 디렉토리 구조
 
@@ -202,11 +202,14 @@ proj1-c/
 │                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
-│                                     #   fastapi·uvicorn(API) ...
+│                                     #   fastapi·uvicorn(API), streamlit(옛 app.py 화면 — 제거 예정) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
 │
 ├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
 │                                     #   화면을 갖지 않는다. 웹·앱 등 별도 클라이언트가 붙는 쪽
+├── app.py                           # 옛 배포 진입점 — Streamlit. 아직 남아 있는 백업이며 제거 예정
+│                                     #   새 화면 기능은 frontend/에만 넣는다
+│
 ├── Dockerfile                       # API Space(HF Docker SDK, T4)용 이미지
 │                                     #   베이스 이미지를 digest로 못 박는다 — 이름표만 쓰면 빌드가 조용히 바뀐다
 │
@@ -230,13 +233,21 @@ proj1-c/
 │   ├── README.md
 │   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 화면 내용과 합쳐 정리 예정
 │   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (웹·앱 공통)
-│   └── specs/
+│   ├── legal/                        # 동의서·공개용 가림본 등 운영 문서 (TTS 목소리 제공 동의)
+│   └── specs/                        # 백엔드·파이프라인·앱 스펙 (웹 화면 스펙은 frontend/docs/)
 │       ├── _example.md
 │       ├── api-layer.md              # FastAPI 엔드포인트 계약
+│       ├── cart.md                   # 장바구니 — 담기·수량·주문 요약
 │       ├── db-cache.md               # 메모리 캐싱
+│       ├── error-logging.md          # 예외를 삼키지 않고 stdout에 남기는 규칙 (실제 사고 사례 포함)
+│       ├── fastapi-space-deploy.md   # API를 GPU Docker Space에 올리는 절차·제약
+│       ├── flutter-mobile-app.md     # 앱 화면 3개·서버 주소 전환·iOS 권한
 │       ├── ocr-candidate-results.md  # 음식 후보 결과 계약
 │       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
+│       ├── sample-menu-images.md     # 처음 온 사람이 눌러볼 예시 메뉴판 사진
+│       ├── streamlit-app.md          # 옛 Streamlit 화면 — app.py와 함께 제거 예정
+│       ├── supported-foods.md        # 지원 음식 50개 목록·선정 기준
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
 │       └── tts-finetuning.md
 │
