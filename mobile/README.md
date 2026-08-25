@@ -41,9 +41,9 @@ detail_screen      ──▶ GET /api/foods/{id}     ──▶ details 6개 + �
 
 ## 실행 방법
 
-### 1. 서버를 먼저 띄운다
+### 1. 서버를 먼저 띄운다 (로컬 서버로 돌릴 때만)
 
-앱만 켜면 아무것도 안 됩니다. 저장소 루트에서:
+기본값은 배포된 서버(`https://hju5022-k-menu.hf.space`)라, 평소에는 이 단계가 필요 없습니다. 맥에서 고친 서버 코드를 앱으로 확인하고 싶을 때만 띄웁니다. 저장소 루트에서:
 
 ```bash
 uvicorn K_Menu_Talk:app --host 0.0.0.0 --port 8000
@@ -57,12 +57,13 @@ uvicorn K_Menu_Talk:app --host 0.0.0.0 --port 8000
 
 | 어디서 돌리나 | 값 |
 |---|---|
-| **iOS 시뮬레이터 / Android 에뮬레이터** | `http://localhost:8000` ← 현재 기본값 |
-| **실제 아이폰** | `http://<맥 로컬 IP>:8000` |
+| **배포 서버** | `https://hju5022-k-menu.hf.space` ← 현재 기본값 |
+| iOS 시뮬레이터 / Android 에뮬레이터 (로컬) | `http://localhost:8000` |
+| 실제 아이폰 (로컬) | `http://<맥 로컬 IP>:8000` |
 
 시뮬레이터는 맥 안에서 돌기 때문에 `localhost`로 서버에 닿고, 맥의 IP가 바뀌어도 영향을 받지 않습니다. 화면 작업 중에는 이 값이 가장 안정적입니다.
 
-**실제 아이폰에 설치할 때는 반드시 맥의 LAN IP로 바꿔야 합니다.** 폰에게 `localhost`는 폰 자신이라 서버를 찾지 못합니다.
+**로컬 서버로 되돌릴 때, 실제 아이폰이라면 맥의 LAN IP로 바꿔야 합니다.** 폰에게 `localhost`는 폰 자신이라 서버를 찾지 못합니다.
 
 ```bash
 ipconfig getifaddr en0
