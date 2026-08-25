@@ -112,15 +112,22 @@ class MatchFoodCandidatesTests(unittest.TestCase):
         ):
             return match.match_food_candidates(text, **kwargs)
 
-    def test_sorts_by_score_then_name_length(self):
-        """점수가 같으면 긴 이름이 먼저 — "닭갈비"를 "갈비"로 잘못 고르면 안 된다.
+    def test_shorter_name_inside_a_longer_one_is_dropped(self):
+        """"닭갈비"가 적힌 줄에서 "갈비"는 후보가 아니다.
 
-        "닭갈비"라는 글자 안에는 "갈비"도 들어있어서 둘 다 100점이 나온다.
-        길이로 한 번 더 정렬하지 않으면 더 짧고 덜 구체적인 쪽이 1등이 될 수 있다.
+        "닭갈비" 안에 "갈비"가 통째로 들어 있어 둘 다 100점이 나온다. 예전에는 둘 다
+        후보로 두고 긴 이름을 앞에 놓는 것으로 갈음했는데(이 테스트의 이전 버전),
+        화면에는 여전히 카드가 두 장 떠서 사용자가 없는 메뉴를 주문할 수 있었다 —
+        실측 2026-08-26, "황기갈비탕" 한 줄이 Galbitang과 Galbi 두 장으로 나왔다.
+        짧은 쪽은 긴 쪽의 일부일 뿐 별개 메뉴가 아니므로 뺀다.
+
+        정렬 규칙(점수 → 이름 길이)은 그대로 남아 있다. 부분 문자열 관계가 아닌 서로
+        다른 이름이 동점일 때는 여전히 긴 쪽이 앞에 온다. 또 줄 단위로 매칭하므로
+        "갈비"와 "닭갈비"가 각각 다른 줄에 있는 메뉴판은 둘 다 후보로 남는다.
         """
         result = self.match("닭갈비 15,000원")
 
-        self.assertEqual([c["name_kr"] for c in result], ["닭갈비", "갈비"])
+        self.assertEqual([c["name_kr"] for c in result], ["닭갈비"])
 
     def test_returns_nothing_when_no_food_is_on_the_menu(self):
         """기준 점수에 못 미치면 후보를 아예 안 준다 — 억지로 비슷한 음식을 추천하지 않는다.
