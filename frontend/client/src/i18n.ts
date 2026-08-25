@@ -48,6 +48,10 @@ const en = {
   addOne: (name: string) => `Add one ${name}`,
   removeOne: (name: string) => `Remove one ${name}`,
   enlargePhoto: (name: string) => `Enlarge photo of ${name}`,
+  enlargeMenuPhoto: "Open the menu photo larger",
+  zoomIn: "Zoom in",
+  zoomOut: "Zoom out",
+  reset: "Reset",
 
   // 장바구니
   cartEyebrow: "YOUR SHORTLIST",
@@ -139,6 +143,10 @@ const ko: typeof en = {
   addOne: (name: string) => `${name} 하나 담기`,
   removeOne: (name: string) => `${name} 하나 빼기`,
   enlargePhoto: (name: string) => `${name} 사진 크게 보기`,
+  enlargeMenuPhoto: "메뉴판 사진 크게 보기",
+  zoomIn: "확대",
+  zoomOut: "축소",
+  reset: "원래대로",
 
   cartEyebrow: "담아둔 메뉴",
   cartTitle: "장바구니",

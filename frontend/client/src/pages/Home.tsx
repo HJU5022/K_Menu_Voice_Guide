@@ -109,6 +109,18 @@ export default function Home() {
   const [errorRetryTarget, setErrorRetryTarget] = useState<ErrorRetryTarget>("camera");
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 카메라로 바로 찍을 수 있는 기기인가.
+  //
+  // `capture="environment"`는 **모바일에서만 뜻이 있다.** 데스크톱 브라우저는 그 속성을
+  // 그냥 무시하고 평범한 파일 선택창을 연다. 그래서 "Take a photo"를 눌렀는데 업로드
+  // 창이 뜨고, 버튼 두 개가 똑같은 일을 했다. 찍을 수 없는 기기에서는 촬영 버튼을
+  // 아예 보이지 않게 한다 — 되지 않는 것을 권하지 않는다.
+  const canTakePhoto = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const touchLike = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+    return touchLike || /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+  }, []);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // A cart outlives a single scan, so it loads once on start rather than after each photo.
@@ -247,7 +259,9 @@ export default function Home() {
             <div className="plate-label">MENU PLATE · 01</div><div className="frame-caption"><span className="live-dot" /> Point at the menu <b>·</b> live guide</div>
           </div>
           <div className="camera-actions">
-            <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {t.takePhoto}</Button>
+            {canTakePhoto && (
+              <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {t.takePhoto}</Button>
+            )}
             <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> {t.uploadPhoto}</Button>
           </div>
           <p className="helper">{t.cameraHelper}</p>
@@ -323,6 +337,7 @@ function Candidates({
 }) {
   const t = useT();
   const [lightbox, setLightbox] = useState<{ url: string; attribution: string | null } | null>(null);
+  const [viewer, setViewer] = useState<string | null>(null);
 
   // 메뉴판에 인쇄된 순서(line_no)로 늘어놓는다. 서버가 주는 순서는 점수 순이라 사진과
   // 목록의 순서가 어긋나 눈으로 짝짓기 어려웠다. 줄 번호가 없는 후보는 뒤로 보낸다
@@ -346,7 +361,14 @@ function Candidates({
             {/* 상자는 사진 **자체의 크기**를 기준으로 얹어야 한다. 그래서 사진을 감싸는
                 칸이 사진 크기에 딱 맞아야 한다(inline-block). 칸이 사진보다 크면 남는
                 여백만큼 상자가 밀린다. */}
-            <div className="menu-photo-frame">
+            {/* 눌러서 크게 볼 수 있다. 메뉴판은 글자가 작아 화면에 맞춰 줄이면 읽기
+                어려운데, 사용자가 확인하고 싶은 것이 바로 그 글자다. */}
+            <button
+              type="button"
+              className="menu-photo-frame"
+              onClick={() => setViewer(photoUrl)}
+              aria-label={t.enlargeMenuPhoto}
+            >
               <img src={photoUrl} alt="Uploaded menu" />
               {ordered.map((candidate, index) =>
                 candidate.source ? (
@@ -365,7 +387,7 @@ function Candidates({
                   </span>
                 ) : null,
               )}
-            </div>
+            </button>
             <p>
               {t.photoReady} <b>{t.photoReadyStrong}</b>
               {/* 상자가 안 붙은 줄이 있으면 그 수를 밝힌다. 상자가 2개인데 목록이 6줄이면
@@ -408,6 +430,79 @@ function Candidates({
         </div>
       </main>
       {lightbox && <Lightbox image={lightbox} onClose={() => setLightbox(null)} />}
+      {viewer && <PhotoViewer url={viewer} onClose={() => setViewer(null)} />}
+    </div>
+  );
+}
+
+/** 올린 메뉴판 사진을 크게 보는 창 — 확대·축소·이동.
+ *
+ * 메뉴판은 글자가 작아서 화면에 맞춰 줄이면 읽을 수 없는데, 사용자가 확인하고 싶은 것이
+ * 바로 그 글자다("내가 찍은 게 제대로 읽혔나").
+ *
+ * 마우스와 손가락을 모두 받는다 — 휠/손가락 두 개로 확대, 끌어서 이동, 두 번 눌러 원래대로.
+ * 배율이 1일 때는 이동을 막는다. 화면에 다 들어와 있는데 끌리면 고장으로 읽힌다. */
+function PhotoViewer({ url, onClose }: { url: string; onClose: () => void }) {
+  const t = useT();
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  // 끄는 동안의 시작점. 화면을 다시 그리지 않아도 되는 값이라 ref에 둔다.
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const pinch = useRef<number | null>(null);
+
+  const reset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
+  const zoomBy = (delta: number) =>
+    setScale((current) => {
+      const next = Math.min(6, Math.max(1, current + delta));
+      if (next === 1) setOffset({ x: 0, y: 0 });
+      return next;
+    });
+
+  function touchDistance(touches: React.TouchList) {
+    const [a, b] = [touches[0], touches[1]];
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  return (
+    <div className="modal-backdrop photo-viewer-backdrop" onClick={onClose}>
+      <div
+        className="photo-viewer"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => zoomBy(e.deltaY > 0 ? -0.3 : 0.3)}
+        onDoubleClick={reset}
+        onMouseDown={(e) => { if (scale > 1) drag.current = { x: e.clientX - offset.x, y: e.clientY - offset.y }; }}
+        onMouseMove={(e) => { if (drag.current) setOffset({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y }); }}
+        onMouseUp={() => { drag.current = null; }}
+        onMouseLeave={() => { drag.current = null; }}
+        onTouchStart={(e) => {
+          if (e.touches.length === 2) pinch.current = touchDistance(e.touches);
+          else if (scale > 1) drag.current = { x: e.touches[0].clientX - offset.x, y: e.touches[0].clientY - offset.y };
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length === 2 && pinch.current) {
+            const now = touchDistance(e.touches);
+            zoomBy((now - pinch.current) / 200);
+            pinch.current = now;
+          } else if (drag.current) {
+            setOffset({ x: e.touches[0].clientX - drag.current.x, y: e.touches[0].clientY - drag.current.y });
+          }
+        }}
+        onTouchEnd={() => { drag.current = null; pinch.current = null; }}
+      >
+        <img
+          src={url}
+          alt=""
+          draggable={false}
+          style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, cursor: scale > 1 ? "grab" : "default" }}
+        />
+      </div>
+      <div className="photo-viewer-tools" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={() => zoomBy(-0.5)} aria-label={t.zoomOut}><Minus size={18} /></button>
+        <span>{Math.round(scale * 100)}%</span>
+        <button type="button" onClick={() => zoomBy(0.5)} aria-label={t.zoomIn}><Plus size={18} /></button>
+        <button type="button" onClick={reset}>{t.reset}</button>
+        <button type="button" onClick={onClose} aria-label={t.close}><X size={18} /></button>
+      </div>
     </div>
   );
 }
@@ -591,7 +686,9 @@ function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartRespon
           <div className="order-lines">
             {cart.items.map((line) => (
               <div className="order-line" key={line.food_id}>
-                <div><b lang="ko">{line.name_kr}</b></div>
+                {/* 이 줄은 두 사람이 함께 본다 — 종업원은 한국어를 읽고, 손님은 자기가
+                  무엇을 시키는지 확인한다. 한쪽만 적으면 둘 중 하나는 읽지 못한다. */}
+              <div><b lang="ko">{line.name_kr}</b><span className="order-line-en">{line.name_en}</span></div>
                 <strong>{line.quantity}개 <em>{line.line_total_display ?? "—"}</em></strong>
               </div>
             ))}
