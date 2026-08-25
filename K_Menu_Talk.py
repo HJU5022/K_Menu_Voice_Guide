@@ -132,6 +132,10 @@ class FoodDetailResponse(BaseModel):
     tts_status: str
     narration_audio_path: str | None
     tts_latency_ms: float
+    # 음식 이름만 읽은 음성. 화면은 이름 옆 스피커에 이것을, 아래 재생바에 나레이션을 건다.
+    # 둘을 나눠 둬야 이름을 눌렀을 때 설명까지 같이 나오지 않는다.
+    name_audio_path: str | None
+    name_tts_status: str
 
 
 class SupportedFood(BaseModel):
@@ -277,6 +281,7 @@ def get_food(food_id: int):
 
     tts_response = create_tts_response(food_id)
     tts_response["narration_audio_path"] = _publish_audio(tts_response["narration_audio_path"])
+    tts_response["name_audio_path"] = _publish_audio(tts_response["name_audio_path"])
     return {**food_info, "spice_level": spice_level, "details": details, **tts_response}
 
 

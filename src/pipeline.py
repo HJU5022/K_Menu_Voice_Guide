@@ -151,13 +151,16 @@ def _synthesize_via_subprocess(text: str, style: str) -> dict[str, object]:
             return dict(_TTS_FAILED)
 
 
-def _load_cached_tts(food_id: int, style: str) -> dict[str, object] | None:
+def _load_cached_audio(filename: str) -> dict[str, object] | None:
     """사전 생성 캐시가 있으면 그 **복사본**의 경로를 synthesize()와 같은 형태로 돌려준다.
 
     복사본을 만드는 이유: K_Menu_Talk.py의 _publish_audio()가 받은 파일을 정적 폴더로
     이동(move)시키므로, 캐시 원본을 그대로 넘기면 첫 요청이 캐시를 소모해버린다.
+
+    캐시에는 두 종류가 있다 — 나레이션(`food_{id}_{STYLE}.wav`)과 음식 이름만 읽은 것
+    (`name_{id}.wav`). 파일명 규칙만 다르고 다루는 방식은 같아서 여기로 합쳐 둔다.
     """
-    cached = _TTS_CACHE_DIR / f"food_{food_id}_{style}.wav"
+    cached = _TTS_CACHE_DIR / filename
     if not cached.is_file():
         return None
 
@@ -181,9 +184,11 @@ def create_tts_response(food_id: int) -> dict[str, object]:
     """
     narration = get_narration(food_id)
     # 화면에는 로마자 원문(text), 모델에는 음식명이 한글 표기로 바뀐 tts_text를 넘긴다.
-    tts_result = _load_cached_tts(food_id, narration["style"]) or _synthesize_via_subprocess(
-        narration["tts_text"], narration["style"]
-    )
+    tts_result = _load_cached_audio(
+        f"food_{food_id}_{narration['style']}.wav"
+    ) or _synthesize_via_subprocess(narration["tts_text"], narration["style"])
+
+    name_result = _name_audio(food_id, narration["name_kr"])
 
     return {
         "narration_text": narration["text"],
@@ -191,7 +196,27 @@ def create_tts_response(food_id: int) -> dict[str, object]:
         "narration_audio_path": tts_result.get("audio_path"),
         "tts_status": tts_result.get("status", "not_ready"),
         "tts_latency_ms": tts_result.get("latency_ms", 0.0),
+        # 이름만 읽어주는 음성 — 화면의 이름 옆 스피커가 쓴다. 나레이션과 별개 파일이라
+        # 둘이 같이 재생되지 않는다.
+        "name_audio_path": name_result.get("audio_path"),
+        "name_tts_status": name_result.get("status", "not_ready"),
     }
+
+
+def _name_audio(food_id: int, name_kr: str) -> dict[str, object]:
+    """음식 이름만 읽은 음성을 캐시에서 꺼내거나, 없으면 새로 만든다.
+
+    나레이션과 같은 경로(같은 모델·같은 워커)를 쓴다. 스타일은 GUIDE로 고정한다 —
+    이름 한 단어에 경고 톤을 씌울 이유가 없고, 캐시 파일명도 스타일 없이 단순해진다.
+
+    이름이 비어 있으면(등록 50개에는 없는 경우) 합성을 시도하지 않는다. 빈 문자열을
+    넘기면 synthesize()가 ValueError를 던지는데, 그것 때문에 상세 응답 전체가 막히면 안 된다.
+    """
+    if not name_kr:
+        return dict(_TTS_FAILED)
+    return _load_cached_audio(f"name_{food_id}.wav") or _synthesize_via_subprocess(
+        name_kr, "GUIDE"
+    )
 
 
 def analyze_image(image_path: str) -> dict:
