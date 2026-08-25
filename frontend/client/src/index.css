@@ -138,3 +138,16 @@ button.brand {
   font-weight: 600;
   margin-left: 6px;
 }
+
+
+/* 올린 메뉴판 사진은 **잘리면 안 된다.**
+   예전 값은 object-fit:cover + max-height:320px 이었다. cover는 상자를 꽉 채우려고
+   사진을 잘라내는데, 메뉴판은 대개 세로로 길어서 위아래가 통째로 잘려나갔다. 사용자가
+   이 사진을 보는 이유는 "내가 찍은 것과 목록이 맞나"를 견주기 위해서라, 잘린 사진은
+   그 일을 못 한다. contain으로 바꿔 전체가 들어오게 하고, 남는 자리는 배경색으로 채운다.
+   높이도 화면 기준(60vh)으로 두어 큰 화면에서는 더 크게 보이게 한다. */
+.menu-photo-hero img {
+  object-fit: contain;
+  max-height: 60vh;
+  background: var(--sand);
+}
