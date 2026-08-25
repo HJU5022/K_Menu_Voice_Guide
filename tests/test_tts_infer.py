@@ -4,9 +4,10 @@
 아래 FakeModel이 모델 자리에 들어가서, **모델에 무엇을 넘겼는지**를 기록해준다.
 즉 "음성이 좋은가"가 아니라 "입력을 올바르게 가공해서 넘겼는가"를 검사한다.
 
-검사하는 두 가지 가공:
-- **리스펠링**: 음식명을 발음하기 쉬운 영어 표기로 바꿔서 넘긴다
-  (예: Tteokbokki → Duck-bok-kee). 화면 텍스트는 원본 그대로 두고 TTS 입력만 바꾼다.
+검사하는 두 가지:
+- **텍스트 통과**: 받은 문장을 손대지 않고 그대로 넘긴다. 음식명 리스펠링 치환은
+  `src/text_gen/narration.py`가 DB(`foods.name_respell`)를 보고 맡는다 — 예전에는 여기에
+  표를 하드코딩했으나, 여기서 또 건드리면 이미 치환된 이름을 두 번 처리하게 된다.
 - **instruct**: GUIDE/CAUTION에 맞는 톤 지시문을 함께 넘긴다.
 
 뒤쪽 TrimSilenceTests는 생성된 음성에서 불필요한 무음을 잘라내는 후처리 테스트다.
@@ -27,7 +28,7 @@ class FakeModel:
     """Stands in for the real Qwen3TTSModel + LoRA during tests (no GPU needed).
 
     last_call에 "마지막으로 어떤 인자를 받았는지"를 저장해둔다. 테스트는 이걸 꺼내서
-    리스펠링·instruct가 제대로 적용된 채로 넘어왔는지 확인한다.
+    텍스트가 그대로 넘어갔는지, instruct가 style에 맞게 붙었는지 확인한다.
     """
 
     def __init__(self):
@@ -77,15 +78,16 @@ class TtsInferTests(unittest.TestCase):
 
         self.assertEqual(fake.last_call["instruct"], infer.INSTRUCT_MAP["GUIDE"])
 
-    def test_synthesize_respells_food_name_before_calling_model(self):
-        """음식명이 리스펠링 표기로 바뀐 뒤 모델에 들어가는지 (Tteokbokki → Duck-bok-kee).
+    def test_synthesize_passes_text_through_unchanged(self):
+        """받은 텍스트를 손대지 않고 모델에 넘기는지.
 
-        문장 안에 섞여 있어도 그 단어만 정확히 바뀌어야 한다. 화면에 표시되는 원본
-        텍스트는 그대로 두고, TTS 입력만 바꾸는 게 이 기능의 핵심이다.
+음식명 리스펠링 치환은 narration.py가 DB를 보고 담당한다(예전에는 여기에 표가
+        하드코딩돼 있었다). 여기서 또 건드리면 이미 치환된 이름을 두 번 처리하게 되므로,
+        통과시키는 것 자체가 계약이다 — 회귀 방지용.
         """
         fake = FakeModel()
         with patch.object(infer, "_load_model", return_value=fake):
-            infer.synthesize("This dish is called Tteokbokki.", "CAUTION")
+            infer.synthesize("This dish is called Duck-bok-kee.", "CAUTION")
 
         self.assertEqual(fake.last_call["text"], "This dish is called Duck-bok-kee.")
         self.assertEqual(fake.last_call["instruct"], infer.INSTRUCT_MAP["CAUTION"])

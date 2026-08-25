@@ -44,7 +44,11 @@ class PipelineTests(unittest.TestCase):
         캐시 원본이 아니라 **복사본** 경로를 돌려줘야 한다 — K_Menu_Talk.py의
         _publish_audio()가 받은 파일을 move하므로, 원본을 주면 첫 요청이 캐시를 지운다.
         """
-        mock_get_narration.return_value = {"text": "This is Bibimbap.", "style": "GUIDE"}
+        mock_get_narration.return_value = {
+            "text": "This is Bibimbap.",
+            "tts_text": "This is Bee-bim-bahp.",
+            "style": "GUIDE",
+        }
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             cache_dir = Path(tmp_dir)
@@ -68,7 +72,11 @@ class PipelineTests(unittest.TestCase):
         self, mock_get_narration, mock_synthesize
     ):
         """캐시에 해당 조합 파일이 없으면 기존처럼 라이브 합성으로 넘어가야 한다."""
-        mock_get_narration.return_value = {"text": "This is Bibimbap.", "style": "GUIDE"}
+        mock_get_narration.return_value = {
+            "text": "This is Bibimbap.",
+            "tts_text": "This is Bee-bim-bahp.",
+            "style": "GUIDE",
+        }
         mock_synthesize.return_value = {
             "audio_path": "/tmp/live.wav",
             "status": "ok",
@@ -79,7 +87,8 @@ class PipelineTests(unittest.TestCase):
             with patch.object(pipeline, "_TTS_CACHE_DIR", Path(tmp_dir)):
                 result = pipeline.create_tts_response(1)
 
-        mock_synthesize.assert_called_once_with("This is Bibimbap.", "GUIDE")
+        # 모델에는 화면용 text가 아니라 음식명이 리스펠링 표기로 바뀐 tts_text가 넘어가야 한다
+        mock_synthesize.assert_called_once_with("This is Bee-bim-bahp.", "GUIDE")
         self.assertEqual(result["narration_audio_path"], "/tmp/live.wav")
 
     @patch("src.pipeline._synthesize_via_subprocess")
@@ -90,6 +99,7 @@ class PipelineTests(unittest.TestCase):
         """텍스트 생성 결과와 TTS 결과가 하나의 응답으로 합쳐지는지 (필드명 포함)."""
         mock_get_narration.return_value = {
             "text": "This is Bibimbap.",
+            "tts_text": "This is Bee-bim-bahp.",
             "style": "GUIDE",
         }
         mock_synthesize.return_value = {
@@ -102,7 +112,8 @@ class PipelineTests(unittest.TestCase):
 
         mock_get_narration.assert_called_once_with(1)
         # 텍스트 생성이 정한 style이 TTS로 그대로 넘어가야 톤(GUIDE/CAUTION)이 맞는다
-        mock_synthesize.assert_called_once_with("This is Bibimbap.", "GUIDE")
+        # 모델에는 화면용 text가 아니라 음식명이 리스펠링 표기로 바뀐 tts_text가 넘어가야 한다
+        mock_synthesize.assert_called_once_with("This is Bee-bim-bahp.", "GUIDE")
         # 내부 이름(audio_path/status/latency_ms)이 API용 이름(narration_audio_path 등)으로 바뀐다
         self.assertEqual(
             result,
@@ -123,6 +134,7 @@ class PipelineTests(unittest.TestCase):
         """TTS가 실패해도(not_ready) 텍스트는 살아서 나가야 한다 — 음성 없이도 화면은 보여야 하므로."""
         mock_get_narration.return_value = {
             "text": "This is Bibimbap.",
+            "tts_text": "This is Bee-bim-bahp.",
             "style": "GUIDE",
         }
         mock_synthesize.return_value = {

@@ -18,7 +18,7 @@
 1. `foods`에서 `food_id`의 `spice_level`을 조회한다.
 2. 1~3은 GUIDE, 4~5는 CAUTION으로 결정한다.
 3. `food_narration`에서 같은 `food_id`와 style의 `narration_text`를 조회한다.
-4. `{ "text": narration_text, "style": style }`을 반환한다.
+4. `{ "text": narration_text, "tts_text": <음식명을 리스펠링 표기로 바꾼 문장>, "style": style }`을 반환한다.
 5. `synthesize(text, style)`는 실제 모델 없이 표준 TTS 결과 객체를 반환한다.
 6. `create_tts_response(food_id)`는 내레이션 결과와 TTS 결과를 UI용 객체 하나로 묶어 반환한다.
 
@@ -38,7 +38,7 @@
 
 - 대상 파일: `src/text_gen/narration.py`
 - 함수: `get_narration(food_id: int) -> dict[str, str]`
-- 반환 키: `text`, `style`
+- 반환 키: `text`, `tts_text`, `style`
 - style 규칙: `spice_level >= 4`이면 CAUTION, 그 외는 GUIDE
 - TTS 대상 파일: `src/tts/infer.py`
 - TTS 함수: `synthesize(text: str, style: str) -> dict[str, object]`
@@ -113,9 +113,78 @@
 
 **로컬에 GPU가 없어서 이 구현을 실제로 돌려서 확인하지 못했다.** 단위 테스트(`tests/test_tts_infer.py`)는 모델 호출 부분을 가짜(mock)로 대체해서 입력 검증 로직·반환 형식만 확인한 것이고, 진짜 모델이 진짜 음성을 만들어내는지는 검증되지 않았다. 다만 로직 자체는 실제 학습에 쓰인 코드를 그대로 옮긴 것이라 이전보다 신뢰도가 훨씬 높음.
 
-- **확인 필요한 값**: `speaker_name="speaker"`(노트북에서 커스텀 이름을 준 적이 없어 기본값이 계속 쓰였음), `LORA_SCALE=0.3`(노트북은 0.2/0.3/0.35/0.5를 다 뽑아서 귀로 비교하던 중이었고, 팀이 최종적으로 뭘 골랐는지 이 노트북만으로는 확인 안 됨) — 팀 확정값 확인 후 상수 갱신 필요.
+- **확인 필요한 값**: `speaker_name="speaker"`(노트북에서 커스텀 이름을 준 적이 없어 기본값이 계속 쓰였음), `LORA_SCALE`(노트북은 0.2/0.3/0.35/0.5를 다 뽑아서 귀로 비교하던 중이었고, 팀이 최종적으로 뭘 골랐는지 이 노트북만으로는 확인 안 됨. 2026-08-25에 GUIDE/CAUTION 톤 구분을 위해 0.3 -> **0.15**로 낮춤 — GPU 환경에서 톤 차이·음식명 발음 청취 확인 필요).
 - **다음 할 일**: GPU 있는 환경(팀원 PC/Colab)에서 실제로 한번 실행해서 음성이 정상적으로 나오는지 확인.
 
 ### ⚠️ 보안 — 노트북 파일에 HF 토큰 평문 노출 발견
 
 받은 노트북(`qwen3_tts_lora_finetune.ipynb`)에 Hugging Face 토큰이 평문으로 하드코딩된 셀이 있었음. 이 노트북은 절대 git에 커밋하지 말 것. 토큰은 이미 로컬 파일에 노출된 상태라 즉시 폐기(rotate) 권장.
+
+### 구현 변경 이력 (2026-08-25) — 리스펠링 표를 DB 컬럼으로 옮기고 치환 위치를 바꿈
+
+**바뀐 것**: TTS에 넘기는 문장에서 음식명을 영문 리스펠링 표기로 바꾼다(`Tteokbokki` →
+`Duck-bok-kee`). 바뀐 건 표기 방식이 아니라 **값을 어디에 두고 누가 치환하는가**다. 값은
+`src/tts/infer.py`의 파이썬 dict가 아니라 `foods.name_respell` 컬럼에 두고, 치환은
+`src/text_gen/narration.py`가 한다.
+
+**왜 DB 컬럼인가**: 표를 코드에 두면 음식이 늘 때마다 코드를 고쳐야 하고, DB의 음식 목록과
+어긋나도 알아챌 방법이 없다. 컬럼으로 옮기면 행 하나가 매핑 하나가 되어 DB가 유일한 출처가
+된다. 21개에만 값을 넣고 **29개는 NULL로 둔다** — NULL은 실패가 아니라 "원본 로마자 표기로
+읽는다"는 뜻이고, 청취 스크리닝에서 원본이 이미 적절하다고 판정한 결과 그대로다
+(`eval/TTS_MODULE.md` 4절). 값의 출처는 커밋 8176e66의 `RESPELL_MAP` 21개다.
+
+**왜 narration.py인가**: `get_narration()`이 style을 정하려고 이미 `foods` 행을 조회하는데,
+그 행에 `name_en`/`name_respell`이 같이 들어 있다. 반면 `infer.py`는 `food_id`를 받지 않고
+(`worker.py`가 `{text, style}`만 넘긴다), paddle/torch 충돌을 피하려고 격리된 별도 프로세스라
+DB 접근을 붙이면 그 격리 이유가 무너진다.
+
+**계약 변경**: `get_narration()`이 `tts_text`를 추가로 돌려준다. `text`는 화면 표시용으로
+원본 로마자 표기를 유지하고(여행자가 읽어야 한다), `tts_text`만 음식명이 리스펠링 표기로
+바뀐다. `src/pipeline.py`와 `src/tts/pregenerate.py`가 `synthesize()`에 `tts_text`를 넘긴다 —
+라이브 경로와 사전 생성 캐시가 같은 텍스트를 써야 같은 음성이 나온다.
+
+**같이 삭제한 것**: `src/tts/infer.py`의 `RESPELL_MAP`·`_SORTED_RESPELL_NAMES`·
+`apply_respelling()`(커밋 d862e11). 이제 `infer.py`는 받은 텍스트를 그대로 모델에 넘긴다 —
+여기서 또 치환하면 이미 바뀐 이름을 두 번 처리하게 된다.
+
+**⚠️ 선행 조건 — 이 SQL을 먼저 실행해야 앱이 뜬다**: `src/db/README.md`의 "아직 실행 안 된 것 —
+`foods.name_respell` 컬럼" 절에 실행할 SQL을 그대로 적어뒀다.
+`src/db/cache.py`가 `foods`에서 `name_respell`을 select하므로, 컬럼이 없으면 첫 요청에서
+`column foods.name_respell does not exist`(42703)로 **4개 테이블 로드가 통째로 실패한다** —
+OCR·내레이션·TTS·카트가 전부 멈춘다. anon key로는 DDL이 막혀 있어 대시보드 권한이 필요하다.
+
+**함께 바뀐 값**: `LORA_SCALE` 0.3 → 0.15 (GUIDE/CAUTION 톤 구분 복구). 표기 방식과는 독립적인
+결정이라 리스펠링으로 되돌린 뒤에도 0.15를 유지한다. 배경은 `src/tts/infer.py` 헤더 주석 참고.
+
+**중간에 시도했다 되돌린 것 — 한글 표기**: 같은 날 음식명을 한글로 적는 방식(`Tteokbokki` →
+`떡볶이`, `foods.name_kr` 사용)을 먼저 넣었다가 리스펠링으로 되돌렸다. 도입 근거는 된소리
+(ㄸ, ㅃ, ㄲ, ㅆ, ㅉ)에 대응하는 알파벳 신호가 없어 리스펠링이 근사치로 타협해야 한다는
+것이었다. **되돌린 판단의 근거는 아직 이 문서에 없다 — 결정한 사람이 채울 것.** 구조(치환을
+narration.py가 하고 값은 DB에서 온다)는 그때 만든 것을 그대로 쓰고 있으므로, 되돌린 것은
+표기 방식 하나뿐이다.
+
+### 구현 변경 이력 (2026-08-25, 이어서) — 발음 안내 문장을 음성용으로 분리
+
+**문제**: 음식명 치환을 켜면 TTS 문장이 `Duck-bok-kee is ... Duck-bok-kee is pronounced
+"ddeok-bo-kki." ...`가 된다. `food_details`의 PRONUNCIATION은 화면에서 로마자 발음 표기를
+알려주는 문장이라, 음식명이 리스펠링 표기로 바뀌면 **거의 같은 소리를 연달아 두 번** 읽는다.
+50개 전부 해당된다(PRONUNCIATION 문장 형식이 전부 동일).
+
+**해결**: `food_details`에 음성 전용 카테고리 `PRONUNCIATION_TTS`를 추가한다. 테이블 구조
+(`food_id`/`category`/`detail_text`)를 그대로 쓰므로 컬럼 추가 없이 행 50개만 넣는다. 문장은
+이름을 한 번만 말하는 형태(`Say it like this: Bibimbap.`)이고, 뜻 설명이 있던 17개는 그 절만
+살려 뒤에 붙였다. 이름은 `foods.name_en`으로 적어둬서 표기 치환은 그대로 `narration.py`가
+담당한다 — 리스펠링 표기를 이 행에 직접 적으면 출처가 둘로 갈린다.
+
+**계약 변경**: `get_narration()`의 `tts_text`가 PRONUNCIATION 대신 PRONUNCIATION_TTS를 쓴다.
+`text`(화면용)는 그대로 PRONUNCIATION이다. PRONUNCIATION_TTS 행이 없으면 화면용으로 폴백하므로
+코드를 먼저 배포하고 DB 행을 나중에 넣어도 안내가 끊기지 않는다.
+
+**DB 적용**: 이 50행은 2026-08-25에 Supabase SQL Editor로 이미 넣었다. `food_details_category_check`
+제약이 카테고리 6종만 허용하고 있어서, 제약을 다시 만들어 `PRONUNCIATION_TTS`를 허용 값에 추가하는
+작업이 선행됐다. 넣는 SQL은 저장소에 두지 않는다 — 일회성 데이터 주입이고 현재 값은 DB가 정본이다.
+
+**배포 시 필수**: `python -m src.tts.pregenerate --force`로 캐시를 전량 재생성해야 한다.
+`src/pipeline.py`의 `create_tts_response()`가 캐시를 먼저 조회하므로, 낡은 wav를 그대로 두면
+코드를 바꿔도 사용자에게는 아무것도 바뀌지 않는다. 현재 `static/tts_cache`의 50개는 이번
+변경 이전에 만들어진 것이라 **재생성 대상이다**.

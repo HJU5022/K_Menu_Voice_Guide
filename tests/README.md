@@ -12,8 +12,8 @@
 | `test_ocr_infer.py` | `src/ocr/infer.py` — 전처리 연결, 세로쓰기 글자 회전 처리 |
 | `test_ocr_match.py` | `src/ocr/match.py` — 유사도 매칭의 정렬·필터 규칙 |
 | `test_cache.py` | `src/db/cache.py` — DB를 한 번만 읽는지, 조회 함수가 맞는 값을 주는지 |
-| `test_narration.py` | `src/text_gen/narration.py` — spice_level→style 결정, 문장 3개 조합 |
-| `test_tts_infer.py` | `src/tts/infer.py` — 리스펠링·instruct 적용, 무음 제거 후처리 |
+| `test_narration.py` | `src/text_gen/narration.py` — spice_level→style 결정, 문장 3개 조합, TTS용 음식명 리스펠링 치환(`tts_text`) |
+| `test_tts_infer.py` | `src/tts/infer.py` — 텍스트 통과·instruct 적용, 무음 제거 후처리 |
 | `test_pipeline.py` | `src/pipeline.py` — 블록들을 잇는 순서와 실패 시 fallback |
 | `test_api.py` | `K_Menu_Talk.py` — 두 엔드포인트를 각각 검사 |
 | `test_api_integration.py` | `K_Menu_Talk.py` — 두 엔드포인트를 프론트와 같은 순서로 이어서 검사 |

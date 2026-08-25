@@ -1,8 +1,10 @@
 """내레이션 테스트 — src/text_gen/narration.py가 style을 맞게 정하고 문장 3개를 잇는지 확인한다.
 
-검사하는 건 두 가지다.
+검사하는 건 네 가지다.
 1. spice_level(맵기 1~5)에 따라 style이 GUIDE인지 CAUTION인지 — 경계는 4 이상이면 CAUTION
 2. narration_text + PRONUNCIATION + ALLERGY 세 문장이 이 순서로 이어붙는지
+3. TTS로 넘길 tts_text에서 음식명이 리스펠링 표기로 바뀌는지 (화면용 text는 원본 로마자 그대로)
+4. tts_text의 발음 안내가 PRONUNCIATION_TTS로 갈아끼워지는지 (없으면 화면용으로 폴백)
 
 DB는 건드리지 않는다. cache 함수들을 patch로 가짜 값으로 바꿔치기해서 로직만 검사한다.
 
@@ -21,8 +23,16 @@ class NarrationTests(unittest.TestCase):
         """맵기 3(4 미만) → GUIDE. 그리고 문장 3개가 순서대로 이어붙는지 함께 확인."""
         with (
             # patch.object = "이 함수가 불리면 진짜 대신 이 값을 돌려줘라"
-            patch.object(cache, "get_food", return_value={"spice_level": 3}),
-            patch.object(cache, "get_narration_text", return_value="A mild dish."),
+            patch.object(
+                cache,
+                "get_food",
+                return_value={
+                    "spice_level": 3,
+                    "name_en": "Bibimbap",
+                    "name_respell": "Bee-bim-bahp",
+                },
+            ),
+            patch.object(cache, "get_narration_text", return_value="Bibimbap is a mild dish."),
             patch.object(
                 cache,
                 "get_food_details",
@@ -34,13 +44,25 @@ class NarrationTests(unittest.TestCase):
         # 순서가 중요하다: 내레이션 → 발음 → 알레르기
         self.assertEqual(
             result,
-            {"text": "A mild dish. Pronounced 'ay'. Contains egg.", "style": "GUIDE"},
+            {
+                "text": "Bibimbap is a mild dish. Pronounced 'ay'. Contains egg.",
+                "tts_text": "Bee-bim-bahp is a mild dish. Pronounced 'ay'. Contains egg.",
+                "style": "GUIDE",
+            },
         )
 
     def test_get_narration_returns_caution_text_and_style(self):
         """맵기 4(경계값) → CAUTION. 이 경계가 TTS 톤(경고 목소리)을 결정한다."""
         with (
-            patch.object(cache, "get_food", return_value={"spice_level": 4}),
+            patch.object(
+                cache,
+                "get_food",
+                return_value={
+                    "spice_level": 4,
+                    "name_en": "Tteokbokki",
+                    "name_respell": "Duck-bok-kee",
+                },
+            ),
             patch.object(cache, "get_narration_text", return_value="It is spicy."),
             patch.object(
                 cache,
@@ -52,7 +74,11 @@ class NarrationTests(unittest.TestCase):
 
         self.assertEqual(
             result,
-            {"text": "It is spicy. Pronounced 'ay'. Contains egg.", "style": "CAUTION"},
+            {
+                "text": "It is spicy. Pronounced 'ay'. Contains egg.",
+                "tts_text": "It is spicy. Pronounced 'ay'. Contains egg.",
+                "style": "CAUTION",
+            },
         )
 
     def test_get_narration_raises_for_unknown_food(self):
@@ -81,6 +107,136 @@ class NarrationTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "ALLERGY가 없습니다"):
                 narration.get_narration(1)
+
+
+    def test_tts_text_replaces_only_the_food_name(self):
+        """음식명만 리스펠링 표기로 바뀌고 나머지 영어 문장은 그대로여야 한다.
+
+        부분 문자열이 아니라 단어 경계로 매칭해야 한다 — Galbi가 Tteokgalbi 안쪽을
+        파먹으면 발음이 통째로 깨진다.
+        """
+        with (
+            patch.object(
+                cache,
+                "get_food",
+                return_value={
+                    "spice_level": 1,
+                    "name_en": "Galbi",
+                    "name_respell": "Gal-bee",
+                },
+            ),
+            patch.object(
+                cache,
+                "get_narration_text",
+                return_value="Galbi is grilled beef, unlike Tteokgalbi.",
+            ),
+            patch.object(
+                cache,
+                "get_food_details",
+                return_value={"PRONUNCIATION": "Say it slowly.", "ALLERGY": "Contains soy."},
+            ),
+        ):
+            result = narration.get_narration(1)
+
+        self.assertEqual(
+            result["tts_text"],
+            "Gal-bee is grilled beef, unlike Tteokgalbi. Say it slowly. Contains soy.",
+        )
+        # 화면용 원문은 건드리지 않는다 — 여행자가 로마자로 읽어야 하기 때문
+        self.assertEqual(
+            result["text"],
+            "Galbi is grilled beef, unlike Tteokgalbi. Say it slowly. Contains soy.",
+        )
+
+    def test_tts_text_falls_back_to_original_when_respelling_missing(self):
+        """name_respell이 비어 있으면 치환하지 않고 원문 그대로.
+
+        이건 실패가 아니라 "원본 표기가 이미 적절하다"는 판정을 담은 값이다 — 50개 중 29개가
+        여기 해당한다(경위: src/db/README.md)."""
+        with (
+            patch.object(
+                cache,
+                "get_food",
+                return_value={"spice_level": 2, "name_en": "Bossam", "name_respell": None},
+            ),
+            patch.object(cache, "get_narration_text", return_value="Bossam is boiled pork."),
+            patch.object(
+                cache,
+                "get_food_details",
+                return_value={"PRONUNCIATION": "Say it slowly.", "ALLERGY": "Contains pork."},
+            ),
+        ):
+            result = narration.get_narration(1)
+
+        self.assertEqual(result["tts_text"], result["text"])
+        self.assertIn("Bossam", result["tts_text"])
+
+
+    def test_tts_text_uses_the_tts_pronunciation_sentence(self):
+        """TTS용 발음 안내는 PRONUNCIATION_TTS를 쓴다 — 화면용 문장을 그대로 쓰면
+        `Bee-bim-bahp is pronounced "bee-bim-bap."`가 되어 거의 같은 소리를 두 번 읽는다."""
+        with (
+            patch.object(
+                cache,
+                "get_food",
+                return_value={
+                    "spice_level": 1,
+                    "name_en": "Bibimbap",
+                    "name_respell": "Bee-bim-bahp",
+                },
+            ),
+            patch.object(cache, "get_narration_text", return_value="Bibimbap is a rice bowl."),
+            patch.object(
+                cache,
+                "get_food_details",
+                return_value={
+                    "PRONUNCIATION": 'Bibimbap is pronounced "bee-bim-bap."',
+                    "PRONUNCIATION_TTS": "Say it like this: Bibimbap.",
+                    "ALLERGY": "Contains egg.",
+                },
+            ),
+        ):
+            result = narration.get_narration(1)
+
+        self.assertEqual(
+            result["tts_text"],
+            "Bee-bim-bahp is a rice bowl. Say it like this: Bee-bim-bahp. Contains egg.",
+        )
+        # 화면용은 로마자 발음 표기를 그대로 유지한다 — 여행자가 읽어야 하는 정보다
+        self.assertEqual(
+            result["text"],
+            'Bibimbap is a rice bowl. Bibimbap is pronounced "bee-bim-bap." Contains egg.',
+        )
+
+    def test_tts_text_falls_back_to_screen_pronunciation_when_tts_row_missing(self):
+        """PRONUNCIATION_TTS 행이 아직 DB에 없어도 안내가 끊기지 않아야 한다 —
+        코드를 먼저 배포하고 행을 나중에 넣는 순서를 허용하기 위한 폴백이다."""
+        with (
+            patch.object(
+                cache,
+                "get_food",
+                return_value={
+                    "spice_level": 1,
+                    "name_en": "Japchae",
+                    "name_respell": "Jap-cheh",
+                },
+            ),
+            patch.object(cache, "get_narration_text", return_value="Japchae is glass noodles."),
+            patch.object(
+                cache,
+                "get_food_details",
+                return_value={
+                    "PRONUNCIATION": 'Japchae is pronounced "jap-chae."',
+                    "ALLERGY": "Contains soy.",
+                },
+            ),
+        ):
+            result = narration.get_narration(1)
+
+        self.assertEqual(
+            result["tts_text"],
+            'Jap-cheh is glass noodles. Jap-cheh is pronounced "jap-chae." Contains soy.',
+        )
 
 
 if __name__ == "__main__":

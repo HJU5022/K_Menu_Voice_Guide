@@ -10,7 +10,7 @@
     "samples": 36,
     "digit_exact": 0.0556,
     "digit_cer": 0.3718,
-    "price_parsed_ok": 0.3056
+    "price_parsed_ok": 0.4167
   },
   "production": {
     "samples": 36,
@@ -136,7 +136,7 @@
       "finetuned_score": {
         "exact": false,
         "cer": 0.5714285714285714,
-        "parsed_ok": false
+        "parsed_ok": true
       },
       "production_score": {
         "exact": false,
@@ -486,7 +486,7 @@
       "finetuned_score": {
         "exact": false,
         "cer": 0.5,
-        "parsed_ok": false
+        "parsed_ok": true
       },
       "production_score": {
         "exact": true,
@@ -561,7 +561,7 @@
       "finetuned_score": {
         "exact": false,
         "cer": 0.6666666666666666,
-        "parsed_ok": false
+        "parsed_ok": true
       },
       "production_score": {
         "exact": false,
@@ -811,7 +811,7 @@
       "finetuned_score": {
         "exact": false,
         "cer": 0.4,
-        "parsed_ok": false
+        "parsed_ok": true
       },
       "production_score": {
         "exact": true,

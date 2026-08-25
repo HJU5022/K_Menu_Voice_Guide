@@ -169,6 +169,10 @@ AI Hub '관광 음식메뉴판 데이터'(이미지 100,113장, 한식 28.1%)를
 
 `food_details` 테이블 (음식 × 카테고리, 최대 180행): `food_id`, `category`, `detail_text`
 
+카테고리는 화면용 6개(PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY)에 음성 전용 `PRONUNCIATION_TTS` 1개를 더한다. 화면용 발음 문장은 로마자 표기를 알려주는데, TTS 입력에서는 음식명이 리스펠링 표기(`foods.name_respell`)로 치환되어 거의 같은 소리를 연달아 두 번 읽게 되기 때문이다 (`src/text_gen/narration.py`).
+
+`foods` 테이블에는 TTS 전용 발음 표기 컬럼 `name_respell`이 있다. 청취 스크리닝에서 리스펠링이 필요하다고 판정된 21개에만 값이 있고, 나머지 29개는 NULL(=원본 로마자 표기로 읽는다)이다.
+
 `food_narration` 테이블 (음식 × 스타일, 최대 60행): `food_id`, `style`(GUIDE/CAUTION), `narration_text`
 
 앱(런타임)에서는 읽기 전용 anon key만 사용하고 RLS로 SELECT만 허용한다. Supabase URL·anon key는 `.env`로만 관리한다.
@@ -270,9 +274,10 @@ proj1-c/
 │   │   └── narration.py              #   spice_level ──▶ style(GUIDE/CAUTION) 자동 결정 + narration_text 조회
 │   │
 │   ├── db/                           # Supabase 데이터 접근 계층
-│   │   ├── README.md
+│   │   ├── README.md                 #   테이블 구성 + 아직 실행 안 된 SQL을 여기 적어둔다
 │   │   ├── supabase_client.py        #   읽기 전용 anon key, RLS로 SELECT만 허용 (foods/food_details/food_narration)
-│   │   └── cache.py                  #   서버 시작 시 전체 데이터 메모리 캐싱
+│   │   ├── cache.py                  #   서버 시작 시 전체 데이터 메모리 캐싱
+│   │   └── menu_modifiers_seed.sql   #   menu_modifiers 테이블 생성·초기 데이터
 │   │
 │   ├── tts/                          # (내레이션 텍스트+스타일) ──▶ WAV
 │   │   ├── README.md
@@ -286,7 +291,7 @@ proj1-c/
 │   │   └── perso_client.py           #   Perso.ai API 호출 — 동일 내레이션 텍스트 비교용 음성 생성
 │   │
 │   └── pipeline.py                   # 위 블록들을 입출력 계약대로 순서대로 연결
-│                                      #   {image_path, selected_food} ──▶ {detail_text(6개), narration_text, narration_audio_path, latency_ms}
+│                                      #   {image_path, selected_food} ──▶ {detail_text(6개), narration_text, narration_audio_path, tts_latency_ms}
 │
 ├── tests/
 │   ├── README.md                     # 테스트 파일 목록·실행법·작성 규칙
@@ -294,11 +299,18 @@ proj1-c/
 │
 ├── eval/                             # 모델 성능 측정·기록 — "이 모델을 왜 골랐는지"의 근거
 │   ├── README.md
+│   ├── model_comparison.md           # OCR · 숫자 인식 · TTS 후보군 · Perso.ai · Plan B 판단 — 표로 모은 결론
 │   ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (하이퍼파라미터 8차, 리스펠링, instruct)
 │   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그
 │   ├── qwen3_tts_lora_final.ipynb    # 실제 학습에 쓴 Colab 노트북
-│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과
-│   └── model_comparison.md           # OCR 2개(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교
+│   ├── pregenerate_tts_cache_colab.ipynb  # static/tts_cache wav 50개 재생성 절차 (Colab GPU)
+│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과 (아직 채점 전)
+│   ├── measure_ocr.py                # OCR 동일 조건 비교 — base/체크포인트/최종을 같은 코드로
+│   ├── measure_ocr_final.json        #   그 결과 원본 (2026-08-21, 매칭 91.67%)
+│   ├── measure_match_precision.py    # 매칭 오탐 측정 — measure_ocr.py가 못 보는 사각지대
+│   ├── measure_digits.py             # 숫자(가격) 인식만 분리 측정 — 테스트셋·GPU 없이 재현된다
+│   ├── measure_digits.json           #   그 결과 원본 (2026-08-25, base 77.78% vs 파인튜닝 5.56%)
+│   └── perso_comparison/             # Perso.ai 비교 원본 오디오 4개 (ours/perso × guide/caution)
 │
 └── reorganize_dataset.py             # OCR 학습데이터 폴더 구조 정리용 1회성 스크립트
                                       #   (배포 경로 아님 — data/README.md의 데이터 준비 단계에서만 사용)
@@ -319,10 +331,17 @@ proj1-c/
     "ingredient": "...", "how_to_eat": "...", "allergy": "..."
   },
   "narration_text": "...",
-  "narration_audio_path": "answer.wav",
-  "latency_ms": 8200
+  "style": "CAUTION",
+  "narration_audio_path": "/audio/8f3c....wav",
+  "tts_status": "ok",
+  "tts_latency_ms": 1.8
 }
 ```
+
+`tts_latency_ms`는 사전 생성 캐시를 읽어오는 데 걸린 시간이다 — 캐시 50개 전량 실측 평균 **1.8ms**
+(2026-08-25, 로컬 NVMe SSD). 캐시가 없어 라이브 생성으로 넘어가면 워밍업 후 약 33초가 걸린다.
+서버 기동 후 **첫 요청**만 Supabase 4개 테이블을 한 번에 읽느라 약 2.5초가 더 붙고, 그 뒤로는
+메모리 캐시라 사라진다. 근거: `eval/model_comparison.md` 3절
 
 ---
 
@@ -371,6 +390,6 @@ proj1-c/
 | TTS 후보 모델의 공식 지원 범위(풀 파인튜닝 vs LoRA/PEFT)를 착각함 | 후보별로 공식 저장소 문서를 직접 확인 후 후보 확정(예: 풀 파인튜닝만 공식 지원, LoRA는 커뮤니티 도구인 경우 구분) |
 | OCR·TTS 동시 파인튜닝으로 GPU·일정 자원 경합 | TTS는 Colab, OCR은 로컬 GPU+Colab 병행으로 분산 |
 | Supabase 무료 프로젝트 자동 일시정지(7일 비활동) | 배포 후 자동 조회 스케줄러로 비활동 기간 방지, 서버 캐싱으로 의존도 최소화 |
-| TTS 응답 지연이 목표치 초과 | 내레이션 길이 압축, 초과 시 사전 생성 캐싱으로 전환 |
+| TTS 응답 지연이 목표치 초과 | **현실화됨** — 라이브 생성이 워밍업 후에도 33초로 목표(5~7초) 미달이라 사전 생성 캐싱으로 전환. 전환 후 캐시 히트 실측 1.8ms (`eval/model_comparison.md` 3절) |
 | 메뉴 OCR 정확도 낮음 | 이미지 전처리·파인튜닝·유사도 매칭·사용자 선택 보조(번호+카드 UI) |
 | 알레르기 정보 오인 위험 | 참고용 정보임을 화면에 명시, 의학적 안전 보장이 아님을 고지 |
