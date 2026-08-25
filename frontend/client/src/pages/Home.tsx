@@ -429,9 +429,30 @@ function CartPanel({
   onOrder: () => void;
   onClearCart: () => void;
 }) {
+  const [showHelp, setShowHelp] = useState(false);
+
   return (
     <aside className="cart-panel">
-      <div className="cart-heading"><div><p className="eyebrow">YOUR SHORTLIST</p><h2>Your cart <span>{cart.item_count}</span></h2></div><CircleHelp size={18} /></div>
+      <div className="cart-heading">
+        <div><p className="eyebrow">YOUR SHORTLIST</p><h2>Your cart <span>{cart.item_count}</span></h2></div>
+        {/* 예전에는 물음표가 **그림일 뿐** 눌러도 아무 일이 없었다. 누를 수 있게 보이는데
+            반응이 없으면 고장으로 읽힌다. 눌러서 이 목록이 무엇인지 여닫게 한다. */}
+        <button
+          type="button"
+          className="cart-help-button"
+          aria-expanded={showHelp}
+          aria-label="What is this list?"
+          onClick={() => setShowHelp((open) => !open)}
+        >
+          <CircleHelp size={18} />
+        </button>
+      </div>
+      {showHelp && (
+        <p className="cart-help-text">
+          This list is only for showing the staff when you order. Nothing is sent to the
+          restaurant, and nothing is charged here.
+        </p>
+      )}
       {error && <p className="price-note">{error}</p>}
       {cart.items.length === 0 ? (
         <div className="empty-cart"><span>＋</span><p>Nothing here yet. Use + on a dish to add it.</p></div>
@@ -477,27 +498,42 @@ function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartRespon
       <main className="order-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
+        {/* 이 화면은 **두 사람이 읽는다.** 화면을 든 여행자와, 건네받아 보는 종업원이다.
+            예전에는 전부 한국어라 정작 주문하는 사람이 자기 주문을 읽지 못했다.
+            읽는 사람을 기준으로 나눈다 — 여행자에게 하는 말은 영어로, 종업원이 봐야 하는
+            부분(메뉴 이름·수량·합계)은 한국어로 둔다. 둘 다 필요한 곳에만 나란히 적는다. */}
         <div className="order-sheet">
           <div className="order-intro">
-            <p className="eyebrow">직원에게 보여주세요</p>
-            <h1>주문 내역</h1>
-            <p className="lead order-summary-line">테이블 주문 요약입니다. 이 앱에서 주문이 직접 전달되지 않습니다.</p>
+            <p className="eyebrow">SHOW THIS TO THE STAFF</p>
+            <h1>Your order</h1>
+            <p className="lead order-summary-line">
+              This app does not send anything to the restaurant. Show this screen when you order.
+            </p>
           </div>
+
+          {/* 여기서부터 종업원이 읽는 자리. 한국어로 둔다. */}
+          <p className="order-staff-note" lang="ko">아래는 손님이 고른 메뉴입니다.</p>
           <div className="order-lines">
             {cart.items.map((line) => (
               <div className="order-line" key={line.food_id}>
-                <div><b>{line.name_kr}</b></div>
+                <div><b lang="ko">{line.name_kr}</b></div>
                 <strong>{line.quantity}개 <em>{line.line_total_display ?? "—"}</em></strong>
               </div>
             ))}
           </div>
-          <div className="order-total"><span>총합</span><b>{cart.total_krw_display}</b></div>
-          {cart.has_unpriced_items && <p className="price-note">사진에서 가격을 확인하지 못한 메뉴가 있어 총합에 포함되지 않았습니다.</p>}
+          <div className="order-total"><span lang="ko">총합 <small>Total</small></span><b>{cart.total_krw_display}</b></div>
+
+          {/* 아래는 다시 여행자에게 하는 말이다. */}
+          {cart.has_unpriced_items && (
+            <p className="price-note">
+              Some dishes had no readable price on the photo, so they are not counted in the total.
+            </p>
+          )}
           <div className="order-warning">
             <ShieldCheck size={18} />
-            <p>이 앱은 주문을 식당으로 전송하지 않습니다. 주문 전 메뉴, 가격, 알레르기 여부를 직원과 직접 확인해 주세요.</p>
+            <p>Confirm the dishes, prices, and any allergies with the staff before you order.</p>
           </div>
-          <Button variant="outline" className="secondary-button" onClick={onBack}><ArrowLeft size={16} /> 메뉴 다시 보기</Button>
+          <Button variant="outline" className="secondary-button" onClick={onBack}><ArrowLeft size={16} /> Back to dishes</Button>
         </div>
       </main>
     </div>

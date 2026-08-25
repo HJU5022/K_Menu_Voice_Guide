@@ -105,3 +105,36 @@ button.brand {
   font: inherit;
   color: inherit;
 }
+
+
+/* 장바구니의 물음표 — 그림이 아니라 누를 수 있는 단추다. */
+.cart-help-button {
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 2px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.cart-help-text {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #b9cbc6;
+}
+
+/* 주문 화면에서 종업원이 읽는 자리임을 알리는 줄. */
+.order-staff-note {
+  margin: 22px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px dashed var(--line);
+  padding-top: 14px;
+}
+.order-total small {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-left: 6px;
+}
