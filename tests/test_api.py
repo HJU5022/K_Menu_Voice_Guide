@@ -195,6 +195,8 @@ class FoodDetailEndpointTests(unittest.TestCase):
             "narration_audio_path": None,
             "tts_status": "not_ready",
             "tts_latency_ms": 0.0,
+            "name_audio_path": None,
+            "name_tts_status": "not_ready",
         }
 
         response = self.client.get("/api/foods/1")
@@ -239,6 +241,8 @@ class FoodDetailEndpointTests(unittest.TestCase):
             "narration_audio_path": source_path,
             "tts_status": "ok",
             "tts_latency_ms": 12.5,
+            "name_audio_path": None,
+            "name_tts_status": "not_ready",
         }
 
         try:

@@ -117,6 +117,33 @@ def main() -> None:
         print(f"{label} — 생성 {latency_sec:.1f}초{rtf_note}")
         done += 1
 
+    # 이름만 읽은 음성 — 화면의 이름 옆 스피커가 쓴다(src/pipeline.py의 _name_audio).
+    # 나레이션과 별개 파일이라 따로 만든다. 한 단어라 나레이션보다 훨씬 짧게 걸린다.
+    for i, food in enumerate(foods, 1):
+        name_kr = (food.get("name_kr") or "").strip()
+        label = f"[{i}/{len(foods)}] {name_kr} (이름)"
+        if not name_kr:
+            print(f"{label} — name_kr 없음, 건너뜀")
+            failed += 1
+            continue
+
+        target = pipeline._TTS_CACHE_DIR / f"name_{food['id']}.wav"
+        if target.exists() and not args.force:
+            print(f"{label} — 있음, 건너뜀")
+            skipped += 1
+            continue
+
+        result = pipeline._synthesize_via_subprocess(name_kr, "GUIDE")
+        if result.get("status") != "ok" or not result.get("audio_path"):
+            reason = result.get("error") or "워커 응답에 error 없음"
+            print(f"{label} — 실패 (status={result.get('status')}) — {reason}")
+            failed += 1
+            continue
+
+        shutil.move(result["audio_path"], target)
+        print(f"{label} — 생성 {result['latency_ms'] / 1000:.1f}초")
+        done += 1
+
     if log_rows:
         write_header = not LOG_PATH.exists()
         # utf-8이 아니라 utf-8-sig(BOM 포함)로 쓴다. 한국어 윈도우의 Excel은 BOM이
