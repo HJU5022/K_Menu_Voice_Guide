@@ -440,7 +440,7 @@ class NonMenuTextTests(unittest.TestCase):
     물을 수 있기 때문이다.
     """
 
-    FOODS = _menu_foods("김밥", "떡볶이", "순대", "불고기", "갈비", "된장찌개")
+    FOODS = _menu_foods("김밥", "떡볶이", "순대", "불고기", "갈비", "된장찌개", "족발")
 
     def match(self, boxes):
         text = " ".join(box[4] for box in boxes)
@@ -538,6 +538,30 @@ class NonMenuTextTests(unittest.TestCase):
         ]
 
         self.assertEqual(self.match(boxes), {"순대"})
+
+    def test_notice_sentence_is_not_a_menu_line(self):
+        """"당일 삶은 족발만 판매합니다" 같은 가게 안내 문장의 족발은 메뉴가 아니다.
+
+        실기기 확인에서 나온 회귀다. 족발집 메뉴판의 안내 문구가 정식 메뉴 카드로
+        올라와, 여행자에게 존재하지 않는 메뉴가 보였다.
+        """
+        boxes = [
+            (80, 300, 700, 30, "당일 삶은 족발만 판매합니다"),
+            (80, 400, 200, 30, "순대"),
+            (620, 400, 150, 30, "4,000"),
+        ]
+
+        self.assertEqual(self.match(boxes), {"순대"})
+
+    def test_a_dish_name_ending_in_a_noun_is_kept(self):
+        """종결 어미로 거르는 것이지 이름 조각으로 거르는 게 아니다 — 명사로 끝나면 메뉴다.
+
+        걸림말을 넓게 잡았을 때 무엇이 깨지는지 기록해두는 자리다. "족발정식"에는
+        종결 어미가 없으므로 안내 문장 판정이 건드리면 안 된다.
+        """
+        boxes = [(80, 300, 400, 30, "족발정식"), (620, 300, 150, 30, "25,000")]
+
+        self.assertEqual(self.match(boxes), {"족발"})
 
     def test_all_you_can_eat_qualifier_on_a_dish_is_kept(self):
         """회귀 방지: "무한리필"을 걸림말에 넣었다가 실제 사진의 메뉴가 통째로 사라졌다.
