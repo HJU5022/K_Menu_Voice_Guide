@@ -52,6 +52,8 @@ const en = {
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   reset: "Reset",
+  cameraOpening: "Opening the camera…",
+  uploadInstead: "Upload instead",
 
   // 장바구니
   cartEyebrow: "YOUR SHORTLIST",
@@ -147,6 +149,8 @@ const ko: typeof en = {
   zoomIn: "확대",
   zoomOut: "축소",
   reset: "원래대로",
+  cameraOpening: "카메라를 여는 중…",
+  uploadInstead: "사진 올리기",
 
   cartEyebrow: "담아둔 메뉴",
   cartTitle: "장바구니",
