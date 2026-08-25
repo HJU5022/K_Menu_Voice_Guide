@@ -115,7 +115,11 @@ def main() -> None:
 
     if log_rows:
         write_header = not LOG_PATH.exists()
-        with open(LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        # utf-8이 아니라 utf-8-sig(BOM 포함)로 쓴다. 한국어 윈도우의 Excel은 BOM이
+        # 없는 CSV를 CP949라고 가정해서 여는데, 그러면 name_kr의 한글이 전부 깨져
+        # 보인다("김치찌개" → "源�移섏컡媛�"). 3바이트짜리 표식 하나로 막을 수 있다.
+        # 이어붙일 때는 파이썬이 BOM을 다시 쓰지 않으므로 "a" 모드에서도 안전하다.
+        with open(LOG_PATH, "a", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=list(log_rows[0].keys()))
             if write_header:
                 writer.writeheader()
