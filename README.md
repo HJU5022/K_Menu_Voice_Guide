@@ -63,7 +63,7 @@
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: Flutter 앱 (최종 목표). 웹은 Streamlit(`app.py`) 하나로 간다 — React 웹앱은 2026-08-23에 제거했다
+- 배포 형태: 웹(React, `frontend/`)과 모바일 앱(Flutter, `mobile/`) 두 클라이언트. 둘 다 계산 없이 같은 FastAPI(`K_Menu_Talk.py`)를 호출한다. Streamlit(`app.py`)은 React 화면의 검증이 끝나면 제거할 한시적 백업이다
 
 ### 카테고리 구성
 
@@ -183,11 +183,15 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 
 ### 배포 전략
 
-진입점이 두 개다. `K_Menu_Talk.py`는 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출하고(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨), `app.py`는 화면과 파이프라인을 한 프로세스에서 직접 연결하는 Streamlit 진입점이다. 후자는 HTTP 계약이 없으므로 API가 필요한 클라이언트를 대체하지 못한다.
+계산은 한 곳에만 둔다. `K_Menu_Talk.py`가 FastAPI로 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출하고(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨), 웹(`frontend/`, React)과 모바일 앱(`mobile/`, Flutter)은 계산을 갖지 않고 이 API를 HTTP로 부르기만 하는 **두 개의 별도 클라이언트**다. 계약이 같을 뿐 한쪽이 다른 쪽을 대체하지 않는다.
 
-Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라 "FastAPI + 별도 정적 호스팅" 구조를 그대로 옮길 수 없어, 배포용으로 `app.py`(Streamlit SDK)를 따로 두었다. 하드웨어는 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고, Streamlit Community Cloud는 RAM이 약 1GB라 `paddlepaddle`+PaddleOCR이 올라가지 않는다(조사 2026-08-21, `docs/specs/streamlit-app.md`). 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 진행했다.
+`app.py`(Streamlit)는 화면과 파이프라인을 한 프로세스에서 직접 연결하던 옛 진입점이다. HTTP 계약이 없어 API가 필요한 클라이언트를 대체하지 못하며, React 화면의 검증이 끝나고 디자인 작업만 남는 시점에 저장소에서 **제거할 예정**이다. 그때까지만 백업으로 남겨두고, 새 화면 기능은 `frontend/`에만 넣는다 — 두 벌을 나란히 유지하면 화면 기능이 갈라진다.
 
-모바일 앱(`mobile/`)도 같은 FastAPI를 호출한다. 앱은 JSON 계약이 있어야 붙을 수 있으므로, 화면과 계산을 한 프로세스에 두는 진입점(`app.py`)으로는 대체되지 않는다 — `K_Menu_Talk.py`는 앱을 위해 계속 유지된다. 앱이 서버를 가리키는 주소는 `mobile/lib/config.dart` 한 곳에만 두어, 로컬·터널·배포 환경을 한 줄 수정으로 전환한다(`docs/specs/flutter-mobile-app.md`).
+Hugging Face Spaces는 한 컨테이너에 한 앱이 기본이라, Space를 **둘로 나눠** 쓴다. 계산하는 쪽은 Docker SDK Space에 전용 GPU(T4 small)로 올리고(루트 `Dockerfile`, 배포 스크립트 `deploy/api-space/deploy.sh`), 웹은 `pnpm run build` 결과물만 올라가는 무료 **static** Space에 둔다(`frontend/space/deploy.sh`). 웹에도 계산을 두면 GPU 비용이 두 배가 되기 때문이고, static SDK는 컨테이너 빌드 단계가 아예 없어 배포가 몇 초에 끝난다.
+
+계산 쪽에 전용 GPU가 필요한 이유는 두 가지다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없고, Streamlit Community Cloud는 RAM이 약 1GB라 `paddlepaddle`+PaddleOCR이 올라가지 않는다(조사 2026-08-21, `docs/specs/streamlit-app.md`). 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 튜널로 임시 공유 링크를 만드는 방식으로 진행했다.
+
+두 클라이언트 모두 서버 주소를 **한 곳에만** 둔다 — 앱은 `mobile/lib/config.dart`, 웹은 빌드 시 주입하는 `VITE_API_BASE_URL`이다. 로컬·터널·배포 환경을 한 줄 수정으로 전환하기 위해서다(`docs/specs/flutter-mobile-app.md`, `frontend/README.md`).
 
 ### 디렉토리 구조
 
@@ -200,13 +204,31 @@ proj1-c/
 │                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
-│                                     #   fastapi·uvicorn(API), streamlit(HF Spaces 배포 UI) ...
+│                                     #   fastapi·uvicorn(API), streamlit(옛 app.py 화면 — 제거 예정) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
 │
 ├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
 │                                     #   화면을 갖지 않는다. 앱 등 별도 클라이언트가 붙는 쪽
-├── app.py                           # 배포 진입점 — Streamlit. 화면과 파이프라인을 한 프로세스에서 연결
-│                                     #   HF Spaces(Streamlit SDK)의 기본 진입점 이름이라 루트에 둔다
+├── app.py                           # 옛 배포 진입점 — Streamlit. 화면과 파이프라인을 한 프로세스에서 연결
+│                                     #   React 검증이 끝나면 제거할 한시적 백업. 새 화면 기능은 frontend/에만 넣는다
+│
+├── Dockerfile                       # API Space(HF Docker SDK, T4)용 이미지
+│                                     #   베이스 이미지를 digest로 못 박는다 — 이유는 파일 맨 위 주석 참고
+│                                     #   paddle과 torch를 한 환경에 못 올려 TTS는 별도 venv로 가른다
+│
+├── deploy/
+│   └── api-space/                   # 위 Dockerfile로 뜨는 API Space 배포 도구
+│       ├── README.md                 #   Space 카드(제목·SDK·포트) — Space 첫 화면에 그대로 보인다
+│       └── deploy.sh                 #   맥에서 API Space로 밀어 올리는 스크립트
+│
+├── frontend/                        # 웹 화면 — React + TypeScript. 계산하지 않고 API만 호출한다
+│   ├── README.md                     #   실행·빌드·폴더 구조 + 문서 읽는 순서
+│   ├── client/src/
+│   │   ├── pages/Home.tsx            #     화면 상태 전부 (촬영·업로드 ─▶ 후보 선택 ─▶ 상세)
+│   │   ├── lib/api.ts                #     백엔드 HTTP 계약 — 주소는 VITE_API_BASE_URL 하나로만 받는다
+│   │   └── i18n.ts                   #     화면 문구 영어·한국어 두 벌
+│   ├── docs/                         #   화면 흐름·화면별 스펙·API 호출 규칙·배포 절차
+│   └── space/                        #   static Space 배포 (README.md = Space 카드, deploy.sh)
 │
 ├── static/                          # 전체가 .gitignore 대상 — 저장소로 따라오지 않는다
 │   ├── audio/                       #   TTS가 요청마다 만든 wav — /audio/{파일명}으로 서빙
@@ -224,14 +246,22 @@ proj1-c/
 ├── docs/
 │   ├── README.md
 │   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 화면 내용과 합쳐 정리 예정
-│   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (Streamlit·앱 공통)
+│   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (웹·앱 공통)
+│   ├── legal/                        # 동의서·공개용 가림본 등 운영 문서 (TTS 목소리 제공 동의)
 │   └── specs/
 │       ├── _example.md
 │       ├── api-layer.md              # FastAPI 엔드포인트 계약
+│       ├── cart.md                   # 장바구니 — 담기·수량·주문 요약
 │       ├── db-cache.md               # 메모리 캐싱
+│       ├── error-logging.md          # 예외를 삼키지 않고 stdout에 남기는 규칙 (실제 사고 사례 포함)
+│       ├── fastapi-space-deploy.md   # API를 GPU Docker Space에 올리는 절차·제약
+│       ├── flutter-mobile-app.md     # 앱 화면 3개·서버 주소 전환·iOS 권한
 │       ├── ocr-candidate-results.md  # 음식 후보 결과 계약
 │       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
+│       ├── sample-menu-images.md     # 처음 온 사람이 눌러볼 예시 메뉴판 사진
+│       ├── streamlit-app.md          # 옛 Streamlit 화면 — app.py와 함께 제거 예정
+│       ├── supported-foods.md        # 지원 음식 50개 목록·선정 기준
 │       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
 │       └── tts-finetuning.md
 │
