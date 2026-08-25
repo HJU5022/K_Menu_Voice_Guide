@@ -27,6 +27,17 @@ type HeaderProps = {
   onHome: () => void;
 };
 type Modal = "settings" | "privacy" | "terms" | null;
+
+/** 고를 수 있는 언어.
+ *
+ * 예전에는 EN/KR/JP 세 글자만 있었고 **골라도 아무 일도 일어나지 않았다.** 줄임말은
+ * 그 언어를 쓰는 사람이 오히려 못 알아본다(한국어 화자에게 "KR"은 우리말이 아니다).
+ * 각 언어를 그 언어로 적고, 아직 안 되는 것은 고를 수 없게 두어 기대를 만들지 않는다. */
+const LANGUAGES = [
+  { code: "en", label: "English", ready: true },
+  { code: "ko", label: "한국어", ready: true },
+  { code: "zh", label: "中文", ready: false },
+] as const;
 // Where "Scan another menu" / retry on the error screen should send the traveller —
 // a failed photo goes back to the camera, a failed detail fetch goes back to the list
 // they already have (no reason to make them re-photograph the menu).
@@ -68,7 +79,7 @@ const DETAIL_CARDS: [key: string, label: string][] = [
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("camera");
   const [modal, setModal] = useState<Modal>(null);
-  const [lang, setLang] = useState("EN");
+  const [lang, setLang] = useState("en");
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
@@ -166,7 +177,7 @@ export default function Home() {
 
   // 설정·개인정보 창은 어느 화면에서 열든 같은 것이어야 한다. 예전에는 첫 화면의
   // return 안에만 있어서, 다른 화면에서는 띄울 창 자체가 없었다. 화면마다 이걸 덧붙인다.
-  const modalNode = modal ? <Modal type={modal} onClose={() => setModal(null)} /> : null;
+  const modalNode = modal ? <Modal type={modal} lang={lang} setLang={setLang} onClose={() => setModal(null)} /> : null;
   const withModal = (node: React.ReactNode) => <>{node}{modalNode}</>;
 
   if (screen === "processing") return withModal(<Processing />);
@@ -205,7 +216,10 @@ export default function Home() {
         <section className="camera-copy reveal">
           <p className="eyebrow"><Sparkles size={14} /> MENU, MADE CLEAR</p>
           <h1>Scan a Korean menu.</h1>
-          <p className="lead">A clearer way to choose dinner, one dish at a time.</p>
+          {/* 예전 문구("A clearer way to choose dinner, one dish at a time.")는 분위기만
+              전할 뿐 무엇을 해주는지 말하지 않았다. 처음 온 사람이 사진을 올릴지 말지
+              정하려면 무엇이 돌아오는지 알아야 한다. */}
+          <p className="lead">Photograph a Korean menu. We find the dishes we know and explain each one in English — what it is, what goes in it, and how spicy.</p>
           <div className="trust-note"><ShieldCheck size={17} /><span>Your photo is used only to identify menu text. It is not stored.</span></div>
         </section>
         <section className="camera-panel reveal delay-1">
@@ -246,7 +260,7 @@ export default function Home() {
 function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
   // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
   // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
-  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label="Go to the start"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></button><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}><option>EN</option><option>KR</option><option>JP</option></select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label="Go to the start"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></button><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
 }
 
 /** 기본 서버가 아닌 곳을 보고 있을 때만 뜨는 알림.
@@ -583,7 +597,7 @@ function ErrorState({ heading, hint, onRetry }: { heading: string; hint: string;
   );
 }
 
-function Modal({ type, onClose }: { type: Exclude<Modal, null>; onClose: () => void }) {
+function Modal({ type, lang, setLang, onClose }: { type: Exclude<Modal, null>; lang: string; setLang: (v: string) => void; onClose: () => void }) {
   const title = type === "settings" ? "Settings" : type === "privacy" ? "Privacy Notice" : "Terms of Use";
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -593,9 +607,15 @@ function Modal({ type, onClose }: { type: Exclude<Modal, null>; onClose: () => v
         <h2>{title}</h2>
         {type === "settings" ? (
           <>
-            <label className="setting-row"><span>Language</span><select defaultValue="EN"><option>EN</option><option>KR</option><option>JP</option></select></label>
-            <label className="setting-row"><span>Camera & Image Processing<small>Allows menu images to be processed in memory for OCR.</small></span><input type="checkbox" defaultChecked /></label>
-            <label className="setting-row"><span>Essential Cookies & Analytics<small>Allows session continuity and basic performance measurement.</small></span><input type="checkbox" defaultChecked /></label>
+            {/* 헤더의 선택과 같은 값을 쓴다. 예전에는 여기만 따로 놀아서, 설정에서 바꿔도
+                헤더는 그대로였다. */}
+            <label className="setting-row"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select></label>
+
+            {/* 체크박스 두 개("Camera & Image Processing", "Essential Cookies & Analytics")를
+                뺐다. 켜고 끌 수 있는 것처럼 보였지만 아무 데도 이어져 있지 않았고, 끄면
+                서비스가 아예 동작하지 않는 것들이라 애초에 고를 일이 아니다. 대신 무슨 일이
+                일어나는지 아래에 사실대로 적는다. */}
+            <HowItWorksSection />
             <SupportedFoodsSection />
           </>
         ) : (
@@ -603,6 +623,27 @@ function Modal({ type, onClose }: { type: Exclude<Modal, null>; onClose: () => v
         )}
         <Button className="primary-button" onClick={onClose}>Close</Button>
       </section>
+    </div>
+  );
+}
+
+/** 이 서비스가 무엇을 하는지, 사진이 어떻게 다뤄지는지.
+ *
+ * 예전 설정창에는 켤 수도 끌 수도 없는 체크박스만 있었다. 여행자가 알고 싶은 것은
+ * "끌 수 있나"가 아니라 "내 사진이 어떻게 되나"다. 그래서 사실을 그대로 적는다.
+ * 음식 사진의 출처도 여기 둔다 — 데이터셋이 출처 표기를 요구한다. */
+function HowItWorksSection() {
+  return (
+    <div className="setting-row" style={{ display: "block", cursor: "default" }}>
+      <span>How it works</span>
+      <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, lineHeight: 1.7, color: "var(--muted)" }}>
+        <li>You photograph a menu. The photo is read for text and is not stored.</li>
+        <li>We match the Korean names against the dishes in our guide.</li>
+        <li>Each match gets an English explanation and a spoken Korean name.</li>
+      </ol>
+      <small style={{ display: "block", marginTop: 10 }}>
+        Dish photos come from the AI Hub Tourism Menu Board Dataset (NIA) and are shown with their credit.
+      </small>
     </div>
   );
 }
