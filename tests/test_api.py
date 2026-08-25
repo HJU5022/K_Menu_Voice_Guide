@@ -479,6 +479,10 @@ class SupportedFoodsEndpointTests(unittest.TestCase):
                     "narration_audio_path": None,
                     "tts_status": "not_ready",
                     "tts_latency_ms": 0.0,
+                    # get_food()가 이 두 키를 직접 꺼내 쓴다(K_Menu_Talk.py). 빠지면
+                    # 라우팅을 보는 이 테스트가 엉뚱하게 KeyError로 죽는다.
+                    "name_audio_path": None,
+                    "name_tts_status": "not_ready",
                 },
             ),
         ):
