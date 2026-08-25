@@ -7,6 +7,8 @@ import {
   Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Sparkles, Volume2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LangContext, useT } from "@/lang";
+import { STRINGS, type Lang, type Strings } from "@/i18n";
 import {
   analyzeMenu, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
   EMPTY_CART, apiBaseUrl, isUsingCustomApi,
@@ -61,21 +63,15 @@ const formatWon = (value: number | null) => (value === null ? "Price not shown" 
 
 // Copy for the two OCR statuses — reused verbatim from app.py's ERROR_MESSAGES /
 // frontend/docs/content-style.md so the wording stays identical across every client.
-const OCR_ERROR_COPY: Record<"ocr_empty" | "not_a_menu" | "unsupported_food", { heading: string; hint: string }> = {
-  ocr_empty: {
-    heading: "We couldn't read this photo",
-    hint: "Try brighter lighting, hold the menu straight, and move closer to the text.",
-  },
-  not_a_menu: {
-    heading: "We couldn't find a menu here",
-    hint: "Point the camera at a printed menu with prices, then take the photo again.",
-  },
-  unsupported_food: {
-    heading: "Not in our guide yet",
-    hint: "Try a different menu item or ask the restaurant staff.",
-  },
-};
-const SERVICE_ERROR_COPY = { heading: "We could not read that menu.", hint: "Try a brighter, steadier photo with the full menu in frame." };
+/** 서버가 준 status에 맞는 안내 문구를 고른다.
+ *
+ * 셋을 갈라두는 이유: 원인이 다르면 사용자가 할 일도 다르다. 흐리게 찍혔으면 다시 찍으면
+ * 되고, 메뉴판이 아니면 다른 것을 찍어야 하고, 아는 음식이 없으면 다시 찍어도 소용없다. */
+function ocrErrorCopy(t: Strings, status: "ocr_empty" | "not_a_menu" | "unsupported_food") {
+  if (status === "ocr_empty") return { heading: t.errOcrEmptyTitle, hint: t.errOcrEmptyHint };
+  if (status === "not_a_menu") return { heading: t.errNotAMenuTitle, hint: t.errNotAMenuHint };
+  return { heading: t.errUnsupportedTitle, hint: t.errUnsupportedHint };
+}
 
 const DETAIL_CARDS: [key: string, label: string][] = [
   ["DESCRIPTION", "Description"],
@@ -90,6 +86,15 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>("camera");
   const [modal, setModal] = useState<Modal>(null);
   const [lang, setLang] = useState("en");
+  // Home은 Provider 바깥이라 useT()가 기본값을 읽는다. 여기서는 고른 언어로 직접 꺼낸다.
+  const t = STRINGS[lang as Lang];
+
+  // 문서에 지금 언어를 적어둔다. 글꼴과 줄바꿈 규칙이 언어마다 달라야 하는데(한국어는
+  // 단어 중간에서 줄이 바뀌면 안 된다), CSS가 그것을 알 방법이 이것뿐이다.
+  // 화면 읽기 프로그램도 이 값을 보고 발음을 고른다.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
@@ -99,8 +104,8 @@ export default function Home() {
   const [cart, setCart] = useState<CartResponse>(EMPTY_CART);
   const [cartError, setCartError] = useState("");
 
-  const [errorHeading, setErrorHeading] = useState(SERVICE_ERROR_COPY.heading);
-  const [errorHint, setErrorHint] = useState(SERVICE_ERROR_COPY.hint);
+  const [errorHeading, setErrorHeading] = useState(STRINGS.en.errServiceTitle);
+  const [errorHint, setErrorHint] = useState(STRINGS.en.errServiceHint);
   const [errorRetryTarget, setErrorRetryTarget] = useState<ErrorRetryTarget>("camera");
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -110,7 +115,7 @@ export default function Home() {
   useEffect(() => {
     getCart()
       .then(setCart)
-      .catch(() => setCartError("Cart is unavailable right now."));
+      .catch(() => setCartError(t.cartUnavailable));
   }, []);
 
   function goToError(heading: string, hint: string, retryTarget: ErrorRetryTarget) {
@@ -135,11 +140,11 @@ export default function Home() {
         // so the cart is left untouched in those branches.
         clearCart().then(setCart).catch(() => {});
       } else {
-        const copy = OCR_ERROR_COPY[result.status];
+        const copy = ocrErrorCopy(t, result.status);
         goToError(copy.heading, copy.hint, "camera");
       }
     } catch {
-      goToError(SERVICE_ERROR_COPY.heading, SERVICE_ERROR_COPY.hint, "camera");
+      goToError(t.errServiceTitle, t.errServiceHint, "camera");
     }
   }
 
@@ -151,7 +156,7 @@ export default function Home() {
       setSelectedDetail(detail);
       setScreen("result");
     } catch {
-      goToError(SERVICE_ERROR_COPY.heading, "Please try opening this dish again.", "candidates");
+      goToError(t.errServiceTitle, t.errServiceHint, "candidates");
     }
   }
 
@@ -163,7 +168,7 @@ export default function Home() {
       setCart(await changeCartItem(item, quantityDelta));
       setCartError("");
     } catch {
-      setCartError("Could not update the cart. Check your connection and try again.");
+      setCartError(t.cartChangeFailed);
     }
   }
 
@@ -172,7 +177,7 @@ export default function Home() {
       setCart(await clearCart());
       setCartError("");
     } catch {
-      setCartError("Could not empty the cart. Check your connection and try again.");
+      setCartError(t.cartClearFailed);
     }
   }
 
@@ -188,7 +193,10 @@ export default function Home() {
   // 설정·개인정보 창은 어느 화면에서 열든 같은 것이어야 한다. 예전에는 첫 화면의
   // return 안에만 있어서, 다른 화면에서는 띄울 창 자체가 없었다. 화면마다 이걸 덧붙인다.
   const modalNode = modal ? <Modal type={modal} lang={lang} setLang={setLang} onClose={() => setModal(null)} /> : null;
-  const withModal = (node: React.ReactNode) => <>{node}{modalNode}</>;
+  // 고른 언어를 화면 전체가 함께 보게 감싼다. 안쪽 조각들은 useT()로 직접 꺼내 쓴다.
+  const withModal = (node: React.ReactNode) => (
+    <LangContext.Provider value={lang as Lang}>{node}{modalNode}</LangContext.Provider>
+  );
 
   if (screen === "processing") return withModal(<Processing />);
   if (screen === "candidates")
@@ -224,13 +232,13 @@ export default function Home() {
       <Header {...header} />
       <main className="camera-layout">
         <section className="camera-copy reveal">
-          <p className="eyebrow"><Sparkles size={14} /> MENU, MADE CLEAR</p>
-          <h1>Scan a Korean menu.</h1>
+          <p className="eyebrow"><Sparkles size={14} /> {t.heroEyebrow}</p>
+          <h1>{t.heroTitle}</h1>
           {/* 예전 문구("A clearer way to choose dinner, one dish at a time.")는 분위기만
               전할 뿐 무엇을 해주는지 말하지 않았다. 처음 온 사람이 사진을 올릴지 말지
               정하려면 무엇이 돌아오는지 알아야 한다. */}
-          <p className="lead">Photograph a Korean menu. We find the dishes we know and explain each one in English — what it is, what goes in it, and how spicy.</p>
-          <div className="trust-note"><ShieldCheck size={17} /><span>Your photo is used only to identify menu text. It is not stored.</span></div>
+          <p className="lead">{t.heroLead}</p>
+          <div className="trust-note"><ShieldCheck size={17} /><span>{t.privacyNote}</span></div>
         </section>
         <section className="camera-panel reveal delay-1">
           <div className="photo-frame" style={{ backgroundImage: CAMERA_HERO_IMAGE }}>
@@ -239,13 +247,13 @@ export default function Home() {
             <div className="plate-label">MENU PLATE · 01</div><div className="frame-caption"><span className="live-dot" /> Point at the menu <b>·</b> live guide</div>
           </div>
           <div className="camera-actions">
-            <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> Take a photo</Button>
-            <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> Upload a menu photo</Button>
+            <Button className="primary-button" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {t.takePhoto}</Button>
+            <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> {t.uploadPhoto}</Button>
           </div>
-          <p className="helper">Read the Korean original before ordering. We help you understand the choice.</p>
+          <p className="helper">{t.cameraHelper}</p>
         </section>
       </main>
-      <footer className="site-footer"><span>© 2026 K-Menu Voice Guide</span><span><button onClick={() => setModal("privacy")}>Privacy</button><b>·</b><button onClick={() => setModal("terms")}>Terms</button></span></footer>
+      <footer className="site-footer"><span>© 2026 K-Menu Voice Guide</span><span><button onClick={() => setModal("privacy")}>{t.privacy}</button><b>·</b><button onClick={() => setModal("terms")}>{t.terms}</button></span></footer>
       {/* Hidden real inputs behind the styled buttons above — capture="environment" opens
           the rear camera directly on a phone, the plain input opens the gallery/file picker. */}
       <input
@@ -268,9 +276,10 @@ export default function Home() {
 }
 
 function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
+  const t = useT();
   // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
   // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
-  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label="Go to the start"><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>A thoughtful guide</span></div></button><div className="top-actions"><label className="language"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label="Settings" onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
 }
 
 /** 기본 서버가 아닌 곳을 보고 있을 때만 뜨는 알림.
@@ -293,7 +302,8 @@ function CustomApiNotice() {
 }
 
 function Processing() {
-  return <div className="center-state"><div className="processing-card"><div className="spinner-ring" /><p className="eyebrow">READING YOUR MENU</p><h2>Finding dishes worth knowing.</h2><p>We are looking at names, prices, and the details that make ordering easier.</p><div className="progress-line"><span /></div></div></div>;
+  const t = useT();
+  return <div className="center-state"><div className="processing-card"><div className="spinner-ring" /><p className="eyebrow">{t.processingEyebrow}</p><h2>{t.processingTitle}</h2><p>{t.processingBody}</p><div className="progress-line"><span /></div></div></div>;
 }
 
 function Candidates({
@@ -311,6 +321,7 @@ function Candidates({
   onQuantityChange: (item: CartItemRef, delta: number) => void;
   onClearCart: () => void;
 }) {
+  const t = useT();
   const [lightbox, setLightbox] = useState<{ url: string; attribution: string | null } | null>(null);
 
   // 메뉴판에 인쇄된 순서(line_no)로 늘어놓는다. 서버가 주는 순서는 점수 순이라 사진과
@@ -326,7 +337,7 @@ function Candidates({
       <Header {...header} />
       <main className="content-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
+        <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> {t.back}</button>
         {/* The uploaded menu photo is the main visual here — the traveller compares it
             against the candidate cards, so it leads the page instead of sitting as a
             small corner chip. */}
@@ -356,14 +367,13 @@ function Candidates({
               )}
             </div>
             <p>
-              Menu photo <b>ready to compare</b>
+              {t.photoReady} <b>{t.photoReadyStrong}</b>
               {/* 상자가 안 붙은 줄이 있으면 그 수를 밝힌다. 상자가 2개인데 목록이 6줄이면
                   "왜 4개는 표시가 없지"가 되는데, 이름이 여러 글자 조각에 걸쳐 잘리면
                   서버가 위치를 특정하지 못해 생기는 정상 동작이다. */}
               {ordered.some((c) => !c.source) && (
                 <span className="photo-note">
-                  {" "}· {ordered.filter((c) => !c.source).length} of {ordered.length} could not be
-                  located on the photo
+                  {" "}· {t.notLocated(ordered.filter((c) => !c.source).length, ordered.length)}
                 </span>
               )}
             </p>
@@ -371,9 +381,9 @@ function Candidates({
         )}
         <div className="section-heading">
           <div>
-            <p className="eyebrow">{candidates.length} MATCH{candidates.length === 1 ? "" : "ES"} FOUND</p>
-            <h1>What would you like to know?</h1>
-            <p className="lead">Add a dish to your list, or open one for a closer guide.</p>
+            <p className="eyebrow">{t.matchesFound(candidates.length)}</p>
+            <h1>{t.candidatesTitle}</h1>
+            <p className="lead">{t.candidatesLead}</p>
           </div>
         </div>
         <div className="candidate-layout">
@@ -428,6 +438,7 @@ function DishCard({
   onOpenImage: (image: { url: string; attribution: string | null }) => void;
   featured: boolean;
 }) {
+  const t = useT();
   const cartRef: CartItemRef = { food_id: candidate.food_id, name_kr: candidate.name_kr, name_en: candidate.name_en, price_krw: candidate.price_krw };
   return (
     <article className={`dish-card ${featured ? "featured" : ""}`}>
@@ -438,7 +449,7 @@ function DishCard({
           type="button"
           className="dish-thumb-button"
           onClick={() => onOpenImage({ url: candidate.thumbnail_url!, attribution: candidate.thumbnail_attribution ?? null })}
-          aria-label={`Enlarge photo of ${candidate.name_en}`}
+          aria-label={t.enlargePhoto(candidate.name_en)}
         >
           <img className="dish-thumb" src={candidate.thumbnail_url} alt="" />
         </button>
@@ -462,7 +473,7 @@ function DishCard({
                 말을 두 번 적는 꼴이다. 이 줄이 없으면 "족발 ₩31,000"과 "족발 ₩33,000"이
                 같은 메뉴가 두 번 뜬 것처럼 보인다(실제로는 반반족발과 족발처럼 다른 줄이다). */}
             {candidate.name_text && candidate.name_text !== candidate.name_kr && (
-              <p className="dish-menu-text" lang="ko">Menu: {candidate.name_text}</p>
+              <p className="dish-menu-text" lang="ko">{t.menuLinePrefix}: {candidate.name_text}</p>
             )}
           </div>
         </div>
@@ -474,11 +485,11 @@ function DishCard({
         </div>
         <div className="dish-actions">
           <div className="stepper">
-            <button aria-label={`Remove one ${candidate.name_en}`} onClick={() => onQuantityChange(cartRef, -1)} disabled={count === 0}><Minus size={15} /></button>
+            <button aria-label={t.removeOne(candidate.name_en)} onClick={() => onQuantityChange(cartRef, -1)} disabled={count === 0}><Minus size={15} /></button>
             <b>{count}</b>
-            <button aria-label={`Add one ${candidate.name_en}`} onClick={() => onQuantityChange(cartRef, 1)}><Plus size={15} /></button>
+            <button aria-label={t.addOne(candidate.name_en)} onClick={() => onQuantityChange(cartRef, 1)}><Plus size={15} /></button>
           </div>
-          <Button variant="outline" className="small-button" onClick={() => onDetail(candidate)}>View guide <ArrowRight size={15} /></Button>
+          <Button variant="outline" className="small-button" onClick={() => onDetail(candidate)}>{t.viewGuide} <ArrowRight size={15} /></Button>
         </div>
       </div>
     </article>
@@ -494,19 +505,20 @@ function CartPanel({
   onOrder: () => void;
   onClearCart: () => void;
 }) {
+  const t = useT();
   const [showHelp, setShowHelp] = useState(false);
 
   return (
     <aside className="cart-panel">
       <div className="cart-heading">
-        <div><p className="eyebrow">YOUR SHORTLIST</p><h2>Your cart <span>{cart.item_count}</span></h2></div>
+        <div><p className="eyebrow">{t.cartEyebrow}</p><h2>{t.cartTitle} <span>{cart.item_count}</span></h2></div>
         {/* 예전에는 물음표가 **그림일 뿐** 눌러도 아무 일이 없었다. 누를 수 있게 보이는데
             반응이 없으면 고장으로 읽힌다. 눌러서 이 목록이 무엇인지 여닫게 한다. */}
         <button
           type="button"
           className="cart-help-button"
           aria-expanded={showHelp}
-          aria-label="What is this list?"
+          aria-label={t.cartHelpLabel}
           onClick={() => setShowHelp((open) => !open)}
         >
           <CircleHelp size={18} />
@@ -514,13 +526,12 @@ function CartPanel({
       </div>
       {showHelp && (
         <p className="cart-help-text">
-          This list is only for showing the staff when you order. Nothing is sent to the
-          restaurant, and nothing is charged here.
+          {t.cartHelp}
         </p>
       )}
       {error && <p className="price-note">{error}</p>}
       {cart.items.length === 0 ? (
-        <div className="empty-cart"><span>＋</span><p>Nothing here yet. Use + on a dish to add it.</p></div>
+        <div className="empty-cart"><span>＋</span><p>{t.cartEmpty}</p></div>
       ) : (
         <div className="cart-lines">
           {cart.items.map((line) => (
@@ -539,7 +550,7 @@ function CartPanel({
         </div>
       )}
       <div className="cart-total"><span>Total</span><b>{cart.total_krw_display}</b></div>
-      {cart.has_unpriced_items && <p className="price-note">Some dishes had no price on your photo, so they are not in this total.</p>}
+      {cart.has_unpriced_items && <p className="price-note">{t.orderUnpriced}</p>}
       <Button
         variant="outline"
         className="secondary-button"
@@ -547,9 +558,9 @@ function CartPanel({
         disabled={cart.item_count === 0}
         onClick={onClearCart}
       >
-        Clear cart
+        {t.clearCart}
       </Button>
-      <Button className="primary-button order-button" disabled={cart.item_count === 0} onClick={onOrder}>Order <ArrowRight size={17} /></Button>
+      <Button className="primary-button order-button" disabled={cart.item_count === 0} onClick={onOrder}>{t.order} <ArrowRight size={17} /></Button>
     </aside>
   );
 }
@@ -557,6 +568,7 @@ function CartPanel({
 // This screen is handed to Korean restaurant staff, not read by the traveller — every
 // label on it is fixed Korean regardless of the app's own English UI language.
 function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartResponse; onBack: () => void }) {
+  const t = useT();
   return (
     <div className="app-shell">
       <Header {...header} />
@@ -569,11 +581,9 @@ function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartRespon
             부분(메뉴 이름·수량·합계)은 한국어로 둔다. 둘 다 필요한 곳에만 나란히 적는다. */}
         <div className="order-sheet">
           <div className="order-intro">
-            <p className="eyebrow">SHOW THIS TO THE STAFF</p>
-            <h1>Your order</h1>
-            <p className="lead order-summary-line">
-              This app does not send anything to the restaurant. Show this screen when you order.
-            </p>
+            <p className="eyebrow">{t.orderEyebrow}</p>
+            <h1>{t.orderTitle}</h1>
+            <p className="lead order-summary-line">{t.orderLead}</p>
           </div>
 
           {/* 여기서부터 종업원이 읽는 자리. 한국어로 둔다. */}
@@ -586,19 +596,17 @@ function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartRespon
               </div>
             ))}
           </div>
-          <div className="order-total"><span lang="ko">총합 <small>Total</small></span><b>{cart.total_krw_display}</b></div>
+          <div className="order-total"><span lang="ko">총합 <small>{t.cartTotal}</small></span><b>{cart.total_krw_display}</b></div>
 
           {/* 아래는 다시 여행자에게 하는 말이다. */}
           {cart.has_unpriced_items && (
-            <p className="price-note">
-              Some dishes had no readable price on the photo, so they are not counted in the total.
-            </p>
+            <p className="price-note">{t.orderUnpriced}</p>
           )}
           <div className="order-warning">
             <ShieldCheck size={18} />
-            <p>Confirm the dishes, prices, and any allergies with the staff before you order.</p>
+            <p>{t.orderWarning}</p>
           </div>
-          <Button variant="outline" className="secondary-button" onClick={onBack}><ArrowLeft size={16} /> Back to dishes</Button>
+          <Button variant="outline" className="secondary-button" onClick={onBack}><ArrowLeft size={16} /> {t.backToDishes}</Button>
         </div>
       </main>
     </div>
@@ -685,6 +693,7 @@ function Result({
 }
 
 function ErrorState({ heading, hint, onRetry }: { heading: string; hint: string; onRetry: () => void }) {
+  const t = useT();
   return (
     <div className="center-state">
       <div className="error-card">
@@ -692,14 +701,15 @@ function ErrorState({ heading, hint, onRetry }: { heading: string; hint: string;
         <p className="eyebrow">LET'S TRY THAT AGAIN</p>
         <h2>{heading}</h2>
         <p>{hint}</p>
-        <Button className="primary-button" onClick={onRetry}>Take a new photo</Button>
+        <Button className="primary-button" onClick={onRetry}>{t.takeNewPhoto}</Button>
       </div>
     </div>
   );
 }
 
 function Modal({ type, lang, setLang, onClose }: { type: Exclude<Modal, null>; lang: string; setLang: (v: string) => void; onClose: () => void }) {
-  const title = type === "settings" ? "Settings" : type === "privacy" ? "Privacy Notice" : "Terms of Use";
+  const t = useT();
+  const title = type === "settings" ? t.settings : type === "privacy" ? t.privacyTitle : t.termsTitle;
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <section className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -710,7 +720,7 @@ function Modal({ type, lang, setLang, onClose }: { type: Exclude<Modal, null>; l
           <>
             {/* 헤더의 선택과 같은 값을 쓴다. 예전에는 여기만 따로 놀아서, 설정에서 바꿔도
                 헤더는 그대로였다. */}
-            <label className="setting-row"><span>Language</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select></label>
+            <label className="setting-row"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select></label>
 
             {/* 체크박스 두 개("Camera & Image Processing", "Essential Cookies & Analytics")를
                 뺐다. 켜고 끌 수 있는 것처럼 보였지만 아무 데도 이어져 있지 않았고, 끄면
@@ -720,9 +730,9 @@ function Modal({ type, lang, setLang, onClose }: { type: Exclude<Modal, null>; l
             <SupportedFoodsSection />
           </>
         ) : (
-          <p>{type === "privacy" ? "K-Menu Voice Guide respects your privacy. Photos are processed in real time to identify Korean menu text and are not stored on our permanent database." : "This service is an informational guide only. Before ordering, confirm ingredients, preparation methods, and possible cross-contact directly with the restaurant."}</p>
+          <p>{type === "privacy" ? t.privacyBody : t.termsBody}</p>
         )}
-        <Button className="primary-button" onClick={onClose}>Close</Button>
+        <Button className="primary-button" onClick={onClose}>{t.close}</Button>
       </section>
     </div>
   );
@@ -734,16 +744,17 @@ function Modal({ type, lang, setLang, onClose }: { type: Exclude<Modal, null>; l
  * "끌 수 있나"가 아니라 "내 사진이 어떻게 되나"다. 그래서 사실을 그대로 적는다.
  * 음식 사진의 출처도 여기 둔다 — 데이터셋이 출처 표기를 요구한다. */
 function HowItWorksSection() {
+  const t = useT();
   return (
     <div className="setting-row" style={{ display: "block", cursor: "default" }}>
-      <span>How it works</span>
+      <span>{t.settingsHowItWorks}</span>
       <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, lineHeight: 1.7, color: "var(--muted)" }}>
-        <li>You photograph a menu. The photo is read for text and is not stored.</li>
-        <li>We match the Korean names against the dishes in our guide.</li>
-        <li>Each match gets an English explanation and a spoken Korean name.</li>
+        <li>{t.settingsStep1}</li>
+        <li>{t.settingsStep2}</li>
+        <li>{t.settingsStep3}</li>
       </ol>
       <small style={{ display: "block", marginTop: 10 }}>
-        Dish photos come from the AI Hub Tourism Menu Board Dataset (NIA) and are shown with their credit.
+        {t.settingsCredit}
       </small>
     </div>
   );
@@ -752,19 +763,20 @@ function HowItWorksSection() {
 // What this service can recognize — shown from the settings gear so a traveller can
 // check before photographing whether their dish is covered at all.
 function SupportedFoodsSection() {
+  const t = useT();
   const [foods, setFoods] = useState<SupportedFood[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     listSupportedFoods()
       .then(setFoods)
-      .catch(() => setError("Could not load the supported dishes list."));
+      .catch(() => setError(t.supportedError));
   }, []);
 
   return (
     <div className="setting-row" style={{ display: "block", cursor: "default" }}>
       <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        Supported dishes
+        {t.supportedDishes}
         {foods && (
           <span style={{ padding: "2px 9px", borderRadius: 999, color: "var(--teal)", background: "var(--sand)", fontSize: 11, fontWeight: 800 }}>
             {foods.length}
@@ -772,7 +784,7 @@ function SupportedFoodsSection() {
         )}
       </span>
       {error && <small style={{ color: "var(--coral)" }}>{error}</small>}
-      {!foods && !error && <small>Loading…</small>}
+      {!foods && !error && <small>{t.supportedLoading}</small>}
       {foods && (
         <ul style={{ listStyle: "none", margin: "10px 0 0", padding: 0, maxHeight: 220, overflowY: "auto", border: "1px solid var(--line)", borderRadius: 4 }}>
           {foods.map((food) => (

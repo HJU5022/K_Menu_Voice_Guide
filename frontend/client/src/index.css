@@ -214,3 +214,28 @@ button.brand {
   color: var(--muted);
   font-family: 'Noto Serif KR', 'Song Myung', serif;
 }
+
+
+/* 한국어일 때의 글꼴·줄바꿈.
+   제목에 쓰는 'DM Serif Display'에는 한글이 없어서, 한국어를 넣으면 대체 글꼴로 떨어지며
+   모양이 무너진다. 그리고 한국어는 **단어 중간에서 줄이 바뀌면 안 된다**("한국 메뉴판을
+   찍어보세요"가 "찍어보세 / 요."로 잘렸다). keep-all이 그것을 막는다. */
+html[lang="ko"] h1,
+html[lang="ko"] h2,
+html[lang="ko"] .camera-copy h1,
+html[lang="ko"] .cart-heading h2,
+html[lang="ko"] .result-hero h1 {
+  font-family: 'Noto Serif KR', 'Song Myung', serif;
+  letter-spacing: -0.02em;
+}
+html[lang="ko"] body,
+html[lang="ko"] h1,
+html[lang="ko"] h2,
+html[lang="ko"] p,
+html[lang="ko"] li,
+html[lang="ko"] span {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+/* 영어 제목은 아주 크게 잡혀 있는데, 한글은 같은 크기면 화면을 넘긴다(글자 하나가 넓다). */
+html[lang="ko"] .camera-copy h1 { font-size: 54px; line-height: 1.25; }
