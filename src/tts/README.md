@@ -63,18 +63,19 @@ python -m src.tts.pregenerate --force    # 전부 다시 생성
 
 그래서 `src/pipeline.py`는 TTS 추론을 `python -m src.tts.worker`라는 **완전히 별도인 자식 프로세스**에서 실행한다. 그 프로세스는 paddle을 전혀 임포트하지 않으므로 torch가 깨끗하게 로드된다. 텍스트·스타일을 stdin으로 넘기고 결과 JSON 한 줄을 stdout으로 받는 구조다.
 
-## 고유명사 발음 교정 (G2P 오버라이드)
+## 음식명 발음 교정 — 한글 치환
 
-기존 edge-tts 학습 데이터로 파인튜닝한 결과, 불고기·냉면 같은 고유명사 발음이 약하게 나오는 문제가 있었습니다. 이를 아래 방식으로 교정합니다.
+영어 문장 안에 로마자로 적힌 음식명(`Tteokbokki`)은 모델이 **영어 음운으로 읽어버려** 발음이 부정확합니다. 그래서 TTS에 넘기는 문장에서만 음식명을 **한글 표기**(`떡볶이`)로 바꿉니다.
 
-1. edge-tts SSML `<phoneme>` 태그로 고유명사 발음을 발음사전(G2P)으로 오버라이드해서 음성을 다시 생성
-2. 교정된 음성 + 정답 텍스트를 쌍으로 라벨링
-3. **기존 edge-tts 학습 데이터는 전량 폐기**하고 이 교정 데이터로 완전히 교체
-4. `finetune.py`로 재학습
+- **값**: 이미 있는 `foods.name_kr` — 표기 전용 컬럼을 따로 두지 않습니다. 등록된 50행이 전부 채워져 있어 음식이 늘어도 TTS 쪽에 추가 작업이 없습니다.
+- **치환 위치**: `src/text_gen/narration.py`. 거기서 `foods` 행을 이미 조회하므로 `name_en`/`name_kr` 쌍이 손에 있습니다. 단어 경계로 매칭해서 짧은 이름이 긴 이름 안쪽을 파먹지 않게 합니다(`Galbi`가 `Tteokgalbi`를 건드리면 안 됨).
+- **`infer.py`는 손대지 않습니다**: 받은 `tts_text`를 그대로 넘깁니다. 여기서 또 치환하면 이미 바뀐 이름을 두 번 처리합니다.
+- **화면용 텍스트는 로마자 유지**: 여행자가 소리 내어 읽어야 하므로 `text`는 원본 표기 그대로입니다.
+- **발음 안내 문장은 TTS 전용 행**: 화면용 `PRONUNCIATION`을 그대로 쓰면 `비빔밥 is pronounced "bee-bim-bap."`이 되어 같은 이름을 연달아 두 번 읽습니다. TTS 쪽은 `PRONUNCIATION_TTS` 카테고리를 씁니다.
 
-이번 교정은 **고유명사 발음만** 대상입니다. GUIDE/CAUTION 톤 구분 문제는 범위 밖이며 별도로 다룹니다.
+앞서 쓰던 영문 리스펠링(`Tteokbokki` → `Duck-bok-kee`)은 폐기됐고 `RESPELL_MAP`·`apply_respelling()`도 코드에서 삭제했습니다. 전환 경위와 표기 21개 목록은 [`eval/TTS_MODULE.md`](../../eval/TTS_MODULE.md) 4절, 결정 기록은 [`docs/specs/tts-finetuning.md`](../../docs/specs/tts-finetuning.md) "구현 변경 이력 (2026-08-25, 최종)" 참고.
 
-검증은 MOS 같은 정량 채점이 아니라, 재학습 후 몇 개를 직접 들어보고 사람이 판단하는 방식입니다.
+검증은 MOS 같은 정량 채점이 아니라 몇 개를 직접 들어보고 사람이 판단하는 방식이며, **한글 표기는 아직 청취 확인 전입니다**.
 
 ## Perso.ai는 왜 있나
 

@@ -282,7 +282,7 @@ proj1-c/
 │
 ├── data/
 │   └── README.md                     # AI Hub 신청 링크 + OCR 학습라벨(rec_gt_train.txt) 변환법
-│                                      #   + 커스텀 딕셔너리 파일 생성법 + gTTS 스크립트 실행법
+│                                      #   + 커스텀 딕셔너리 파일 생성법 + TTS 학습 녹음 데이터 준비법
 │
 ├── models/
 │   └── README.md                     # HF Hub 모델 ID만 기록: 파인튜닝 OCR 체크포인트, 파인튜닝 TTS 체크포인트
