@@ -3,7 +3,7 @@
 //
 // 이 파일은 화면 알맹이(<main>)만 만든다. 껍데기(.app-shell)와 머리말·꼬리말은 Home이
 // 씌운다 — 랜딩만 제 머리말을 따로 두면 언어 선택·설정이 화면마다 달라진다.
-import { ArrowRight, Camera, Check, ShieldCheck, Sparkles, Volume2 } from "lucide-react";
+import { ArrowRight, Camera, Check, ChevronDown, ShieldCheck, Sparkles, Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lang";
@@ -21,9 +21,9 @@ export default function Landing({ onStart }: { onStart: () => void }) {
    * 번호를 두 자리로 적는 것(01·02·03)은 후보 목록에서 사진 위 상자에 붙는 번호와 같은
    * 표기다 — 이 서비스에서 "몇 번째"는 늘 같은 모양으로 적힌다. */
   const steps = [
-    { icon: <Camera size={16} />, label: t.landingStep1 },
-    { icon: <Check size={16} />, label: t.landingStep2 },
-    { icon: <Volume2 size={16} />, label: t.landingStep3 },
+    { icon: <Camera size={16} />, label: t.landingStep1, body: t.landingStep1Body },
+    { icon: <Check size={16} />, label: t.landingStep2, body: t.landingStep2Body },
+    { icon: <Volume2 size={16} />, label: t.landingStep3, body: t.landingStep3Body },
   ];
 
   return (
@@ -49,9 +49,18 @@ export default function Landing({ onStart }: { onStart: () => void }) {
         <ol className="landing-steps">
           {steps.map((step, index) => (
             <li className="landing-step" key={step.label}>
-              <span className="landing-step-no">{String(index + 1).padStart(2, "0")}</span>
-              <span className="landing-step-icon" aria-hidden="true">{step.icon}</span>
-              <p>{step.label}</p>
+              {/* <details>를 쓴다. 열고 닫는 것을 브라우저가 맡으므로 상태를 들고 있을
+                  필요가 없고, 키보드(Enter/Space)와 화면 읽기 프로그램이 그냥 동작한다.
+                  새 라이브러리도 필요 없다. */}
+              <details className="landing-step-detail">
+                <summary>
+                  <span className="landing-step-no">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="landing-step-icon" aria-hidden="true">{step.icon}</span>
+                  <span className="landing-step-label">{step.label}</span>
+                  <ChevronDown className="landing-step-chevron" size={14} aria-hidden="true" />
+                </summary>
+                <p className="landing-step-body">{step.body}</p>
+              </details>
             </li>
           ))}
         </ol>

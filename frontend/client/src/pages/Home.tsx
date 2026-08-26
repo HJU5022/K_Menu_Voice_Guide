@@ -334,7 +334,7 @@ function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
   const t = useT();
   // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
   // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
-  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>Menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
 }
 
 /** 꼬리말 — 랜딩과 촬영 화면이 같은 것을 쓴다.
@@ -1089,7 +1089,17 @@ function SupportedFoodsSection() {
 
   useEffect(() => {
     listSupportedFoods()
-      .then(setFoods)
+      .then((list) => {
+        // **돌아온 것이 목록인지 확인하고 쓴다.**
+        //
+        // API 주소가 비어 있으면(개발 중 .env가 없거나, 배포에서 주소를 안 넣은 경우)
+        // 요청이 같은 출처로 가고, 정적 파일 서버는 없는 경로에 404가 아니라 index.html을
+        // **200으로** 돌려준다. 그러면 axios는 성공으로 보고 문자열을 건네주는데, 그것을
+        // 그대로 믿고 .map을 부르면 설정 창만이 아니라 **앱 전체가** 흰 화면이 된다
+        // (ErrorBoundary까지 올라간다). 톱니바퀴 한 번에 서비스가 죽는 셈이다.
+        if (!Array.isArray(list)) throw new Error("expected a list of foods");
+        setFoods(list);
+      })
       .catch(() => setError(t.supportedError));
   }, []);
 

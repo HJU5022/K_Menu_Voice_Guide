@@ -83,5 +83,5 @@ python -m src.tts.pregenerate --force    # 전부 다시 생성
 ## 관련 문서
 
 - Spec: [`docs/specs/tts-finetuning.md`](../../docs/specs/tts-finetuning.md)
-- **실험 기록 상세**: [`eval/TTS_MODULE.md`](../../eval/TTS_MODULE.md) — 하이퍼파라미터 8차 실험, 리스펠링 21개 목록, instruct 문구, UTMOS 평가
+- **실험 기록 상세**: [`eval/TTS_MODULE.md`](../../eval/TTS_MODULE.md) — 파인튜닝 9차까지의 실측값(배포는 9차 `epoch-31`), 음식명 표기 전환(리스펠링 → 한글), instruct 문구, UTMOS 평가. 현재 배포 설정은 그 문서 맨 앞 "현재 배포 기준" 표 참고
 - 평가 결과: [`eval/model_comparison.md`](../../eval/model_comparison.md)
