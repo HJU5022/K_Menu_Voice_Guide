@@ -103,11 +103,26 @@ GET /api/foods/{food_id}
   "style": "GUIDE" | "CAUTION",
   "tts_status": "ok" | "not_ready",
   "narration_audio_path": string | null,
-  "tts_latency_ms": number
+  "tts_latency_ms": number,
+  "name_audio_path": string | null,
+  "name_tts_status": "ok" | "not_ready"
 }
 
 응답 404: food_id가 존재하지 않음
 ```
+
+**소리가 두 갈래인 이유** (2026-08-26 추가). `narration_audio_path`는 설명 전체를,
+`name_audio_path`는 **음식 이름만** 읽은 음성이다. 화면은 이름 옆 스피커에 뒤엣것을,
+아래 재생바에 앞엣것을 건다. 한 파일로 두면 이름 발음만 듣고 싶은 사람이 30초짜리
+안내를 통째로 듣게 되는데, 통짜 wav에서 이름 부분만 떼어낼 방법이 없어 처음부터
+따로 만든다.
+
+두 음성 모두 **읽는 값은 한글**이다(`foods.name_kr`). 화면에는 로마자(`Galbitang`)가
+보이지만 모델에는 한글을 넘긴다 — 로마자를 주면 영어 음운으로 읽는다. 치환은
+`src/text_gen/narration.py`가 한다.
+
+캐시 파일명이 다르다 — 나레이션은 `static/tts_cache/food_{id}_{STYLE}.wav`,
+이름은 `static/tts_cache/name_{id}.wav`. 둘 다 없으면 요청 시점에 생성한다.
 
 - 대상 파일: `K_Menu_Talk.py` (README에 이미 "배포 진입점"으로 문서화된 파일 — Gradio 대신 FastAPI 앱을 둠)
 - 업로드된 이미지는 임시 파일로 저장 후 기존 `analyze_image(image_path)`에 그대로 전달한다 (OCR 쪽 함수 시그니처를 바꾸지 않음).
