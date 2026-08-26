@@ -21,7 +21,7 @@ DB에 직접 접근하는 코드는 전부 여기에만 둡니다. 다른 폴더
 | `foods` | 음식 기본 정보 (음식명, spice_level, 대표사진 URL·출처). `name_kr`은 TTS가 읽는 이름으로도 씁니다 |
 | `food_details` | 카테고리 6개 상세 설명 (PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY) + TTS 전용 `PRONUNCIATION_TTS` |
 | `food_narration` | style별 내레이션 문장 |
-| `menu_modifiers` | 메뉴에 붙는 수식어 (예: "매운") — 매칭 후 따로 뽑아내는 데 씀 |
+| `menu_modifiers` | 메뉴판 줄에서 음식명을 뺀 나머지에 붙는 수식어. `keyword_en`이 후보 카드의 **영어 태그**가 됩니다(`매운`→`Hot`, `해산물`→`Seafood`). `category`가 `spice`면 `spice_tier`(1~5)를 함께 씁니다 |
 
 ## 보안
 

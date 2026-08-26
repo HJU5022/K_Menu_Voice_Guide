@@ -13,7 +13,9 @@ export type Lang = "en" | "ko";
 
 const en = {
   // 머리말
-  brandTagline: "A thoughtful guide",
+  // 좌상단 잠금장치는 "K-Menu"(큰 글자) + "Voice Guide"(작은 글자) 두 줄로 서비스 이름
+  // 전체를 적는다. 이름은 옮기지 않으므로 en·ko가 같은 값이다.
+  brandTagline: "Voice Guide",
   language: "Language",
   settings: "Settings",
   goHome: "Go to the start",
@@ -27,9 +29,12 @@ const en = {
   // heroEyebrow·heroLead·privacyNote는 예전에 촬영 화면 위에 얹혀 있던 것을 여기로 **옮긴**
   // 것이다. 두 화면에 같은 말을 겹쳐 두면 "Get started"를 눌러도 제자리인 줄 안다.
   heroEyebrow: "MENU, MADE CLEAR",
-  heroTitle: "Know what you're ordering.",
+  heroTitle: "What it is, before you order.",
+  // 문장마다 줄을 바꾼다(\n). 화면에서 이 줄바꿈을 살리는 것은 index.css의
+  // `.landing-copy .lead { white-space: pre-line }`이다 — 문구와 표시 규칙이 짝이므로
+  // 한쪽만 지우면 두 문장이 한 덩어리로 붙는다.
   heroLead:
-    "Photograph a Korean menu. We find the dishes we can guide you through and explain each one — what it is, what goes in it, and how spicy.",
+    "Photograph a Korean menu.\nWe find the dishes we can guide you through and explain each one — what it is, what goes in it, and how spicy.",
   privacyNote: "Your photo is used only to identify menu text. It is not stored.",
   // 세 단계는 **제목만** 적는다. 이 화면이 하는 일은 설득이 아니라 "이렇게 쓰면 된다"를
   // 5초 안에 보여주는 것이고, 설명을 붙이면 폰에서 CTA가 화면 밖으로 밀린다.
@@ -37,6 +42,11 @@ const en = {
   landingStep1: "Photograph the menu",
   landingStep2: "Pick a dish",
   landingStep3: "Listen in English",
+  // 펼쳤을 때 나오는 한 줄 설명. **지금 되는 것만** 적는다 — 메뉴판 통째 번역도,
+  // 실시간 통역도 하지 않으므로 그렇게 읽힐 말을 쓰지 않는다.
+  landingStep1Body: "Works with printed menus. We read the Korean text off your photo.",
+  landingStep2Body: "We list only the dishes in our guide, and mark where each one sits on your photo.",
+  landingStep3Body: "What the dish is, what goes in it, allergies, and how spicy — with the Korean name read aloud.",
   landingCta: "Get started",
 
   // 촬영/업로드 — 서비스 설명은 랜딩이 끝냈다. 여기는 사진을 넣는 일만 한다.
@@ -142,20 +152,23 @@ const en = {
 /** 한국어. 영어를 옮긴 것이 아니라 **한국어로 자연스러운 말**로 적는다.
  *  읽는 사람은 한국어 화자이므로 "당신의 사진" 같은 번역투를 피한다. */
 const ko: typeof en = {
-  brandTagline: "메뉴판을 읽어주는 안내",
+  brandTagline: "Voice Guide",
   language: "언어",
   settings: "설정",
   goHome: "처음 화면으로",
 
   heroEyebrow: "메뉴판, 알아보기 쉽게",
-  heroTitle: "무슨 음식인지 알고 주문하세요.",
+  heroTitle: "시키기 전에, 무슨 음식인지.",
   heroLead:
-    "한국어 메뉴판을 사진으로 찍어보세요. 안내할 수 있는 음식을 찾아 하나씩 설명해 드립니다 — 어떤 음식인지, 무엇이 들어가는지, 얼마나 매운지.",
+    "한국어 메뉴판을 사진으로 찍어보세요.\n안내할 수 있는 음식을 찾아 하나씩 설명해 드립니다 — 어떤 음식인지, 무엇이 들어가는지, 얼마나 매운지.",
   privacyNote: "사진은 메뉴 글자를 읽는 데만 쓰고 저장하지 않습니다.",
   landingStepsEyebrow: "이렇게 씁니다",
   landingStep1: "메뉴판 촬영하기",
   landingStep2: "음식 선택하기",
   landingStep3: "영어 설명 듣기",
+  landingStep1Body: "인쇄된 메뉴판이면 됩니다. 사진 속 한국어 글자를 읽어냅니다.",
+  landingStep2Body: "안내할 수 있는 음식만 목록에 올리고, 사진 속 어느 자리인지 표시해 드립니다.",
+  landingStep3Body: "어떤 음식인지, 무엇이 들어가는지, 알레르기와 매운 정도. 한국어 이름은 소리로 들려드립니다.",
   landingCta: "시작하기",
 
   cameraTitle: "메뉴판을 촬영해 주세요.",
