@@ -1,8 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no" class="notranslate">
 
   <head>
     <meta charset="UTF-8" />
+    <!-- 브라우저의 "이 페이지를 번역하시겠습니까"를 막는다.
+         이 화면에는 **일부러 한국어로 둔 자리**가 있다. 주문 화면의 메뉴 이름과 수량, 합계는
+         종업원이 읽으라고 한국어로 적어둔 것인데(Home.tsx의 lang="ko" 부분), 브라우저가
+         그것까지 영어로 바꿔버리면 화면을 건네받은 종업원이 주문을 읽지 못한다 —
+         이 서비스가 하려는 일이 통째로 무너진다.
+         음식 이름의 한글 원문도 마찬가지다. 발음을 듣고 따라 말하라고 보여주는 글자라
+         번역되면 쓸모가 없다.
+         언어를 바꾸고 싶은 사람에게는 머리말에 우리 전환기가 이미 있다(영어·한국어).
+         translate="no"는 표준 속성이고, 아래 meta와 notranslate 클래스는 그것을 아직 안 보는
+         브라우저까지 덮기 위한 것이다. -->
+    <meta name="google" content="notranslate" />
     <!-- maximum-scale은 두지 않는다. 메뉴판 사진의 작은 글자를 들여다봐야 하는 서비스라
          손가락으로 확대하는 길을 막으면 안 된다(시력이 약한 사람에게는 유일한 수단이다). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
