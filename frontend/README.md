@@ -27,8 +27,6 @@ VITE_API_BASE_URL=http://localhost:8000
 ## 구조
 
 - `client/` — 실제 React 앱 (`src/pages/Home.tsx`가 화면 상태, `src/lib/api.ts`가 백엔드 HTTP 계약)
-- `server/` — 프로덕션 빌드 산출물을 서빙하는 Express (API 로직 없음)
-- `shared/` — client/server가 같이 쓰는 상수
 
 ## 문서 읽는 순서
 
