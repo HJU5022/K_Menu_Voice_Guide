@@ -266,8 +266,6 @@ proj1-c/
 ├── frontend/                         # React + TypeScript 웹 화면 (Vite, pnpm) — 계산하지 않고 API만 호출한다
 │   ├── README.md                      # 범위·실행·빌드·구조
 │   ├── client/                        #   실제 앱 — src/pages/Home.tsx가 화면 상태, src/lib/api.ts가 HTTP 계약
-│   ├── server/                        #   빌드 산출물 서빙용 Express (API 로직 없음)
-│   ├── shared/                        #   client/server가 같이 쓰는 상수
 │   ├── space/deploy.sh                #   HF Static Space 배포 — VITE_API_BASE_URL을 넣어 빌드한 뒤 통째로 덮어쓴다
 │   └── docs/                          #   화면 기준 문서 (ui-flow, screen-spec, web-app, api-client, deployment 등)
 │                                       #   web-app.md = 화면 규칙 상세(예외 18가지) — 옛 docs/specs/streamlit-app.md
