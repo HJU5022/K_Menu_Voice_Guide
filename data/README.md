@@ -38,15 +38,19 @@ python -m src.ocr.prepare_dataset
 - 출력: `data/processed/korean_menu_dict.txt`
 - 형식: 한 줄에 글자 하나
 
-## 4. gTTS 학습 스크립트 실행
+## 4. TTS 학습 음성 데이터 (팀원 실제 녹음)
 
-TTS 파인튜닝용 음성 데이터를 gTTS로 만듭니다.
+TTS 파인튜닝용 음성은 합성이 아니라 **팀원이 직접 녹음**한 것입니다.
 
-```bash
-# (실행 명령 채우기)
-```
+- 구성: 나레이션 50개 + 발음용 캐리어 문장 250개 = 원본 300개
+  (CAUTION 클래스 오버샘플링을 적용한 최종 학습셋은 348개)
+- 오디오 스펙: 24kHz mono WAV로 통일 (코덱 파이프라인 요구사항)
+- 데이터 분할: 80/10/10 (food_id × style 기준 층화 분할)
+- 라벨 텍스트: 8차(최종) 학습부터는 리스펠링을 반영한 텍스트를 사용 — [`eval/TTS_MODULE.md`](../eval/TTS_MODULE.md) 4절
+- 둘 경로: `data/tts/`
 
-- 출력: `data/tts/`
+> 🔒 녹음 파일은 개인 음성이므로 **공개 저장소에 올리지 않습니다.** 팀 내부 비공개 저장소/Drive에서 받아 `data/tts/`에 둡니다.
+> 음성 사용 동의서 보관 원칙은 [`docs/legal/tts-voice-consent/`](../docs/legal/tts-voice-consent/) 참고.
 
 ## 폴더 구조
 
@@ -54,5 +58,5 @@ TTS 파인튜닝용 음성 데이터를 gTTS로 만듭니다.
 data/
 ├── raw/          # AI Hub 원본 (git 제외)
 ├── processed/    # 변환 결과 (git 제외)
-└── tts/          # gTTS 생성 음성 (git 제외)
+└── tts/          # 팀원 녹음 음성 (git 제외)
 ```
