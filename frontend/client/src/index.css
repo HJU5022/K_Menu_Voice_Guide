@@ -401,7 +401,9 @@ button.menu-photo-frame {
   gap: 30px 70px;
   align-items: center;
 }
-.landing-copy { grid-area: copy; padding-left: 8px; }
+/* container-type을 주면 아래 제목이 뷰포트가 아니라 **이 칸의 실제 폭**을 기준으로
+   크기를 잡을 수 있다(cqi). 스크롤막대가 있고 없고에 흔들리지 않는다. */
+.landing-copy { grid-area: copy; padding-left: 8px; container-type: inline-size; }
 .landing-visual { grid-area: visual; margin: 0; transform: rotate(-1.1deg); }
 .landing-steps-section { grid-area: steps; }
 
@@ -409,22 +411,42 @@ button.menu-photo-frame {
    다섯 단어짜리 문장이라, 같은 크기로 두면 폰에서 넉 줄이 되어 시작 단추가 화면 밖으로
    밀린다. 한국어일 때 글꼴이 'Noto Serif KR'로 바뀌는 것은 위쪽 html[lang="ko"] 규칙이
    맡는다(그쪽이 더 구체적이라 여기 적은 font-family를 이긴다 — 일부러 그렇게 둔다). */
+/* 제목은 **한 줄로 둔다.** 그러려면 글자 크기가 칸 폭을 따라가야 한다.
+   cqi는 .landing-copy 폭의 1%다. 지금 문장은 글자크기 1px당 11.3px(영어)을 쓰므로
+   100/11.3 = 8.85cqi면 딱 맞고, 3% 여유를 둬 8.6cqi로 잡는다. 위쪽은 49px에서 멈춘다 —
+   넓은 화면에서 끝없이 커지면 제목만 남는다.
+
+   **문구를 바꾸면 이 값도 다시 재야 한다.** 지금 값은 아래 두 문장을 재서 얻은 것이고,
+   더 긴 문장을 넣으면 한 줄을 넘겨 잘린다.
+     영어  "What it is, before you order."   1px당 11.3px
+     한국어 "시키기 전에, 무슨 음식인지."      1px당 11.9px  -> 100/11.9 = 8.4, 여유 두어 8.2 */
 .landing-copy h1 {
   font-family: 'DM Serif Display', serif;
   font-weight: 400;
   letter-spacing: -0.035em;
-  line-height: 1.02;
+  line-height: 1.1;
   color: var(--teal-dark);
-  font-size: clamp(38px, 4.6vw, 66px);
+  font-size: min(49px, 8.6cqi);
   margin: 0 0 22px;
-  max-width: 520px;
+  max-width: none;
+  white-space: nowrap;
 }
-/* 한글은 글자 하나가 넓어 같은 크기면 화면을 넘긴다. */
-html[lang="ko"] .landing-copy h1 { font-size: clamp(30px, 3.5vw, 48px); line-height: 1.28; }
+html[lang="ko"] .landing-copy h1 { font-size: min(46px, 8.2cqi); line-height: 1.2; }
+
+/* 리드는 문장마다 줄을 바꾼다(문구의 
+을 살린다). 긴 문장은 그 안에서 평소처럼 접힌다. */
+.landing-copy .lead { white-space: pre-line; }
 
 .landing-cta { margin-top: 34px; min-height: 52px; padding: 0 28px; font-size: 13px; }
-/* 시작 단추에 딸린 안내라 촬영 화면의 .trust-note만큼 떨어뜨리지 않는다. */
-.landing-copy .trust-note { margin-top: 18px; }
+/* 시작 단추에 딸린 안내라 촬영 화면의 .trust-note만큼 떨어뜨리지 않는다.
+   촬영 화면 쪽은 max-width:310px이라 석 줄로 접히는데, 여기서는 한 줄로 둔다 —
+   시작 단추 바로 아래 한 줄이면 훑고 지나가지만, 여러 줄이면 문단처럼 보여 읽히지 않는다. */
+.landing-copy .trust-note {
+  margin-top: 18px;
+  max-width: none;
+  align-items: center;
+  white-space: nowrap;
+}
 
 .landing-photo { min-height: 380px; }
 /* 촬영 화면의 어두운 덮개는 그 위에 얹은 흰 글씨를 읽히게 하려고 있다. 여기에는 얹는
@@ -434,8 +456,25 @@ html[lang="ko"] .landing-copy h1 { font-size: clamp(30px, 3.5vw, 48px); line-hei
 /* 세 단계 — 번호·작은 아이콘·제목만 적는다. 설명을 붙이면 폰에서 길어져 정작 눌러야 할
    시작 단추가 멀어진다. 칸은 인쇄된 표처럼 점선으로 나눈다(.section-heading과 같은 점선). */
 .landing-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
-.landing-step { display: flex; align-items: center; gap: 14px; padding: 22px 24px 22px 0; border-top: 1px dotted #b8a997; }
-.landing-step + .landing-step { padding-left: 24px; border-left: 1px dotted #b8a997; }
+.landing-step { border-top: 1px dotted #b8a997; }
+.landing-step + .landing-step { border-left: 1px dotted #b8a997; }
+/* 여백을 li가 아니라 summary·본문에 준다. li에 주면 닫혀 있을 때도 아래쪽이 비어 보인다. */
+.landing-step summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 24px 22px 0;
+  cursor: pointer;
+  list-style: none;                 /* 기본 삼각형 표식을 지우고 우리 갈매기표를 쓴다 */
+}
+.landing-step summary::-webkit-details-marker { display: none; }
+.landing-step + .landing-step summary { padding-left: 24px; }
+.landing-step-label { font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--teal-dark); }
+/* 갈매기표는 오른쪽 끝에 붙여, 여는 곳이 어디인지 눈으로 찾게 한다. */
+.landing-step-chevron { margin-left: auto; flex: none; color: var(--muted); transition: transform .18s var(--ease-out); }
+.landing-step-detail[open] .landing-step-chevron { transform: rotate(180deg); }
+.landing-step-body { margin: 0; padding: 0 24px 22px 0; font-size: 12px; line-height: 1.7; color: #607371; }
+.landing-step + .landing-step .landing-step-body { padding-left: 24px; }
 /* 번호를 두 자리로 적는 것은 후보 목록에서 사진 위 상자에 붙는 번호와 같은 표기다. */
 .landing-step-no { font-family: 'DM Serif Display', serif; font-size: 25px; line-height: 1; color: var(--coral); flex: none; }
 .landing-step-icon { display: grid; place-items: center; color: var(--teal); flex: none; }
@@ -453,9 +492,37 @@ html[lang="ko"] .landing-copy h1 { font-size: clamp(30px, 3.5vw, 48px); line-hei
   /* 폰에서 사진이 화면을 다 먹으면 세 단계와 시작 단추가 아래로 밀려난다. */
   .landing-photo { min-height: 220px; }
   .landing-steps { grid-template-columns: 1fr; }
-  .landing-step, .landing-step + .landing-step { padding: 16px 0; border-left: 0; }
+  .landing-step, .landing-step + .landing-step { border-left: 0; }
+  .landing-step summary, .landing-step + .landing-step summary { padding: 16px 0; }
+  .landing-step-body, .landing-step + .landing-step .landing-step-body { padding: 0 0 16px; }
 }
 @media (max-width: 560px) {
+  /* 머리말 두 번째 줄은 이제 꾸밈말이 아니라 **이름의 뒷부분**이다(K-Menu Voice Guide).
+     폰에서 숨기면 이름이 반쪽만 남는다.
+     `.brand span`으로 뭉뚱그리면 워드마크 안의 `K`(.wordmark-k)와 심벌 안쪽 span까지
+     블록이 되어 로고가 무너진다. 두 번째 칸의 직계 span만 집는다. */
+  .brand > div:last-child > span { display: block; }
+
+  /* 이름이 "K-" / "Menu"로 잘리던 것을 막는다.
+     nowrap만 걸면 헤더가 가로로 38px 넘치므로(오른쪽 묶음이 폭을 다 가져간다), 오른쪽에서
+     자리를 돌려받아야 한다. "LANGUAGE" 글자는 **눈에서만** 감춘다 — 이 span이 곧 select의
+     이름이라 display:none으로 지우면 화면 읽기 프로그램이 이름 없는 고르개를 읽는다. */
+  .brand strong { white-space: nowrap; }
+  .language > span {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .top-actions { gap: 12px; }
+
+  /* 한 줄짜리 안내문은 폰에서 12px이면 넘친다(영어가 특히 길다). 글자와 방패를 조금 줄여
+     한 줄을 지킨다 — 이 화면의 .helper·.site-footer가 이미 11px대라 튀지 않는다. */
+  .landing-copy .trust-note { font-size: 11px; gap: 8px; }
+  .landing-copy .trust-note svg { width: 14px; height: 14px; }
   .landing-copy { padding-left: 0; }
   /* 식당에서 한 손으로 누른다 — 단추는 화면 너비를 다 쓰고 손가락만큼 두껍게. */
   .landing-cta { width: 100%; }
