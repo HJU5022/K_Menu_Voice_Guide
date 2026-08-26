@@ -35,39 +35,6 @@ DB에 직접 접근하는 코드는 전부 여기에만 둡니다. 다른 폴더
 
 첫 요청에서 4개 테이블을 한 번에 읽는 왕복이 **약 2.5초**, 그 뒤로는 메모리라 **2ms 미만**입니다 (2026-08-25 실측, `eval/model_comparison.md` 3절). 서비스 응답에서 눈에 띄는 콜드 비용은 여기 하나뿐입니다.
 
-## ⚠️ 현재 어긋나 있는 것 — foods 200행
-
-메뉴판 빈도 상위 200개 시드(일회성 SQL, 저장소 밖)가 이미 실행돼 `foods`가 **200행**인데, `food_narration`·`food_details`·`thumbnail_url`은 기존 **50개분만** 있습니다. 그 결과:
-
-- `GET /api/foods`가 안내 불가능한 음식 150개까지 "지원 목록"으로 내보냅니다
-- `src/ocr/match.py`도 그 150개를 매칭 후보로 씁니다
-- 그런데 누르면 `GET /api/foods/{id}`가 404를 돌려줍니다
-
-**대응 — 아직 실행 안 됨. 조장이 Supabase SQL Editor에서 실행합니다.** 앱의 anon key는 RLS로 SELECT만 허용되므로 대시보드(또는 service_role) 권한이 필요합니다.
-
-```sql
--- 1) 지울 대상을 먼저 눈으로 확인한다 (지우지 않는다)
-select f.id, f.name_kr, f.name_en, f.spice_level
-from foods f
-where not exists (select 1 from food_narration n where n.food_id = f.id)
-  and not exists (select 1 from food_details  d where d.food_id = f.id)
-order by f.id;
-
--- 2) 확인했으면 실행한다. 재실행해도 안전하다(지울 게 없으면 0행)
-delete from foods f
-where not exists (select 1 from food_narration n where n.food_id = f.id)
-  and not exists (select 1 from food_details  d where d.food_id = f.id);
-
--- 3) 결과 확인 — foods 50 / narration 50 / details 350(50 x 7종)이면 정상
-select (select count(*) from foods)          as foods,
-       (select count(*) from food_narration) as narration,
-       (select count(*) from food_details)   as details;
-```
-
-판정 기준을 `id 51~200`으로 잡지 않은 이유: `foods.id`는 identity 컬럼이라 재시드하면 값이 달라집니다. 기존 50개는 내레이션·상세를 둘 다 갖고 있어 이 조건에 걸리지 않습니다. 카트는 영향이 없습니다 — `src/cart/store.py`는 메모리 딕셔너리라 DB 외래키가 없습니다.
-
-다시 넣을 때는 **상세 6종·내레이션·썸네일을 먼저 준비하고 음식 행을 넣는 순서**를 권합니다. 순서가 반대면 지금과 같은 상태가 반복됩니다.
-
 ## TTS가 읽는 음식명 — 컬럼 추가 없이 `name_kr`을 씁니다
 
 TTS에 넘기는 문장에서는 음식명만 **한글 표기로 바꿔서** 읽힙니다(`Tteokbokki` → `떡볶이`). 영어 문장 안의 로마자 음식명을 모델이 영어 음운으로 읽어버리는 문제를, 표기를 한글로 바꿔 한국어 음운으로 읽게 해서 푸는 방식입니다(경위: `docs/specs/tts-finetuning.md`). 치환은 `src/text_gen/narration.py`의 `_to_tts_text()`가 하고, 값은 **이미 있는 `foods.name_kr`을 그대로** 씁니다. 화면에 표시되는 텍스트는 로마자 표기 그대로입니다 — 여행자가 소리 내어 읽어야 하는 정보이기 때문입니다.
