@@ -166,14 +166,22 @@ AI Hub '관광 음식메뉴판 데이터'(이미지 100,113장, 한식 28.1%)를
 | name_kr / name_en | 한글명 / 영문·로마자명 |
 | spice_level | 맵기 단계(1~5) |
 | thumbnail_url | 대표 사진 링크 |
+| thumbnail_attribution | 그 사진의 출처 문구. **사진을 보여주는 자리에는 반드시 함께 표시한다** |
 
-`food_details` 테이블 (음식 × 카테고리, 최대 180행): `food_id`, `category`, `detail_text`
+`food_details` 테이블 (음식 × 카테고리, **350행**): `food_id`, `category`, `detail_text`
 
 카테고리는 화면용 6개(PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY)에 음성 전용 `PRONUNCIATION_TTS` 1개를 더한다. 화면용 발음 문장은 로마자 표기를 알려주는데, TTS 입력에서는 음식명이 한글 표기로 치환되어 같은 이름을 한국어 발음으로 한 번, 로마자로 한 번 연달아 읽게 되기 때문이다 (`src/text_gen/narration.py`).
 
 TTS에 넘기는 문장에서는 음식명만 한글 표기로 바꿔서 읽힌다(`Tteokbokki` → `떡볶이`). 값은 이미 있는 `foods.name_kr`을 그대로 쓰므로 표기 전용 컬럼은 없다. 화면에 보이는 텍스트는 로마자 그대로다 — 여행자가 소리 내어 읽어야 하는 정보이기 때문이다.
 
-`food_narration` 테이블 (음식 × 스타일, 최대 60행): `food_id`, `style`(GUIDE/CAUTION), `narration_text`
+`food_narration` 테이블 (**50행**): `food_id`, `style`(GUIDE/CAUTION), `narration_text`
+
+음식마다 한 행이다 — 스타일은 `spice_level`이 정하므로(4 이상이면 CAUTION) 한 음식에 두 벌을 두지 않는다.
+
+`menu_modifiers` 테이블 (**492행**): `keyword`, `category`(spice/ingredient), `keyword_en`, `spice_tier`
+
+메뉴판 줄에서 음식명을 뺀 나머지에 붙는 수식어다(`매운`→`Hot`, `해산물`→`Seafood`). 후보 카드의
+영어 태그가 이 값이다. `category`가 `spice`면 `spice_tier`(1~5)를 함께 쓰고, `ingredient`면 비어 있다.
 
 앱(런타임)에서는 읽기 전용 anon key만 사용하고 RLS로 SELECT만 허용한다. Supabase URL·anon key는 `.env`로만 관리한다.
 
