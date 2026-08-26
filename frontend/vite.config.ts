@@ -16,7 +16,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
     },
   },
   // .env를 frontend/ 에서 읽는다(client/ 가 아니라). VITE_API_BASE_URL이 여기 있다.
