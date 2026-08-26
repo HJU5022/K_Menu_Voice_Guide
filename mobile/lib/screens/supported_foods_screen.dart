@@ -15,6 +15,8 @@ library;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'animated_gradient_back_button.dart';
+import 'stitch_bar.dart';
 
 class SupportedFoodsScreen extends StatefulWidget {
   const SupportedFoodsScreen({super.key});
@@ -58,7 +60,15 @@ class _SupportedFoodsScreenState extends State<SupportedFoodsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Supported dishes')),
+      appBar: AppBar(
+        title: const Text('Supported dishes'),
+        leading: const AnimatedGradientBackButton(),
+        // Penpot 05 보드에만 적용한 장식이다. 지원 음식 목록을 가져오는 API 동작은 그대로다.
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(AppBarStitchBand.preferredHeight),
+          child: AppBarStitchBand(),
+        ),
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

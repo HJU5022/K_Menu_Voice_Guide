@@ -36,7 +36,9 @@ import '../api.dart';
 import '../config.dart';
 import 'candidates_screen.dart';
 import 'detail_screen.dart';
+import 'first_run_guide.dart';
 import 'settings_button.dart';
+import 'stitch_bar.dart';
 import 'supported_foods_screen.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -64,6 +66,34 @@ class _CameraScreenState extends State<CameraScreen> {
 
   /// 마지막 분석 결과. 아직 한 번도 분석하지 않았으면 null.
   AnalyzeResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 첫 화면이 그려진 다음에만 하단 시트를 연다. initState 안에서 바로
+    // showModalBottomSheet를 부르면 아직 Navigator가 준비되지 않은 시점이 있어
+    // 예외가 날 수 있다. 이 화면은 앱의 진입점이므로 여기 한 곳에서만
+    // 첫 실행 안내를 확인한다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showFirstRunGuide();
+    });
+  }
+
+  /// 첫 실행일 때만 짧은 사용 안내를 연다.
+  ///
+  /// Settings의 How it works는 지원 범위·가격 출처 같은 상세 문서이고,
+  /// 이 시트는 촬영을 시작하기 위한 네 단계 요약이다. 둘을 분리해 같은
+  /// 문구가 두 곳에서 어긋나지 않게 한다(`flutter-mobile-app.md` EC-12).
+  Future<void> _showFirstRunGuide() async {
+    try {
+      await showFirstRunGuideIfNeeded(context);
+    } catch (error, stackTrace) {
+      // 안내는 촬영·OCR과 무관한 보조 기능이다. 저장소 오류가 나더라도
+      // 첫 화면을 막지 않고 다음 실행에 다시 보일 수 있게만 둔다.
+      debugPrint('Unable to show first-run guide: $error\n$stackTrace');
+    }
+  }
 
   /// 사진을 고르고 서버에 보내는 전체 흐름.
   ///
@@ -164,6 +194,11 @@ class _CameraScreenState extends State<CameraScreen> {
       appBar: AppBar(
         title: const Text('K-Menu'),
         actions: const [SettingsButton()],
+        // Penpot 01 보드의 상단 아래 스티치. 화면 기능이나 상태와는 무관한 공통 장식이다.
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(AppBarStitchBand.preferredHeight),
+          child: AppBarStitchBand(),
+        ),
       ),
 
       // Padding — 안쪽 여백. 글자가 화면 가장자리에 붙지 않게 한다.
@@ -315,32 +350,109 @@ class _CameraScreenState extends State<CameraScreen> {
     //
     // 빈 화면으로 두면 "방금 그 결과는 어디 갔지?"가 되므로, 결과가 남아
     // 있다는 것과 다시 열 수 있다는 것을 알려준다.
+    return _LastPhotoResult(
+      // 새 사진을 분석해 다른 결과 객체가 생겼을 때만 강조 효과를 처음부터
+      // 재생한다. 화면이 단순히 다시 그려지는 경우에는 반복하지 않는다.
+      key: ObjectKey(result),
+      result: result,
+    );
+  }
+}
+
+/// 마지막 성공 결과를 조용히 알려주는 1회성 완료 효과.
+///
+/// 계속 반복하면 "읽지 않은 알림"처럼 보이고 식사 중인 사용자에게 방해가 된다.
+/// 그래서 외곽 원은 퍼지며 사라지고, 아이콘·문구·링크는 한 번만 부드럽게
+/// 나타난 뒤 정지한다(`mobile-last-photo-result-motion.md` AC-01).
+class _LastPhotoResult extends StatelessWidget {
+  const _LastPhotoResult({super.key, required this.result});
+
+  final AnalyzeResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.check_circle_outline,
-              size: 40, color: Colors.black38),
-          const SizedBox(height: 12),
-          Text(
-            result.candidates.length == 1
-                ? 'Found 1 dish on your last photo'
-                : 'Found ${result.candidates.length} dishes on your last photo',
-            style: const TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    CandidatesScreen(entries: result.menuEntries),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        // 완료 상태를 알아채기에는 1.3초가 짧아, 한 번의 동작은 유지하면서
+        // 2.2초 동안 천천히 보여 준다. easeInOut은 끝부분이 급하게 사라지는
+        // 느낌을 막아 준다.
+        duration: const Duration(milliseconds: 2200),
+        curve: Curves.easeInOutCubic,
+        builder: (context, progress, child) {
+          // progress는 TweenAnimationBuilder가 항상 0~1 범위로 보장한다.
+          // 원형 하이라이트는 처음에만 보였다가 자연스럽게 사라진다.
+          final haloOpacity = (1 - progress) * 0.18;
+          final iconScale = 0.88 + (0.12 * progress);
+          final contentOpacity = Curves.easeOut.transform(progress);
+          final contentOffset = 10 * (1 - contentOpacity);
+
+          return Opacity(
+            opacity: contentOpacity,
+            child: Transform.translate(
+              offset: Offset(0, contentOffset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 68,
+                    width: 68,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Transform.scale(
+                          scale: 0.8 + (0.6 * progress),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colorScheme.primary.withValues(alpha: haloOpacity),
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                        Transform.scale(
+                          scale: iconScale,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.check_circle_outline,
+                              size: 42,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    result.candidates.length == 1
+                        ? 'Found 1 dish on your last photo'
+                        : 'Found ${result.candidates.length} dishes on your last photo',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CandidatesScreen(entries: result.menuEntries),
+                      ),
+                    ),
+                    icon: const Icon(Icons.list),
+                    label: const Text('See the dishes again'),
+                  ),
+                ],
               ),
             ),
-            icon: const Icon(Icons.list),
-            label: const Text('See the dishes again'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

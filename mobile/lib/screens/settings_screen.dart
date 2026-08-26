@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'animated_gradient_back_button.dart';
 import '../config.dart';
 import 'credits_screen.dart';
 import 'how_it_works_screen.dart';
@@ -68,7 +69,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        leading: const AnimatedGradientBackButton(),
+      ),
       body: ListView(
         children: [
           const _AppHeader(),

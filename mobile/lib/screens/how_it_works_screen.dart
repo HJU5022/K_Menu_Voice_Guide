@@ -10,6 +10,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'animated_gradient_back_button.dart';
+
 class HowItWorksScreen extends StatelessWidget {
   const HowItWorksScreen({super.key});
 
@@ -34,7 +36,10 @@ class HowItWorksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('How it works')),
+      appBar: AppBar(
+        title: const Text('How it works'),
+        leading: const AnimatedGradientBackButton(),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

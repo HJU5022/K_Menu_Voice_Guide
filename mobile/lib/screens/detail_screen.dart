@@ -34,7 +34,9 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../korean_speaker.dart';
+import 'animated_gradient_back_button.dart';
 import 'settings_button.dart';
+import 'stitch_bar.dart';
 
 /// 화면에 보여줄 카테고리 순서와 제목.
 ///
@@ -45,17 +47,17 @@ const List<({String key, String title, IconData icon})> _detailCards = [
   (key: 'DESCRIPTION', title: 'Description', icon: Icons.restaurant_menu),
   (key: 'HOW_TO_EAT', title: 'How to eat', icon: Icons.rice_bowl),
   (key: 'INGREDIENT', title: 'Ingredients', icon: Icons.egg_alt),
-  (key: 'ALLERGY', title: 'Allergies & dietary needs', icon: Icons.warning_amber),
+  (
+    key: 'ALLERGY',
+    title: 'Allergies & dietary needs',
+    icon: Icons.warning_amber,
+  ),
   (key: 'PRONUNCIATION', title: 'Pronunciation', icon: Icons.record_voice_over),
   (key: 'SPICY', title: 'Spice level', icon: Icons.local_fire_department),
 ];
 
 class DetailScreen extends StatefulWidget {
-  const DetailScreen({
-    super.key,
-    required this.foodId,
-    required this.nameEn,
-  });
+  const DetailScreen({super.key, required this.foodId, required this.nameEn});
 
   /// 후보 화면에서 넘겨받은 음식 번호. 이 번호로 서버에 다시 물어본다.
   final int foodId;
@@ -164,7 +166,13 @@ class _DetailScreenState extends State<DetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.nameEn),
+        leading: const AnimatedGradientBackButton(),
         actions: const [SettingsButton()],
+        // Penpot 03 보드의 장식만 이식한다. 음식 데이터·오디오 로딩 흐름은 그대로다.
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(AppBarStitchBand.preferredHeight),
+          child: AppBarStitchBand(),
+        ),
       ),
       body: _buildBody(),
     );
@@ -244,6 +252,10 @@ class _DetailScreenState extends State<DetailScreen> {
                 icon: card.icon,
                 title: card.title,
                 body: food.details[card.key]!,
+                // 알레르기 정보는 메뉴 설명보다 먼저 눈에 들어와야 하지만,
+                // 계속 깜빡이는 경고는 식사 안내 화면에 불필요한 긴장을 준다.
+                // 카드가 처음 나타날 때만 은은하게 강조하고 이후에는 정지한다.
+                isAllergy: card.key == 'ALLERGY',
               ),
             ),
       ],
@@ -366,10 +378,10 @@ class _AudioBar extends StatelessWidget {
               usable
                   ? food.narrationText
                   : audioFailed
-                      ? "We couldn't play the audio, but you can still read "
-                          'everything below.'
-                      : 'Audio is not ready for this dish yet. '
-                          'The description below is complete.',
+                  ? "We couldn't play the audio, but you can still read "
+                        'everything below.'
+                  : 'Audio is not ready for this dish yet. '
+                        'The description below is complete.',
               style: TextStyle(
                 fontSize: 13,
                 color: usable ? Colors.black87 : Colors.black54,
@@ -390,14 +402,20 @@ class _DetailCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.isAllergy = false,
   });
 
   final IconData icon;
   final String title;
   final String body;
+  final bool isAllergy;
 
   @override
   Widget build(BuildContext context) {
+    if (isAllergy) {
+      return _AllergyDetailCard(icon: icon, title: title, body: body);
+    }
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -407,7 +425,11 @@ class _DetailCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  icon,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   title,
@@ -423,6 +445,113 @@ class _DetailCard extends StatelessWidget {
             Text(body, style: const TextStyle(fontSize: 15, height: 1.45)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 알레르기·식이 제한 전용 카드.
+///
+/// 일반 정보 카드와 다른 색만 계속 움직이면 경고가 과해지고 읽기에도 방해된다.
+/// 그래서 화면에 처음 그려질 때만 1.6초 동안 밝아졌다가 차분한 앰버 상태로
+/// 가라앉고, 이후에는 정적인 배경·왼쪽 라인으로 중요한 정보임을 유지한다.
+class _AllergyDetailCard extends StatelessWidget {
+  const _AllergyDetailCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    const warning = Color(0xFFB66F20);
+
+    return Semantics(
+      // 화면 낭독기는 색만으로 중요도를 알 수 없으므로 경고 성격을 같이 읽는다.
+      label: 'Allergy warning. $body',
+      child: TweenAnimationBuilder<double>(
+        // 처음에는 눈에 띄게 밝아지고, 마지막에는 조금 차분한 강조색으로
+        // 멈춘다. 한 번만 재생하므로 반복 경고처럼 거슬리지 않는다.
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 1600),
+        builder: (context, progress, _) {
+          // 58% 지점까지는 밝아지고, 나머지 시간에는 최종 강조 강도로
+          // 부드럽게 내려온다. TweenAnimationBuilder는 Tween 하나만 받으므로
+          // 두 구간의 값 계산을 이곳에서 명시한다.
+          // 마지막 프레임의 progress는 부동소수점 오차로 1보다 아주 조금 클 수
+          // 있다. Curve.transform은 정확히 0~1만 받으므로 각 구간 값을 제한한다.
+          final riseProgress = (progress / 0.58).clamp(0.0, 1.0).toDouble();
+          final settleProgress = ((progress - 0.58) / 0.42)
+              .clamp(0.0, 1.0)
+              .toDouble();
+          final double emphasis = progress <= 0.58
+              ? Curves.easeOutCubic.transform(riseProgress)
+              : 1 - 0.34 * Curves.easeInOutCubic.transform(settleProgress);
+          final leftLine = Color.lerp(Colors.transparent, warning, emphasis)!;
+          final start = Color.lerp(
+            const Color(0xFFFFFCF8),
+            const Color(0xFFFFEAC6),
+            emphasis,
+          )!;
+          final end = Color.lerp(
+            const Color(0xFFFFFAF5),
+            const Color(0xFFFFDEAE),
+            emphasis,
+          )!;
+
+          return Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            elevation: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [start, end],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border(left: BorderSide(color: leftLine, width: 4)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 20,
+                          color: warning,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                            color: Color(0xFF7B4717),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      body,
+                      style: const TextStyle(fontSize: 15, height: 1.45),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

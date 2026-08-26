@@ -18,6 +18,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'animated_gradient_back_button.dart';
 import '../api.dart';
 
 /// 후보 번호에 돌려 쓰는 색. 사진 위에서도 구분되도록 진한 색만 골랐다.
@@ -204,6 +205,8 @@ class _FullScreenPhoto extends StatelessWidget {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: const Text('Pinch to zoom'),
+        // 어두운 사진 보기 화면에서는 기본 화살표를 흰색으로 시작해 대비를 유지한다.
+        leading: const AnimatedGradientBackButton(baseColor: Colors.white),
       ),
       body: Center(
         child: InteractiveViewer(

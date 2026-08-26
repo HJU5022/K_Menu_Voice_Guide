@@ -27,19 +27,25 @@
   - 실제 iPhone에서 촬영 → 음식 후보 → 상세 6개 카테고리 → 내레이션 음성 재생까지 **중간 실패 없이 1회 완주**한다.
   - 서버 주소를 바꿀 때 **`lib/config.dart` 한 파일만** 수정하면 된다(개발·터널·배포 환경 전환).
   - 앱은 `src/` 로직을 복제하지 않는다 — OCR·매칭·텍스트·TTS는 전부 서버가 수행한다.
+  - 처음 실행한 사용자는 촬영 화면 위에 4단계 사용 안내를 한 번 보고, 닫은 뒤에는 다음 실행부터 촬영 화면을 바로 사용한다.
 - **Out of Scope**
   - 음성 질문 입력(STT) — 프로젝트에 STT 모듈 자체가 없다. 마이크를 쓰지 않는다.
   - App Store / Play Store 등록
   - 오프라인 동작, 로컬 캐싱, 로그인
   - Android 실기기 검증 (에뮬레이터까지만)
   - 디자인 완성도 — 기능 동작이 우선
+  - 계정·서버에 첫 실행 여부 저장, 안내를 다시 띄우는 별도 설정 버튼
 
 ## What
 
 **Happy Path**
 
-1. 사용자가 앱을 열면 촬영 화면이 뜬다.
-2. 카메라로 메뉴판을 촬영한다(또는 사진첩에서 고른다).
+1. 처음 실행한 사용자가 앱을 열면 촬영 화면 위 중앙에 사용 안내 모달이 뜬다.
+   - 안내는 `Take a photo → Choose a dish → Understand the dish → Show your order` 네 장이다.
+   - 각 장에는 긴 설명 대신 다음 화면에서 보게 될 메뉴판·후보 카드·음식 안내·주문서의 축약 그림을 함께 둔다.
+   - 사용자는 좌우로 넘기며 볼 수 있고, `Skip`·아래 스와이프·마지막 `Start scanning`으로 닫을 수 있다.
+   - 닫은 뒤에는 기기에 완료 여부를 저장해 다음 실행에서 자동으로 다시 띄우지 않는다. 상세한 제한사항은 Settings의 `How it works`에서 확인한다.
+2. 사용자가 촬영 화면에서 카메라로 메뉴판을 촬영한다(또는 사진첩에서 고른다).
 3. 앱이 이미지를 `POST /api/analyze`로 보낸다.
 4. 서버가 돌려준 음식 후보를 **음식 사진·영문명·한글명·가격** 카드로 보여주고, 사용자가 하나를 고른다.
    - 후보가 하나뿐이면 이 화면을 건너뛰고 바로 상세 화면으로 간다(EC-11).
@@ -141,6 +147,7 @@ GET /api/foods/{food_id}
 | `image_picker` | 카메라 촬영 / 사진첩 선택 |
 | `http` | API 호출 |
 | `audioplayers` | 내레이션 WAV 재생 |
+| `shared_preferences` | 첫 실행 안내를 닫았는지 기기에 boolean으로 저장 |
 
 **iOS 필수 설정** — `ios/Runner/Info.plist`
 
@@ -190,6 +197,7 @@ DESCRIPTION / HOW_TO_EAT / INGREDIENT / ALLERGY / PRONUNCIATION / SPICY
 - GIVEN: 후보에 `thumbnail_url`과 `thumbnail_attribution`이 있다
 - WHEN: 후보 선택 화면이 그려진다
 - THEN: 사진과 함께 출처 문구가 카드에 표시된다 (사진만 보이고 출처가 빠지는 경우가 없어야 한다)
+
 
 **AC-03 · TTS 실패 시 텍스트 우선**
 - GIVEN: 서버가 `tts_status`를 `ok`가 아닌 값으로, `narration_audio_path`를 null로 응답한다

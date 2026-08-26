@@ -31,17 +31,15 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../korean_speaker.dart';
+import 'animated_gradient_back_button.dart';
 import 'menu_photo_overlay.dart';
 import 'detail_screen.dart';
 import 'order_summary_screen.dart';
 import 'settings_button.dart';
+import 'stitch_bar.dart';
 
 class CandidatesScreen extends StatefulWidget {
-  const CandidatesScreen({
-    super.key,
-    required this.entries,
-    this.photo,
-  });
+  const CandidatesScreen({super.key, required this.entries, this.photo});
 
   /// 사용자가 방금 찍은(또는 고른) 메뉴판 사진. 후보가 사진 어디에서 나왔는지
   /// 상자로 표시하는 데 쓴다. 없으면 그 영역을 통째로 생략한다.
@@ -69,6 +67,13 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
   /// 카트 요청이 실패했을 때만 채운다. 담긴 내용은 지우지 않는다(EC-06).
   String? _cartError;
 
+  /// 하단 Order 버튼의 카트 변경 피드백을 식별하는 번호.
+  ///
+  /// 카트 모델 자체는 서버 응답으로 통째로 교체된다. 이 번호를 별도로 두면
+  /// 서버/주문 기능에는 손대지 않고, `+`·`−`가 성공한 순간만 `_CartBar`에
+  /// 전달할 수 있다.
+  int _orderFeedbackVersion = 0;
+
   @override
   void initState() {
     super.initState();
@@ -82,13 +87,23 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     super.dispose();
   }
 
-  Future<void> _runCartRequest(Future<CartState> Function() request) async {
+  Future<void> _runCartRequest(
+    Future<CartState> Function() request, {
+    bool animateOrderFeedback = false,
+  }) async {
     try {
       final cart = await request();
       if (!mounted) return;
       setState(() {
         _cart = cart;
         _cartError = null;
+
+        // 최초 fetchCart·Clear는 false로 들어오므로 화면 진입/초기화에는
+        // 반응하지 않는다. 반면 `+`와 `−`는 서버가 성공 응답을 준 뒤 매번
+        // 번호를 올려, 수량 변경마다 버튼이 한 번씩 반동하도록 한다.
+        if (animateOrderFeedback) {
+          _orderFeedbackVersion++;
+        }
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -132,10 +147,15 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     final entries = widget.entries;
     return Scaffold(
       appBar: AppBar(
-        // 뒤로가기 버튼은 Navigator.push로 열린 화면에 자동으로 붙는다.
-        // 따로 만들 필요가 없다.
+        // 자동 BackButton 대신 화살표 내부에만 색이 흐르는 공통 피드백을 쓴다.
         title: const Text('Which dish?'),
+        leading: const AnimatedGradientBackButton(),
         actions: const [SettingsButton()],
+        // Penpot 02 보드와 맞추는 공통 장식. 후보·카트 상태에는 영향을 주지 않는다.
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(AppBarStitchBand.preferredHeight),
+          child: AppBarStitchBand(),
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,7 +182,12 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
               itemBuilder: (context, index) {
                 final entry = entries[index];
                 void onChange(int delta) {
-                  _runCartRequest(() => changeCartItem(entry, quantityDelta: delta));
+                  _runCartRequest(
+                    () => changeCartItem(entry, quantityDelta: delta),
+                    // 수량을 더하거나 뺀 요청이 서버에서 성공한 뒤에만 실행한다.
+                    // 마지막 `−`로 버튼이 비활성화될 때도 같은 반동을 한 번 보인다.
+                    animateOrderFeedback: true,
+                  );
                 }
 
                 return _CandidateCard(
@@ -179,6 +204,7 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
           _CartBar(
             cart: _cart,
             errorMessage: _cartError,
+            orderFeedbackVersion: _orderFeedbackVersion,
             onClear: () => _runCartRequest(clearCart),
             onOrder: () => Navigator.push(
               context,
@@ -201,10 +227,8 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DetailScreen(
-          foodId: candidate.foodId,
-          nameEn: candidate.nameEn,
-        ),
+        builder: (context) =>
+            DetailScreen(foodId: candidate.foodId, nameEn: candidate.nameEn),
       ),
     );
   }
@@ -246,101 +270,157 @@ class _CandidateCard extends StatelessWidget {
       // "이건 누르는 것"이라는 신호를 사용자에게 준다.
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          // Row — 자식들을 가로로 나란히 놓는다. (사진 | 글자 | 화살표)
-          child: Row(
-            children: [
-              // 사진 위 상자와 같은 번호·색. 어느 카드가 어느 자리인지 잇는다.
-              Column(
-                mainAxisSize: MainAxisSize.min,
+        // Stack으로 안내 칩을 카드 모서리에 독립 배치한다. 제목 행에 칩을 넣으면
+        // 긴 음식명이 칩의 폭만큼 잘려 "Su / nd / ae"처럼 깨질 수 있다.
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              // Row — 자식들을 가로로 나란히 놓는다. (사진 | 글자 | 화살표)
+              child: Row(
                 children: [
-                  CandidateBadge(index: index),
-                  const SizedBox(height: 6),
-                  _Thumbnail(candidate: candidate),
+                  // 사진 위 상자와 같은 번호·색. 어느 카드가 어느 자리인지 잇는다.
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CandidateBadge(index: index),
+                      const SizedBox(height: 6),
+                      _Thumbnail(candidate: candidate),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  // Expanded — 사진과 화살표를 뺀 나머지 가로 공간을 글자가 다 쓴다.
+                  // 이게 없으면 이름이 길 때 화면 밖으로 삐져나간다.
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 사용자가 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
+                        // 안내 칩은 Stack의 우측 상단에 독립 배치되어 이 텍스트 폭을 줄이지 않는다.
+                        Text(
+                          candidate.nameEn,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          candidate.nameKr,
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                        // 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 —
+                        // 같으면 같은 말을 두 번 적는 꼴이고, 다를 때가 정말 중요하다.
+                        // "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로 나왔는지 여기서 보인다.
+                        //
+                        // 가격은 뺀 쪽을 쓴다 — 바로 아래에 값이 따로 있어서, 줄 글자를
+                        // 그대로 쓰면 "황기갈비탕 15,000" 밑에 "₩15,000"이 또 붙는다.
+                        if (candidate.nameText != null &&
+                            candidate.nameText != candidate.nameKr) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Menu: ${candidate.nameText}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black45,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        // 메뉴판 이름 앞에 붙어 있던 재료·맵기. 같은 "김치찌개" 두 개를
+                        // 가르는 유일한 단서가 이것뿐일 때가 있다(꽁치김치찌개).
+                        if (candidate.modifiers.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _ModifierBadges(modifiers: candidate.modifiers),
+                        ],
+                        // 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 —
+                        // 없는 가격을 "가격 미상" 같은 문구로 채우면 화면만 시끄럽다.
+                        if (candidate.hasPrice) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            candidate.priceDisplay!,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                        // 사진 출처 표기. 프로젝트가 외부 사진을 쓰면서 출처를 남기기로
+                        // 한 항목이라, **사진을 보여주는 자리에는 반드시 함께 둔다.**
+                        // 가격처럼 "있으면 좋은 것"이 아니라 지켜야 하는 조건이다.
+                        if (candidate.hasThumbnail &&
+                            candidate.thumbnailAttribution != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            candidate.thumbnailAttribution!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.black38,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  // 읽어줄 때도 가격은 뺀다 — 종업원에게 들려줄 말에 숫자가 끼면 어수선하다.
+                  _SpeakButton(text: candidate.nameText ?? candidate.nameKr),
+                  _QuantityStepper(
+                    quantity: quantity,
+                    onChange: onChangeQuantity,
+                  ),
                 ],
               ),
-              const SizedBox(width: 12),
-              // Expanded — 사진과 화살표를 뺀 나머지 가로 공간을 글자가 다 쓴다.
-              // 이게 없으면 이름이 길 때 화면 밖으로 삐져나간다.
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 사용자가 영어권이라 영어 이름을 크게, 한글은 보조로 둔다.
-                    Text(
-                      candidate.nameEn,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      candidate.nameKr,
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    // 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 —
-                    // 같으면 같은 말을 두 번 적는 꼴이고, 다를 때가 정말 중요하다.
-                    // "쌈싸먹는 꽁치김치찌개"가 왜 "김치찌개"로 나왔는지 여기서 보인다.
-                    //
-                    // 가격은 뺀 쪽을 쓴다 — 바로 아래에 값이 따로 있어서, 줄 글자를
-                    // 그대로 쓰면 "황기갈비탕 15,000" 밑에 "₩15,000"이 또 붙는다.
-                    if (candidate.nameText != null &&
-                        candidate.nameText != candidate.nameKr) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Menu: ${candidate.nameText}',
-                        style: const TextStyle(fontSize: 12, color: Colors.black45),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    // 메뉴판 이름 앞에 붙어 있던 재료·맵기. 같은 "김치찌개" 두 개를
-                    // 가르는 유일한 단서가 이것뿐일 때가 있다(꽁치김치찌개).
-                    if (candidate.modifiers.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _ModifierBadges(modifiers: candidate.modifiers),
-                    ],
-                    // 가격은 있을 때만 보여준다. 서버가 못 읽었으면 자리를 비운다 —
-                    // 없는 가격을 "가격 미상" 같은 문구로 채우면 화면만 시끄럽다.
-                    if (candidate.hasPrice) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        candidate.priceDisplay!,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                    // 사진 출처 표기. 프로젝트가 외부 사진을 쓰면서 출처를 남기기로
-                    // 한 항목이라, **사진을 보여주는 자리에는 반드시 함께 둔다.**
-                    // 가격처럼 "있으면 좋은 것"이 아니라 지켜야 하는 조건이다.
-                    if (candidate.hasThumbnail &&
-                        candidate.thumbnailAttribution != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        candidate.thumbnailAttribution!,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.black38,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              // 읽어줄 때도 가격은 뺀다 — 종업원에게 들려줄 말에 숫자가 끼면 어수선하다.
-              _SpeakButton(text: candidate.nameText ?? candidate.nameKr),
-              _QuantityStepper(quantity: quantity, onChange: onChangeQuantity),
-            ],
-          ),
+            ),
+            // 카드의 실제 상세 이동은 바깥 InkWell 하나가 담당한다. 이 칩은 누를 수
+            // 있는 영역을 하나 더 만들지 않고, "카드 본문을 누르면 상세를 본다"는
+            // 시각적 단서만 제공한다. 카드 우측 끝에 고정해 본문 줄 수와 무관하다.
+            const Positioned(
+              top: 12,
+              right: 12,
+              child: IgnorePointer(child: _ViewGuideAffordance()),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// 후보 카드 본문을 누르면 상세 가이드로 간다는 시각적 단서.
+///
+/// 이 위젯에는 onPressed를 두지 않는다. 실제 이동은 부모 카드의 InkWell 하나가
+/// 담당해 기존 food_id 전달·상세 데이터 로딩 흐름을 바꾸지 않는다.
+class _ViewGuideAffordance extends StatelessWidget {
+  const _ViewGuideAffordance();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        // Penpot의 카드 안내 칩과 같은 옅은 살구색·브라운 조합.
+        color: const Color(0xFFF3E1DB),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'View guide',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFA4563C),
+            ),
+          ),
+          SizedBox(width: 3),
+          Icon(Icons.chevron_right_rounded, size: 15, color: Color(0xFFA4563C)),
+        ],
       ),
     );
   }
@@ -389,7 +469,10 @@ class _ModifierBadges extends StatelessWidget {
             ),
             child: Text(
               modifier.label,
-              style: TextStyle(fontSize: 11, color: scheme.onSecondaryContainer),
+              style: TextStyle(
+                fontSize: 11,
+                color: scheme.onSecondaryContainer,
+              ),
             ),
           ),
       ],
@@ -443,10 +526,11 @@ class _QuantityStepper extends StatelessWidget {
 ///
 /// 카트가 비어 있으면 Order·Clear 둘 다 비활성이다 — 빈 주문 확인 화면으로
 /// 넘어가지 않게 하기 위함이다(EC-07).
-class _CartBar extends StatelessWidget {
+class _CartBar extends StatefulWidget {
   const _CartBar({
     required this.cart,
     required this.errorMessage,
+    required this.orderFeedbackVersion,
     required this.onClear,
     required this.onOrder,
   });
@@ -455,12 +539,18 @@ class _CartBar extends StatelessWidget {
   final CartState? cart;
 
   final String? errorMessage;
+  final int orderFeedbackVersion;
   final VoidCallback onClear;
   final VoidCallback onOrder;
 
   @override
+  State<_CartBar> createState() => _CartBarState();
+}
+
+class _CartBarState extends State<_CartBar> {
+  @override
   Widget build(BuildContext context) {
-    final isEmpty = cart?.isEmpty ?? true;
+    final isEmpty = widget.cart?.isEmpty ?? true;
 
     return Material(
       elevation: 8,
@@ -472,15 +562,15 @@ class _CartBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (errorMessage != null) ...[
+              if (widget.errorMessage != null) ...[
                 Text(
-                  errorMessage!,
+                  widget.errorMessage!,
                   style: const TextStyle(fontSize: 12, color: Colors.redAccent),
                 ),
                 const SizedBox(height: 8),
               ],
               // 총계가 실제보다 싸 보이는 상태를 말없이 두지 않는다(EC-03).
-              if (cart?.hasUnpricedItems ?? false) ...[
+              if (widget.cart?.hasUnpricedItems ?? false) ...[
                 const Text(
                   'Some dishes had no price on the menu, so the total is partial.',
                   style: TextStyle(fontSize: 12, color: Colors.black54),
@@ -495,7 +585,9 @@ class _CartBar extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          isEmpty ? 'Cart is empty' : '${cart!.itemCount} in cart',
+                          isEmpty
+                              ? 'Cart is empty'
+                              : '${widget.cart!.itemCount} in cart',
                           style: const TextStyle(
                             fontSize: 13,
                             color: Colors.black54,
@@ -503,7 +595,7 @@ class _CartBar extends StatelessWidget {
                         ),
                         if (!isEmpty)
                           Text(
-                            cart!.totalDisplay,
+                            widget.cart!.totalDisplay,
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -513,19 +605,117 @@ class _CartBar extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: isEmpty ? null : onClear,
+                    onPressed: isEmpty ? null : widget.onClear,
                     child: const Text('Clear'),
                   ),
                   const SizedBox(width: 4),
-                  FilledButton(
-                    onPressed: isEmpty ? null : onOrder,
-                    child: const Text('Order'),
+                  _OrderBounceButton(
+                    // 버전이 바뀌면 버튼만 새 상태로 교체한다. CartBar 전체의
+                    // didUpdateWidget 중에 controller를 시작하지 않아도 되므로
+                    // 카트 갱신과 애니메이션이 충돌하지 않는다.
+                    key: ValueKey(widget.orderFeedbackVersion),
+                    playOnMount: widget.orderFeedbackVersion > 0,
+                    onPressed: isEmpty ? null : widget.onOrder,
                   ),
                 ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 카트 수량 변경 뒤 Order 버튼에 주는 한 번의 반동.
+///
+/// 부모는 카트 변경 성공 시마다 [ValueKey]를 바꾼다. 따라서 이 위젯은 해당 순간에만
+/// 새로 만들어지며, 최초 카트 조회(버전 0)에서는 움직이지 않는다. Flutter build 중
+/// controller를 시작하면 렌더링 assertion이 날 수 있어, 첫 프레임 완료 후 시작한다.
+class _OrderBounceButton extends StatefulWidget {
+  const _OrderBounceButton({
+    super.key,
+    required this.playOnMount,
+    required this.onPressed,
+  });
+
+  final bool playOnMount;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_OrderBounceButton> createState() => _OrderBounceButtonState();
+}
+
+class _OrderBounceButtonState extends State<_OrderBounceButton>
+    with SingleTickerProviderStateMixin {
+  // 수축 → 큰 반동 → 작은 반동 → 원래 크기. 520ms와 최대 1.16배는 iPhone
+  // 시뮬레이터에서도 수량·활성화 텍스트 변화에 묻히지 않는 정도로 잡았다.
+  static const _duration = Duration(milliseconds: 520);
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _duration,
+  );
+
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.0,
+        end: .88,
+      ).chain(CurveTween(curve: Curves.easeInCubic)),
+      weight: 16,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: .88,
+        end: 1.16,
+      ).chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 42,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: 1.16,
+        end: .96,
+      ).chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 25,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: .96,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeOutCubic)),
+      weight: 17,
+    ),
+  ]).animate(_controller);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.playOnMount) return;
+
+    // ValueKey 교체로 만든 버튼의 첫 프레임이 보인 다음 시작한다. 이 순서라야
+    // 새 활성 상태(색/disabled 여부)가 먼저 화면에 반영되고 Flutter build scope도
+    // 안전하게 끝난다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scale,
+      // 확대 중에도 버튼이 Row의 기준점에서 흔들리지 않게 중앙을 쓴다.
+      alignment: Alignment.center,
+      child: FilledButton(
+        onPressed: widget.onPressed,
+        child: const Text('Order'),
       ),
     );
   }
