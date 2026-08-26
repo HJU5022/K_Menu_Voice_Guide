@@ -48,6 +48,23 @@ class KMenuApp extends StatelessWidget {
         // 0xFFD84315는 진한 주황빛 — 음식 앱에 맞는 따뜻한 톤으로 골랐다.
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFD84315)),
         useMaterial3: true,
+
+        // Penpot 모바일 보드의 공통 버튼 반경(15px)을 앱 전체에 적용한다.
+        // 각 화면은 버튼의 동작만 정하고, 모양은 이 테마를 그대로 사용한다.
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+        ),
       ),
 
       // home — 앱을 열었을 때 처음 보이는 화면.

@@ -61,6 +61,21 @@ Map<String, dynamic> _decodeJson(http.Response response) {
   return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
 }
 
+/// `MultipartFile.fromPath`는 타입을 지정하지 않으면
+/// `application/octet-stream`으로 보낸다. 분석 서버는 `image/*`만 받으므로
+/// 사진 확장자에 맞는 MIME 타입을 함께 보낸다.
+http.MediaType _imageMediaType(File imageFile) {
+  final extension = imageFile.path.split('.').last.toLowerCase();
+  return switch (extension) {
+    'png' => http.MediaType('image', 'png'),
+    'gif' => http.MediaType('image', 'gif'),
+    'webp' => http.MediaType('image', 'webp'),
+    'heic' => http.MediaType('image', 'heic'),
+    'heif' => http.MediaType('image', 'heif'),
+    _ => http.MediaType('image', 'jpeg'),
+  };
+}
+
 /// 후보가 사진의 어디에서 나왔는지 — 사진 위에 상자를 그리기 위한 값.
 ///
 /// 좌표는 **업로드한 원본 사진 기준 0~1 비율**이다(px가 아니다). 화면이 사진을 어떤
@@ -433,7 +448,13 @@ Future<AnalyzeResult> analyze(File imageFile) async {
   );
   // 필드명 "image"는 서버가 정한 이름이라 바꾸면 안 된다
   // (K_Menu_Talk.py의 `image: UploadFile = File(...)`).
-  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+  request.files.add(
+    await http.MultipartFile.fromPath(
+      'image',
+      imageFile.path,
+      contentType: _imageMediaType(imageFile),
+    ),
+  );
 
   final http.Response response;
   try {

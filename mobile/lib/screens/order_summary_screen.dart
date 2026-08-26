@@ -13,7 +13,9 @@ library;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import 'animated_gradient_back_button.dart';
 import 'settings_button.dart';
+import 'stitch_bar.dart';
 
 class OrderSummaryScreen extends StatelessWidget {
   const OrderSummaryScreen({super.key, required this.cart});
@@ -29,24 +31,151 @@ class OrderSummaryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Show this to the staff'),
+        leading: const AnimatedGradientBackButton(),
         actions: const [SettingsButton()],
+        // Penpot 04 보드와 동일한 시각적 리듬. 직원에게 보여줄 주문 데이터는 변경하지 않는다.
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(AppBarStitchBand.preferredHeight),
+          child: AppBarStitchBand(),
+        ),
       ),
       body: Column(
         children: [
           const _StaffNotice(),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: cart.items.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) => _OrderLine(line: cart.items[index]),
-            ),
+            // 주문 항목은 다른 본문과 분리된 종이 한 장처럼 보이게 한다.
+            // 카트 데이터·수량·총계 계산은 기존과 완전히 같고, 이 위젯은 배경과
+            // 구분선만 담당한다.
+            child: _OrderTicket(cart: cart),
           ),
           _TotalBar(cart: cart),
         ],
       ),
     );
   }
+}
+
+/// 종업원에게 보여줄 음식 목록을 위한 주문서 모양의 컨테이너.
+///
+/// 아주 옅은 아이보리 종이, 얇은 테두리, 점선 구분선을 사용한다. 음식 이름과
+/// 가격은 그대로 크게 유지해, 장식 때문에 실제 주문 내용을 읽기 어려워지지 않게 한다.
+class _OrderTicket extends StatelessWidget {
+  const _OrderTicket({required this.cart});
+
+  final CartState cart;
+
+  @override
+  Widget build(BuildContext context) {
+    const ticketBrown = Color(0xFF9D563D);
+    const ticketBorder = Color(0xFFE6CEC1);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFCF7),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: ticketBorder),
+          boxShadow: const [
+            // 종이를 살짝 띄우되, 총계 바보다 눈에 띄지 않게 아주 약하게 둔다.
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 13, 16, 7),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 17,
+                    color: ticketBrown,
+                  ),
+                  const SizedBox(width: 7),
+                  const Text(
+                    'ORDER TICKET',
+                    style: TextStyle(
+                      color: ticketBrown,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${cart.items.length} item${cart.items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 11, color: Colors.black45),
+                  ),
+                ],
+              ),
+            ),
+            const _ReceiptDashedDivider(color: ticketBorder),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                itemCount: cart.items.length,
+                separatorBuilder: (context, index) =>
+                    const _ReceiptDashedDivider(color: ticketBorder),
+                itemBuilder: (context, index) =>
+                    _OrderLine(line: cart.items[index]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 영수증의 절취선 같은 얇은 점선.
+///
+/// Flutter 기본 Divider는 실선뿐이라 CustomPainter로 짧은 선과 여백을 반복한다.
+/// 장식 요소이므로 의미를 가진 텍스트나 탭 동작은 추가하지 않는다.
+class _ReceiptDashedDivider extends StatelessWidget {
+  const _ReceiptDashedDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 12,
+      width: double.infinity,
+      child: CustomPaint(painter: _ReceiptDashPainter(color)),
+    );
+  }
+}
+
+class _ReceiptDashPainter extends CustomPainter {
+  const _ReceiptDashPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    for (double x = 0; x < size.width; x += 7) {
+      canvas.drawLine(
+        Offset(x, size.height / 2),
+        Offset(x + 3, size.height / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ReceiptDashPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// 화면 맨 위 안내문 두 줄.

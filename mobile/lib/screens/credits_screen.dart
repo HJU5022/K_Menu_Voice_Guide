@@ -11,6 +11,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'animated_gradient_back_button.dart';
+
 /// Wikimedia Commons에서 가져온 사진들의 표기. 나머지 43장은 아래 [_photoNote] 참고.
 const List<String> _wikimediaCredits = [
   'CC0 1.0 — Lee Eunyoung',
@@ -41,7 +43,10 @@ class CreditsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Credits & sources')),
+      appBar: AppBar(
+        title: const Text('Credits & sources'),
+        leading: const AnimatedGradientBackButton(),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
