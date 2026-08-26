@@ -329,11 +329,11 @@ proj1-c/
 ├── eval/                             # 모델 성능 측정·기록 — "이 모델을 왜 골랐는지"의 근거
 │   ├── README.md
 │   ├── model_comparison.md           # OCR · 숫자 인식 · TTS 후보군 · Perso.ai · Plan B 판단 — 표로 모은 결론
-│   ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (하이퍼파라미터 8차, 리스펠링, instruct)
-│   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그
-│   ├── qwen3_tts_lora_final.ipynb    # 실제 학습에 쓴 Colab 노트북
+│   ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (9차까지, 표기 한글 전환, instruct)
+│   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그 (3~8차 — 9차 미반영)
+│   ├── qwen3_tts_lora_final.ipynb    # 학습에 쓴 Colab 노트북 (8차 기준 — 배포본 9차 아님)
 │   ├── pregenerate_tts_cache_colab.ipynb  # static/tts_cache wav 50개 재생성 절차 (Colab GPU)
-│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과 (아직 채점 전)
+│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과 (헤더만 — 미반영)
 │   ├── measure_ocr.py                # OCR 동일 조건 비교 — base/체크포인트/최종을 같은 코드로
 │   ├── measure_ocr_final.json        #   그 결과 원본 (2026-08-21, 매칭 91.67%)
 │   ├── measure_match_precision.py    # 매칭 오탐 측정 — measure_ocr.py가 못 보는 사각지대

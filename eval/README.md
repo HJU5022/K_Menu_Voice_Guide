@@ -6,10 +6,10 @@
 
 | 파일 | 내용 |
 |---|---|
-| `TTS_MODULE.md` | TTS 파인튜닝 실험 기록 — 하이퍼파라미터 8차 실험, 발음 리스펠링, GUIDE/CAUTION 톤 구분(instruct), UTMOS 자동 평가 결과 |
-| `training_log.csv` | 위 실험의 에폭별 Val Loss 원본 로그 (`TTS_MODULE.md` 3절 표의 근거 데이터) |
-| `qwen3_tts_lora_final.ipynb` | 실제 학습에 쓴 Colab 노트북 (환경설정 → 데이터빌드 → 학습 → 업로드) |
-| `mos_scores.csv` | TTS 발음·자연스러움 MOS 채점 원본 데이터 |
+| `TTS_MODULE.md` | TTS 파인튜닝 실험 기록 — 하이퍼파라미터 탐색 9차(배포는 9차 `epoch-31`), 음식명 표기 전환(리스펠링 → 한글), GUIDE/CAUTION 톤 구분(instruct), UTMOS 자동 평가 결과. 맨 앞의 "현재 배포 기준" 표부터 볼 것 |
+| `training_log.csv` | 위 실험의 에폭별 Val Loss 원본 로그 (`TTS_MODULE.md` 3절 표의 근거 데이터). ⚠️ **3~8차 6개 run만** 들어 있다 — 배포본인 9차(`instruct_trained_lr5e-6_ep40`)는 아직 미반영 |
+| `qwen3_tts_lora_final.ipynb` | 학습에 쓴 Colab 노트북 (환경설정 → 데이터빌드 → 학습 → 업로드). ⚠️ **8차(`final_respelled_lr5e-6_ep40`) 기준**이라 배포본인 9차를 재현하지 못한다 |
+| `mos_scores.csv` | TTS 발음·자연스러움 MOS 채점 원본 데이터 — ⚠️ 현재 **헤더만 있고 비어 있다**. `model_comparison.md`는 평가자 2/5명 진행이라 적고 있으므로, 그 채점 결과를 여기 반영하는 것이 먼저다 |
 | `model_comparison.md` | OCR(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교 · Plan B 판단 정리 |
 | `measure_ocr.py` | OCR 동일 조건 비교 측정 스크립트 — base/로컬 체크포인트/최종(HF)을 같은 코드로 측정 (매칭 정확도·라벨일치·라벨 CER) |
 | `measure_ocr_final.json` | 최종(4차) 모델 실측 결과 원본 (2026-08-21, 매칭 91.67% · 라벨일치 66.67%) |
