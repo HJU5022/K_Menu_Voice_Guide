@@ -122,6 +122,21 @@ export default function Home() {
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 랜딩에서 촬영 화면으로 넘어갈 때 한 번 도는 창호문 연출. 화면 전환 자체와는 무관해서
+  // (문이 도는 동안 이미 촬영 화면이 뒤에 그려져 있다) 늦어지거나 막히는 일이 없다.
+  const [doorOpening, setDoorOpening] = useState(false);
+
+  // 수묵 번짐 — 후보·상세·주문으로 넘어갈 때 한 번 돈다.
+  // nonce는 **같은 화면으로 다시 넘어와도 다시 돌게** 하는 열쇠다. 켜고 끄는 값만 두면
+  // React가 같은 조각으로 보고 애니메이션을 되감지 않는다.
+  const [inkOn, setInkOn] = useState(false);
+  const [inkNonce, setInkNonce] = useState(0);
+  function goWithInk(next: Screen) {
+    setScreen(next);
+    setInkNonce((n) => n + 1);
+    setInkOn(true);
+  }
+
   // A cart outlives a single scan, so it loads once on start rather than after each photo.
   useEffect(() => {
     getCart()
@@ -148,7 +163,7 @@ export default function Home() {
       const result = await analyzeMenu(file);
       if (result.status === "candidates_found") {
         setCandidates(result.candidates);
-        setScreen("candidates");
+        goWithInk("candidates");
         // A new menu means a new restaurant — clear the cart so dishes from the last
         // place don't linger. A failed/unsupported read below is not a new restaurant,
         // so the cart is left untouched in those branches.
@@ -175,7 +190,7 @@ export default function Home() {
     try {
       const detail = await getFoodDetail(candidate.food_id);
       setSelectedDetail(detail);
-      setScreen("result");
+      goWithInk("result");
     } catch {
       goToError(t.errServiceTitle, t.errServiceHint, "candidates");
     }
@@ -216,7 +231,7 @@ export default function Home() {
   const modalNode = modal ? <Modal type={modal} lang={lang} setLang={setLang} onClose={() => setModal(null)} /> : null;
   // 고른 언어를 화면 전체가 함께 보게 감싼다. 안쪽 조각들은 useT()로 직접 꺼내 쓴다.
   const withModal = (node: React.ReactNode) => (
-    <LangContext.Provider value={lang as Lang}>{node}{modalNode}</LangContext.Provider>
+    <LangContext.Provider value={lang as Lang}>{node}{modalNode}{doorOpening && <ChanghoDoor onDone={() => setDoorOpening(false)} />}{inkOn && <InkWash key={inkNonce} onDone={() => setInkOn(false)} />}</LangContext.Provider>
   );
 
   // 랜딩은 껍데기·머리말·꼬리말을 촬영 화면과 **똑같이** 쓴다(언어 선택과 설정이
@@ -225,7 +240,8 @@ export default function Home() {
     return withModal(
       <div className="app-shell">
         <Header {...header} />
-        <Landing onStart={() => setScreen("camera")} />
+        <PageMark n={1} />
+        <Landing onStart={() => { setScreen("camera"); setDoorOpening(true); }} />
         <SiteFooter onPrivacy={() => setModal("privacy")} onTerms={() => setModal("terms")} />
       </div>
     );
@@ -240,7 +256,7 @@ export default function Home() {
         photoUrl={photoUrl}
         quantityOf={quantityOf}
         onBack={() => setScreen("camera")}
-        onOrder={() => cart.item_count > 0 && setScreen("order")}
+        onOrder={() => cart.item_count > 0 && goWithInk("order")}
         onDetail={goDetail}
         onQuantityChange={updateCount}
         onClearCart={handleClearCart}
@@ -262,8 +278,14 @@ export default function Home() {
   return withModal(
     <div className="app-shell">
       <Header {...header} />
+      <PageMark n={2} />
       <main className="camera-layout">
         <section className="camera-copy reveal">
+          {/* 랜딩으로 되돌아가는 길. 다른 화면(후보·상세·주문)이 쓰는 것과 같은 .back-link라
+              어디서든 "왼쪽 위 화살표 = 뒤로"가 한 가지 뜻으로 읽힌다. 로고를 눌러도
+              첫 화면으로 가지만, 그건 어느 화면에서든 처음으로 가는 길이고 이것은
+              **바로 앞 화면**으로 가는 길이라 뜻이 다르다. */}
+          <button className="back-link camera-back" onClick={() => setScreen("landing")}><ArrowLeft size={16} /> {t.back}</button>
           <h1>{t.cameraTitle}</h1>
           {/* 서비스 설명(heroEyebrow·heroLead)과 사진 처리 안내(privacyNote)는 랜딩으로
               옮겼다. 여기서 같은 말을 되풀이하면 "Get started"를 눌렀는데 제자리인 것처럼
@@ -337,6 +359,60 @@ function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
   return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>Menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
 }
 
+/** 지금 몇 번째 화면인지 알리는 쪽 번호.
+ *
+ * 이 앱은 주소가 바뀌지 않아(화면 상태 하나로 움직인다) 브라우저가 "어디쯤인지"를 알려주지
+ * 못한다. 인쇄물처럼 쪽 번호를 달아 그 자리를 대신한다. 두 자리 표기는 사진 위 상자·이용
+ * 단계와 같은 규칙이다.
+ *
+ * 잠깐 스쳐가는 화면(읽는 중·오류)에는 붙이지 않는다 — 쪽이 아니라 상태이기 때문이다. */
+const PAGE_TOTAL = 5;
+function PageMark({ n }: { n: number }) {
+  return (
+    <p className="page-mark">
+      <b>{String(n).padStart(2, "0")}</b> / {String(PAGE_TOTAL).padStart(2, "0")}
+    </p>
+  );
+}
+
+/** 수묵 번짐 — 다음 화면이 먹물이 번지듯 드러난다.
+ *
+ * 한지 빛 바탕이 화면을 덮은 채로 시작해, 가운데서 먹이 퍼져 나가며 바탕이 걷힌다.
+ * 창호문과 마찬가지로 **뒤에는 이미 다음 화면이 그려져 있어** 연출이 무엇도 붙잡지 않는다. */
+function InkWash({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    const timer = window.setTimeout(onDone, 1000);
+    return () => window.clearTimeout(timer);
+  }, [onDone]);
+  return <div className="inkwash" aria-hidden="true" />;
+}
+
+/** 창호문 — 촬영 화면으로 넘어갈 때 격자문이 좌우로 스르륵 열린다.
+ *
+ * 순전히 눈에 보이는 연출이라 `aria-hidden`으로 화면 읽기 프로그램에서 감추고,
+ * `pointer-events:none`으로 문이 도는 동안에도 뒤 화면을 누를 수 있게 둔다 —
+ * 연출이 사용자를 기다리게 만들면 안 된다.
+ *
+ * 다 열리면 스스로 사라진다. 남겨두면 투명한 판이 화면 위에 계속 덮여 있게 된다. */
+function ChanghoDoor({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    // CSS의 1.15s보다 조금 뒤에 걷는다(애니메이션이 끝나기 전에 사라지면 문이 튄다).
+    const timer = window.setTimeout(onDone, 1220);
+    return () => window.clearTimeout(timer);
+  }, [onDone]);
+
+  return (
+    <div className="changho" aria-hidden="true">
+      {/* 청기와 처마는 따로 그리지 않는다 — 문짝에 까는 한옥 사진에 이미 들어 있다.
+          사진이 없을 때만 CSS로 그린 살문이 대신 보인다(index.css 참고). */}
+      {/* 좌우를 :first-child로 가르지 않는다. 예전에 처마를 첫째 자식으로 두었더니
+          왼쪽 문짝이 선택에서 빠져 한쪽만 열렸다. 이름을 붙여 못 박는다. */}
+      <div className="changho-leaf changho-leaf-left" />
+      <div className="changho-leaf changho-leaf-right" />
+    </div>
+  );
+}
+
 /** 꼬리말 — 랜딩과 촬영 화면이 같은 것을 쓴다.
  *
  * 예전에는 촬영 화면의 return 안에 직접 적혀 있었다. 랜딩이 생기면서 두 곳이 필요해졌는데,
@@ -400,6 +476,7 @@ function Candidates({
   return (
     <div className="app-shell">
       <Header {...header} />
+      <PageMark n={3} />
       <main className="content-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         {/* 뒤로는 촬영 화면(다시 찍기), 처음으로는 첫 화면이다. 지금까지 첫 화면으로
@@ -842,6 +919,7 @@ function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartRespon
   return (
     <div className="app-shell">
       <Header {...header} />
+      <PageMark n={5} />
       <main className="order-shell">
         <div className="obang-ribbon" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
@@ -938,6 +1016,7 @@ function Result({
   return (
     <div className="app-shell">
       <Header {...header} />
+      <PageMark n={4} />
       <main className="result-shell">
         <button className="back-link" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <section className="result-hero">
