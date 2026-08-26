@@ -215,6 +215,10 @@ proj1-c/
 │                                   #   TTS_VENV_PYTHON(macOS·Linux는 필수), OCR_TEST_SET_ROOT,
 │                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
 ├── .gitignore
+├── .gitattributes                   # vendor 코드는 리뷰에서 접고, *.sh 줄바꿈을 LF로 고정한다
+│                                     #   윈도우에서 CRLF 때문에 deploy.sh가 첫 줄부터 죽었다(2026-08-26)
+├── .dockerignore                    # API 이미지에서 뺄 것 — .env·mobile·docs·tests·static/audio
+│                                     #   static/tts_cache는 반대로 반드시 넣는다 — 없으면 음식당 60초
 ├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
 │                                     #   fastapi·uvicorn(API) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
