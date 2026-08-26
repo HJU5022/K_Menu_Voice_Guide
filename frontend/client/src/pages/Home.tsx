@@ -122,21 +122,6 @@ export default function Home() {
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 랜딩에서 촬영 화면으로 넘어갈 때 한 번 도는 창호문 연출. 화면 전환 자체와는 무관해서
-  // (문이 도는 동안 이미 촬영 화면이 뒤에 그려져 있다) 늦어지거나 막히는 일이 없다.
-  const [doorOpening, setDoorOpening] = useState(false);
-
-  // 수묵 번짐 — 후보·상세·주문으로 넘어갈 때 한 번 돈다.
-  // nonce는 **같은 화면으로 다시 넘어와도 다시 돌게** 하는 열쇠다. 켜고 끄는 값만 두면
-  // React가 같은 조각으로 보고 애니메이션을 되감지 않는다.
-  const [inkOn, setInkOn] = useState(false);
-  const [inkNonce, setInkNonce] = useState(0);
-  function goWithInk(next: Screen) {
-    setScreen(next);
-    setInkNonce((n) => n + 1);
-    setInkOn(true);
-  }
-
   // A cart outlives a single scan, so it loads once on start rather than after each photo.
   useEffect(() => {
     getCart()
@@ -163,7 +148,7 @@ export default function Home() {
       const result = await analyzeMenu(file);
       if (result.status === "candidates_found") {
         setCandidates(result.candidates);
-        goWithInk("candidates");
+        setScreen("candidates");
         // A new menu means a new restaurant — clear the cart so dishes from the last
         // place don't linger. A failed/unsupported read below is not a new restaurant,
         // so the cart is left untouched in those branches.
@@ -190,7 +175,7 @@ export default function Home() {
     try {
       const detail = await getFoodDetail(candidate.food_id);
       setSelectedDetail(detail);
-      goWithInk("result");
+      setScreen("result");
     } catch {
       goToError(t.errServiceTitle, t.errServiceHint, "candidates");
     }
@@ -231,7 +216,7 @@ export default function Home() {
   const modalNode = modal ? <Modal type={modal} lang={lang} setLang={setLang} onClose={() => setModal(null)} /> : null;
   // 고른 언어를 화면 전체가 함께 보게 감싼다. 안쪽 조각들은 useT()로 직접 꺼내 쓴다.
   const withModal = (node: React.ReactNode) => (
-    <LangContext.Provider value={lang as Lang}>{node}{modalNode}{doorOpening && <ChanghoDoor onDone={() => setDoorOpening(false)} />}{inkOn && <InkWash key={inkNonce} onDone={() => setInkOn(false)} />}</LangContext.Provider>
+    <LangContext.Provider value={lang as Lang}>{node}{modalNode}</LangContext.Provider>
   );
 
   // 랜딩은 껍데기·머리말·꼬리말을 촬영 화면과 **똑같이** 쓴다(언어 선택과 설정이
@@ -241,7 +226,7 @@ export default function Home() {
       <div className="app-shell">
         <Header {...header} />
         <PageMark n={1} />
-        <Landing onStart={() => { setScreen("camera"); setDoorOpening(true); }} />
+        <Landing onStart={() => setScreen("camera")} />
         <SiteFooter onPrivacy={() => setModal("privacy")} onTerms={() => setModal("terms")} />
       </div>
     );
@@ -256,7 +241,7 @@ export default function Home() {
         photoUrl={photoUrl}
         quantityOf={quantityOf}
         onBack={() => setScreen("camera")}
-        onOrder={() => cart.item_count > 0 && goWithInk("order")}
+        onOrder={() => cart.item_count > 0 && setScreen("order")}
         onDetail={goDetail}
         onQuantityChange={updateCount}
         onClearCart={handleClearCart}
@@ -356,7 +341,21 @@ function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
   const t = useT();
   // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
   // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
-  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>Menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language"><span>{t.language}</span><select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select><ChevronDown size={14} /></label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+  return <header className="topbar"><button type="button" className="brand" onClick={onHome} aria-label={t.goHome}><div className="brand-symbol" aria-hidden="true"><span /></div><div><strong><span className="wordmark-k">K</span><i>-</i>Menu</strong><span>{t.brandTagline}</span></div></button><div className="top-actions"><label className="language">
+      <span className="language-label">{t.language}</span>
+      {/* 지금 고른 언어와 화살표를 **붙여서** 보여준다.
+          예전에는 <select>가 제 폭을 차지했는데, 그 폭은 가장 긴 보기("中文 (coming soon)")에
+          맞춰 잡힌다. 그래서 English를 고르면 글자와 화살표 사이가 휑하게 벌어졌고, 화살표는
+          아무 데도 붙지 않은 장식처럼 보였다.
+          이제 보이는 것은 이 span이고, 진짜 <select>는 그 위를 투명하게 덮는다 —
+          화살표를 눌러도 목록이 열린다. 여는 창은 브라우저 것을 그대로 쓴다(키보드·화면
+          읽기 프로그램이 손대지 않아도 동작한다). */}
+      <span className="language-current" aria-hidden="true">
+        {(LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0]).label}
+        <ChevronDown size={14} />
+      </span>
+      <select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select>
+    </label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
 }
 
 /** 지금 몇 번째 화면인지 알리는 쪽 번호.
@@ -372,44 +371,6 @@ function PageMark({ n }: { n: number }) {
     <p className="page-mark">
       <b>{String(n).padStart(2, "0")}</b> / {String(PAGE_TOTAL).padStart(2, "0")}
     </p>
-  );
-}
-
-/** 수묵 번짐 — 다음 화면이 먹물이 번지듯 드러난다.
- *
- * 한지 빛 바탕이 화면을 덮은 채로 시작해, 가운데서 먹이 퍼져 나가며 바탕이 걷힌다.
- * 창호문과 마찬가지로 **뒤에는 이미 다음 화면이 그려져 있어** 연출이 무엇도 붙잡지 않는다. */
-function InkWash({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    const timer = window.setTimeout(onDone, 1000);
-    return () => window.clearTimeout(timer);
-  }, [onDone]);
-  return <div className="inkwash" aria-hidden="true" />;
-}
-
-/** 창호문 — 촬영 화면으로 넘어갈 때 격자문이 좌우로 스르륵 열린다.
- *
- * 순전히 눈에 보이는 연출이라 `aria-hidden`으로 화면 읽기 프로그램에서 감추고,
- * `pointer-events:none`으로 문이 도는 동안에도 뒤 화면을 누를 수 있게 둔다 —
- * 연출이 사용자를 기다리게 만들면 안 된다.
- *
- * 다 열리면 스스로 사라진다. 남겨두면 투명한 판이 화면 위에 계속 덮여 있게 된다. */
-function ChanghoDoor({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    // CSS의 1.15s보다 조금 뒤에 걷는다(애니메이션이 끝나기 전에 사라지면 문이 튄다).
-    const timer = window.setTimeout(onDone, 1220);
-    return () => window.clearTimeout(timer);
-  }, [onDone]);
-
-  return (
-    <div className="changho" aria-hidden="true">
-      {/* 청기와 처마는 따로 그리지 않는다 — 문짝에 까는 한옥 사진에 이미 들어 있다.
-          사진이 없을 때만 CSS로 그린 살문이 대신 보인다(index.css 참고). */}
-      {/* 좌우를 :first-child로 가르지 않는다. 예전에 처마를 첫째 자식으로 두었더니
-          왼쪽 문짝이 선택에서 빠져 한쪽만 열렸다. 이름을 붙여 못 박는다. */}
-      <div className="changho-leaf changho-leaf-left" />
-      <div className="changho-leaf changho-leaf-right" />
-    </div>
   );
 }
 
@@ -464,6 +425,8 @@ function Candidates({
   const t = useT();
   const [lightbox, setLightbox] = useState<{ url: string; attribution: string | null } | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
+  // 이름 소리는 목록 전체가 하나를 나눠 쓴다 — 카드마다 따로 두면 여러 개가 겹쳐 난다.
+  const nameAudio = useNameAudio();
 
   // 메뉴판에 인쇄된 순서(line_no)로 늘어놓는다. 서버가 주는 순서는 점수 순이라 사진과
   // 목록의 순서가 어긋나 눈으로 짝짓기 어려웠다. 줄 번호가 없는 후보는 뒤로 보낸다
@@ -554,6 +517,10 @@ function Candidates({
                 onQuantityChange={onQuantityChange}
                 onDetail={onDetail}
                 onOpenImage={setLightbox}
+                onPlayName={nameAudio.play}
+                namePlaying={nameAudio.playingId === candidate.food_id}
+                nameLoading={nameAudio.loadingId === candidate.food_id}
+                nameFailed={nameAudio.failedId === candidate.food_id}
                 featured={index === 0}
               />
             ))}
@@ -750,8 +717,74 @@ function Lightbox({ image, onClose }: { image: { url: string; attribution: strin
   );
 }
 
+/** 후보 목록에서 음식 **이름만** 소리로 들려준다.
+ *
+ * 후보 응답(ApiCandidate)에는 음성 경로가 없다. 그래서 누른 그때 상세를 받아
+ * `name_audio_path`를 꺼내 쓴다 — 서버에 새 창구를 내지 않으려는 것이다(같은 API를 iOS
+ * 앱도 쓰므로 계약을 건드릴 수 없다). 한 번 받은 주소는 담아두어 두 번째부터는 바로 난다.
+ *
+ * 소리는 **한 번에 하나만** 난다. 여러 개가 겹치면 둘 다 못 알아듣는다.
+ *
+ * 준비되지 않은 이름은 담아두지 않는다 — TTS가 아직 안 만든 것일 수 있어, 다시 누르면
+ * 다시 물어봐야 한다. */
+function useNameAudio() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const cache = useRef(new Map<number, string>());
+  const [playingId, setPlayingId] = useState<number | null>(null);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [failedId, setFailedId] = useState<number | null>(null);
+
+  // 화면을 떠날 때 소리를 멈춘다. 안 그러면 다른 화면에서 목소리가 계속 난다.
+  useEffect(() => () => audioRef.current?.pause(), []);
+
+  async function play(foodId: number) {
+    // 나고 있는 것을 다시 누르면 멈춘다.
+    if (playingId === foodId) {
+      audioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+    audioRef.current?.pause();
+    setPlayingId(null);
+    setFailedId(null);
+
+    let url = cache.current.get(foodId) ?? null;
+    if (!url) {
+      setLoadingId(foodId);
+      try {
+        const detail = await getFoodDetail(foodId);
+        url = resolveAudioUrl(detail.name_audio_path ?? null);
+        if (url) cache.current.set(foodId, url);
+      } catch {
+        url = null;
+      } finally {
+        setLoadingId(null);
+      }
+    }
+    if (!url) {
+      setFailedId(foodId);
+      return;
+    }
+
+    const audio = audioRef.current ?? (audioRef.current = new Audio());
+    audio.src = url;
+    audio.onended = () => setPlayingId(null);
+    audio.onerror = () => { setPlayingId(null); setFailedId(foodId); };
+    try {
+      await audio.play();
+      setPlayingId(foodId);
+    } catch {
+      // 브라우저가 소리를 막았거나(자동재생 규칙) 파일을 못 열었다.
+      setFailedId(foodId);
+    }
+  }
+
+  return { play, playingId, loadingId, failedId };
+}
+
 function DishCard({
-  candidate, index, count, onQuantityChange, onDetail, onOpenImage, featured,
+  candidate, index, count, onQuantityChange, onDetail, onOpenImage,
+  onPlayName, namePlaying, nameLoading, nameFailed, featured,
 }: {
   candidate: ApiCandidate;
   /** 목록에서 몇 번째인가 — 사진 위 상자와 짝을 맞추는 데 쓴다. */
@@ -760,6 +793,10 @@ function DishCard({
   onQuantityChange: (item: CartItemRef, delta: number) => void;
   onDetail: (c: ApiCandidate) => void;
   onOpenImage: (image: { url: string; attribution: string | null }) => void;
+  onPlayName: (foodId: number) => void;
+  namePlaying: boolean;
+  nameLoading: boolean;
+  nameFailed: boolean;
   featured: boolean;
 }) {
   const t = useT();
@@ -802,7 +839,32 @@ function DishCard({
               외국인에게는 "이게 더 정확한가?"라는 오해만 남겼다. */}
           <div>
             <p className="dish-name-en">{candidate.name_en}</p>
-            <p className="dish-name-kr">{candidate.name_kr}</p>
+            {/* 스피커는 **한국어 이름 옆**에 둔다. 소리로 나는 것이 이 줄이기 때문이다 —
+                영어 이름 옆에 두면 영어를 읽어줄 것처럼 읽힌다.
+                여행자가 이 소리를 따라 말해 종업원에게 주문하는 것이 쓰임새라, 상세 화면까지
+                들어가지 않고 목록에서 바로 들을 수 있어야 한다. */}
+            <p className="dish-name-kr">
+              <span lang="ko">{candidate.name_kr}</span>
+              <button
+                type="button"
+                className={`name-speaker dish-name-speaker${namePlaying ? " is-playing" : ""}${nameFailed ? " is-failed" : ""}`}
+                onClick={() => onPlayName(candidate.food_id)}
+                disabled={nameLoading}
+                aria-pressed={namePlaying}
+                aria-label={
+                  nameLoading ? t.hearNameLoading(candidate.name_en)
+                  : nameFailed ? t.hearNameFailed(candidate.name_en)
+                  : t.hearName(candidate.name_en)
+                }
+                title={
+                  nameLoading ? t.hearNameLoading(candidate.name_en)
+                  : nameFailed ? t.hearNameFailed(candidate.name_en)
+                  : t.hearName(candidate.name_en)
+                }
+              >
+                <Volume2 size={14} />
+              </button>
+            </p>
             {/* 메뉴판에 실제로 인쇄된 글자. 등록 이름과 다를 때만 보여준다 — 같으면 같은
                 말을 두 번 적는 꼴이다. 이 줄이 없으면 "족발 ₩31,000"과 "족발 ₩33,000"이
                 같은 메뉴가 두 번 뜬 것처럼 보인다(실제로는 반반족발과 족발처럼 다른 줄이다). */}
