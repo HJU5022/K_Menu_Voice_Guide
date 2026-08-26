@@ -3,7 +3,7 @@
 //
 // 이 파일은 화면 알맹이(<main>)만 만든다. 껍데기(.app-shell)와 머리말·꼬리말은 Home이
 // 씌운다 — 랜딩만 제 머리말을 따로 두면 언어 선택·설정이 화면마다 달라진다.
-import { ArrowRight, Camera, Check, ChevronDown, ShieldCheck, Sparkles, Volume2 } from "lucide-react";
+import { ArrowRight, Camera, ChevronDown, FileText, ScanSearch, ShieldCheck, Sparkles, Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lang";
@@ -22,8 +22,9 @@ export default function Landing({ onStart }: { onStart: () => void }) {
    * 표기다 — 이 서비스에서 "몇 번째"는 늘 같은 모양으로 적힌다. */
   const steps = [
     { icon: <Camera size={16} />, label: t.landingStep1, body: t.landingStep1Body },
-    { icon: <Check size={16} />, label: t.landingStep2, body: t.landingStep2Body },
+    { icon: <ScanSearch size={16} />, label: t.landingStep2, body: t.landingStep2Body },
     { icon: <Volume2 size={16} />, label: t.landingStep3, body: t.landingStep3Body },
+    { icon: <FileText size={16} />, label: t.landingStep4, body: t.landingStep4Body },
   ];
 
   return (
@@ -57,9 +58,13 @@ export default function Landing({ onStart }: { onStart: () => void }) {
                   <span className="landing-step-no">{String(index + 1).padStart(2, "0")}</span>
                   <span className="landing-step-icon" aria-hidden="true">{step.icon}</span>
                   <span className="landing-step-label">{step.label}</span>
-                  <ChevronDown className="landing-step-chevron" size={14} aria-hidden="true" />
+                  <ChevronDown className="landing-step-chevron" size={16} strokeWidth={2.5} aria-hidden="true" />
                 </summary>
-                <p className="landing-step-body">{step.body}</p>
+                {/* 줄 목록이라 <ul>로 적는다. 화면 읽기 프로그램이 "항목 3개"라고 미리
+                    알려주므로, 줄바꿈한 문단보다 따라가기 쉽다. */}
+                <ul className="landing-step-body">
+                  {step.body.map((line) => <li key={line}>{line}</li>)}
+                </ul>
               </details>
             </li>
           ))}

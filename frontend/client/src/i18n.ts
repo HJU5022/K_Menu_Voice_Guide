@@ -39,14 +39,41 @@ const en = {
   // 세 단계는 **제목만** 적는다. 이 화면이 하는 일은 설득이 아니라 "이렇게 쓰면 된다"를
   // 5초 안에 보여주는 것이고, 설명을 붙이면 폰에서 CTA가 화면 밖으로 밀린다.
   landingStepsEyebrow: "HOW IT WORKS",
+  // 네 단계 — 실제 흐름 그대로다(촬영 → 후보 → 상세 → 주문). 예전에는 셋뿐이라
+  // **주문 화면이 통째로 빠져 있었다**: 장바구니에 담아 직원에게 보여주는 것이 이 서비스의
+  // 마지막 한 걸음인데, 랜딩은 "듣기"에서 끝나 그것이 있는 줄도 모르게 했다.
+  //
+  // 본문은 **지금 되는 것만** 적는다 — 메뉴판 통째 번역도, 실시간 통역도 하지 않는다.
   landingStep1: "Photograph the menu",
-  landingStep2: "Pick a dish",
-  landingStep3: "Listen in English",
-  // 펼쳤을 때 나오는 한 줄 설명. **지금 되는 것만** 적는다 — 메뉴판 통째 번역도,
-  // 실시간 통역도 하지 않으므로 그렇게 읽힐 말을 쓰지 않는다.
-  landingStep1Body: "Works with printed menus. We read the Korean text off your photo.",
-  landingStep2Body: "We list only the dishes in our guide, and mark where each one sits on your photo.",
-  landingStep3Body: "What the dish is, what goes in it, allergies, and how spicy — with the Korean name read aloud.",
+  landingStep2: "Find it on your photo",
+  landingStep3: "Read it, then hear it",
+  landingStep4: "Show it to the staff",
+  // 본문은 **줄 목록**이다(화면에서 글머리표를 붙여 한 줄씩 보여준다). 처음 온 사람이
+  // 그대로 따라 할 수 있도록, 화면에 실제로 적힌 단추 이름을 그대로 인용한다 —
+  // "Get started"·"View guide"·"Order"는 여기서 지어낸 말이 아니라 위 문구들과 같은 값이다.
+  //
+  // "가격이 함께"는 멋으로 붙인 말이 아니다. 서버는 **가격이 붙은 줄**을 메뉴로 보고,
+  // 글자만 읽히고 가격 줄이 없으면 not_a_menu로 되돌린다.
+  landingStep1Body: [
+    "Tap Get started to open the camera screen.",
+    "Take a photo of the menu, or upload one from your gallery.",
+    "Fit the whole menu in the frame, prices included.",
+  ],
+  landingStep2Body: [
+    "Wait a moment while we read the Korean text on your photo.",
+    "Numbered boxes mark the menu lines, and cards with the same numbers appear below.",
+    "Only dishes in our guide appear, and we say how many lines we could not place.",
+  ],
+  landingStep3Body: [
+    "Tap View guide on a card to open that dish.",
+    "Read what it is, how to eat it, its ingredients, allergies, pronunciation, and how spicy.",
+    "Tap the speaker beside the name to hear it in Korean, or play the whole explanation aloud.",
+  ],
+  landingStep4Body: [
+    "Add what you want with the + button on each card.",
+    "Tap Order to see your list in Korean with quantities and a total.",
+    "Show that screen to the staff — nothing is sent to the restaurant, and nothing is charged.",
+  ],
   landingCta: "Get started",
 
   // 촬영/업로드 — 서비스 설명은 랜딩이 끝냈다. 여기는 사진을 넣는 일만 한다.
@@ -163,12 +190,30 @@ const ko: typeof en = {
     "한국어 메뉴판을 사진으로 찍어보세요.\n안내할 수 있는 음식을 찾아 하나씩 설명해 드립니다 — 어떤 음식인지, 무엇이 들어가는지, 얼마나 매운지.",
   privacyNote: "사진은 메뉴 글자를 읽는 데만 쓰고 저장하지 않습니다.",
   landingStepsEyebrow: "이렇게 씁니다",
-  landingStep1: "메뉴판 촬영하기",
-  landingStep2: "음식 선택하기",
-  landingStep3: "영어 설명 듣기",
-  landingStep1Body: "인쇄된 메뉴판이면 됩니다. 사진 속 한국어 글자를 읽어냅니다.",
-  landingStep2Body: "안내할 수 있는 음식만 목록에 올리고, 사진 속 어느 자리인지 표시해 드립니다.",
-  landingStep3Body: "어떤 음식인지, 무엇이 들어가는지, 알레르기와 매운 정도. 한국어 이름은 소리로 들려드립니다.",
+  landingStep1: "메뉴판 찍기",
+  landingStep2: "사진에서 음식 찾기",
+  landingStep3: "읽고, 들어보기",
+  landingStep4: "직원에게 보여주기",
+  landingStep1Body: [
+    "‘시작하기’를 누르면 촬영 화면이 열립니다.",
+    "메뉴판을 카메라로 찍거나, 가지고 있는 사진을 올립니다.",
+    "가격이 함께 보이도록 메뉴판 전체를 담아주세요.",
+  ],
+  landingStep2Body: [
+    "사진 속 한국어 글자를 읽는 동안 잠시 기다립니다.",
+    "메뉴 줄에 번호 상자가 붙고, 같은 번호의 카드가 아래에 나옵니다.",
+    "안내할 수 있는 음식만 나오며, 자리를 찾지 못한 줄은 몇 개인지 알려드립니다.",
+  ],
+  landingStep3Body: [
+    "카드의 ‘자세히’를 누르면 그 음식의 상세 화면이 열립니다.",
+    "어떤 음식인지, 먹는 법·재료·알레르기·발음·매운 정도를 영어로 보여줍니다.",
+    "이름 옆 스피커로 한국어 발음을 듣고, 아래 재생바로 설명 전체를 듣습니다.",
+  ],
+  landingStep4Body: [
+    "카드의 ‘+’로 먹고 싶은 음식을 담습니다.",
+    "‘주문 보여주기’를 누르면 한국어 이름·수량·합계로 정리됩니다.",
+    "그 화면을 직원에게 보여주세요 — 식당으로 전송되지 않고, 결제도 되지 않습니다.",
+  ],
   landingCta: "시작하기",
 
   cameraTitle: "메뉴판을 촬영해 주세요.",

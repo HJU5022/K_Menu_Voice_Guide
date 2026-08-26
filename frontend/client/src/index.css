@@ -455,28 +455,145 @@ html[lang="ko"] .landing-copy h1 { font-size: min(46px, 8.2cqi); line-height: 1.
 
 /* 세 단계 — 번호·작은 아이콘·제목만 적는다. 설명을 붙이면 폰에서 길어져 정작 눌러야 할
    시작 단추가 멀어진다. 칸은 인쇄된 표처럼 점선으로 나눈다(.section-heading과 같은 점선). */
-.landing-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
-.landing-step { border-top: 1px dotted #b8a997; }
-.landing-step + .landing-step { border-left: 1px dotted #b8a997; }
+.landing-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+.landing-step { border-top: 1px dotted #b8a997; --body-inset: 0px; }
+.landing-step + .landing-step { border-left: 1px dotted #b8a997; --body-inset: 24px; }
+
+/* 번호에 쓰는 오방색(靑·赤·黑·黃). 흰색(白)은 크림 바탕에서 보이지 않아 뺐고,
+   나머지는 화면 위쪽 오방색 리본과 **같은 토큰**을 같은 순서로 쓴다.
+   이 변수는 번호와 본문 왼쪽 색막대가 함께 쓴다 — 단계마다 한 색으로 묶인다. */
+.landing-step:nth-child(1) { --step-color: var(--color-obang-blue); }
+.landing-step:nth-child(2) { --step-color: var(--color-obang-red); }
+.landing-step:nth-child(3) { --step-color: var(--color-obang-black); }
+/* 황(黃)만 예외다. --color-obang-yellow(#cf9b1f)를 크림 바탕에 그대로 쓰면 대비가
+   2.29라 번호가 배경에 묻힌다(25px 큰 글자 기준선 3:1 미달). 색상은 그대로 두고 명도만
+   낮춰 3.95로 올린다. 리본과 상세 카드의 노랑은 제 배경 위에 있어 문제가 없으므로
+   원본 토큰은 손대지 않는다. */
+.landing-step:nth-child(4) { --step-color: #9d720f; }
 /* 여백을 li가 아니라 summary·본문에 준다. li에 주면 닫혀 있을 때도 아래쪽이 비어 보인다. */
 .landing-step summary {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 22px 24px 22px 0;
+  padding: 22px 24px 22px var(--body-inset);
   cursor: pointer;
   list-style: none;                 /* 기본 삼각형 표식을 지우고 우리 갈매기표를 쓴다 */
 }
 .landing-step summary::-webkit-details-marker { display: none; }
-.landing-step + .landing-step summary { padding-left: 24px; }
 .landing-step-label { font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--teal-dark); }
-/* 갈매기표는 오른쪽 끝에 붙여, 여는 곳이 어디인지 눈으로 찾게 한다. */
-.landing-step-chevron { margin-left: auto; flex: none; color: var(--muted); transition: transform .18s var(--ease-out); }
-.landing-step-detail[open] .landing-step-chevron { transform: rotate(180deg); }
-.landing-step-body { margin: 0; padding: 0 24px 22px 0; font-size: 12px; line-height: 1.7; color: #607371; }
-.landing-step + .landing-step .landing-step-body { padding-left: 24px; }
+/* 여는 곳임을 **분명히** 보이게 한다.
+   예전에는 흐린 회색(--muted) 갈매기표 하나뿐이라, 눌러서 펼칠 수 있다는 것을 알아채기
+   어려웠다. 머리말의 톱니바퀴 단추(.icon-button)와 같은 방식을 쓴다 — 둥근 테두리 안에
+   담으면 글자 장식이 아니라 "누르는 것"으로 읽힌다. 색도 먹빛 teal로 올린다. */
+.landing-step-chevron {
+  margin-left: auto;
+  flex: none;
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--teal);
+  transition: transform .22s var(--ease-out), background .16s, border-color .16s, color .16s;
+}
+/* 펼쳐진 칸은 한눈에 가려지게 색을 뒤집는다 — 네 칸 중 어디를 열어뒀는지 바로 보인다. */
+.landing-step-detail[open] .landing-step-chevron {
+  transform: rotate(180deg);
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--paper);
+}
+/* 키보드로 옮겨 다닐 때도 같은 신호를 준다(:focus-visible). */
+.landing-step summary:hover .landing-step-chevron,
+.landing-step summary:focus-visible .landing-step-chevron {
+  border-color: var(--teal);
+  background: #eff4ef;
+}
+.landing-step-detail[open] summary:hover .landing-step-chevron { background: var(--teal-dark); }
+.landing-step-body {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0 24px 22px calc(var(--body-inset) + 15px);   /* 15px는 색막대 자리 */
+  font-size: 12px;
+  line-height: 1.75;
+  color: #607371;
+}
+/* 한 줄이 한 동작이다. 줄 사이를 띄우고 글머리표를 붙여, 따라 할 순서로 읽히게 한다. */
+.landing-step-body li { position: relative; padding-left: 13px; }
+.landing-step-body li + li { margin-top: 9px; }
+/* 글머리표도 그 단계의 오방색 — 번호·색막대와 한 벌로 묶인다. */
+.landing-step-body li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .62em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--step-color);
+}
+/* 펼친 본문 왼쪽에 그 단계의 오방색 막대를 세운다. 번호와 같은 색이라 "이 설명은 몇 번
+   것"인지 눈으로 이어진다. */
+.landing-step-body::before {
+  content: "";
+  position: absolute;
+  left: var(--body-inset);
+  top: 3px;
+  bottom: 25px;
+  width: 3px;
+  background: var(--step-color);
+  transform-origin: top;
+}
+
+/* 펼칠 때 내용이 툭 나타나지 않고 **내려오며 떠오르게** 한다.
+   <details>는 닫혀 있는 동안 안쪽을 아예 그리지 않으므로 높이를 물릴 수는 없다. 대신
+   열린 순간 내용에 애니메이션을 걸면 눈에는 슬라이드 다운으로 읽힌다 — 높이를 다루는
+   ::details-content 방식은 아직 브라우저마다 갈려서, 어디서나 같게 도는 쪽을 택했다.
+   애니메이션을 꺼둔 사용자에게는 파일 위쪽 prefers-reduced-motion 규칙이 자동으로 끈다. */
+@keyframes landing-step-reveal {
+  0%   { opacity: 0; transform: translateY(-12px); filter: blur(6px); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+/* 색막대는 위에서 아래로 자라 내려온다 — 슬라이드 다운을 눈으로 보여주는 역할이다. */
+@keyframes landing-step-bar {
+  from { transform: scaleY(0); opacity: .25; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+/* 번호는 한 번 튀어오른다. 어느 칸을 열었는지 시선이 그리로 가게 한다. */
+@keyframes landing-step-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.22); }
+  70%  { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
+/* 셋을 조금씩 어긋나게 시작해(막대 → 글 → 번호) 한 덩어리로 튀어나오지 않게 한다. */
+.landing-step-detail[open] .landing-step-body li {
+  animation: landing-step-reveal .44s var(--ease-out) both;
+}
+.landing-step-detail[open] .landing-step-body li:nth-child(1) { animation-delay: .06s; }
+.landing-step-detail[open] .landing-step-body li:nth-child(2) { animation-delay: .14s; }
+.landing-step-detail[open] .landing-step-body li:nth-child(3) { animation-delay: .22s; }
+.landing-step-detail[open] .landing-step-body li:nth-child(4) { animation-delay: .30s; }
+.landing-step-detail[open] .landing-step-body::before {
+  animation: landing-step-bar .5s var(--ease-out) both;
+}
+.landing-step-detail[open] .landing-step-no {
+  animation: landing-step-pop .5s var(--ease-out) .04s;
+}
 /* 번호를 두 자리로 적는 것은 후보 목록에서 사진 위 상자에 붙는 번호와 같은 표기다. */
-.landing-step-no { font-family: 'DM Serif Display', serif; font-size: 25px; line-height: 1; color: var(--coral); flex: none; }
+/* 번호는 단계의 오방색으로. 두 자리 표기(01·02…)는 후보 목록의 사진 위 상자와 같다. */
+.landing-step-no {
+  font-family: 'DM Serif Display', serif;
+  font-size: 25px;
+  line-height: 1;
+  color: var(--step-color);
+  flex: none;
+  display: inline-block;            /* 펼칠 때 튀어오르는 효과를 주려면 변형이 먹어야 한다 */
+}
 .landing-step-icon { display: grid; place-items: center; color: var(--teal); flex: none; }
 .landing-step p { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--teal-dark); }
 
@@ -491,12 +608,26 @@ html[lang="ko"] .landing-copy h1 { font-size: min(46px, 8.2cqi); line-height: 1.
   .landing-visual { transform: none; }
   /* 폰에서 사진이 화면을 다 먹으면 세 단계와 시작 단추가 아래로 밀려난다. */
   .landing-photo { min-height: 220px; }
-  .landing-steps { grid-template-columns: 1fr; }
-  .landing-step, .landing-step + .landing-step { border-left: 0; }
-  .landing-step summary, .landing-step + .landing-step summary { padding: 16px 0; }
-  .landing-step-body, .landing-step + .landing-step .landing-step-body { padding: 0 0 16px; }
+  /* 네 칸을 한 줄에 두기엔 좁다. 2×2로 접는다.
+     이때 왼쪽 세로줄은 **각 줄의 첫 칸**에는 없어야 한다 — 안 그러면 칸 바깥에 줄이 뜬다. */
+  .landing-steps { grid-template-columns: repeat(2, 1fr); }
+  .landing-step:nth-child(odd) { border-left: 0; }
+  /* 여백을 다시 잡는다. 2열에서는 오른쪽 칸에만 왼쪽 여백이 필요하다 — 세로줄에 글자가
+     달라붙지 않게. 왼쪽 칸은 세로줄이 없으므로 여백도 없어야 줄이 맞는다.
+     값은 --body-inset 하나로만 주고, summary·본문·색막대가 그것을 함께 본다. */
+  .landing-step, .landing-step + .landing-step { --body-inset: 0px; }
+  .landing-step:nth-child(even) { --body-inset: 20px; }
+  .landing-step summary { padding: 16px 0 16px var(--body-inset); }
+  .landing-step-body { padding: 0 0 16px calc(var(--body-inset) + 15px); }
+  .landing-step-body::before { bottom: 19px; }
 }
 @media (max-width: 560px) {
+  /* 폰에서는 한 칸씩 쌓는다. 2열로 두면 제목이 접혀 읽는 순서가 흐트러진다. */
+  .landing-steps { grid-template-columns: 1fr; }
+  /* `.landing-step` 하나만으로는 위의 `.landing-step + .landing-step`(더 구체적이다)을
+     못 이겨 2·4번 칸에 세로줄이 남는다. 같은 모양으로 맞받아 지운다. */
+  .landing-step, .landing-step + .landing-step { border-left: 0; }
+  .landing-step:nth-child(even) { --body-inset: 0px; }
   /* 머리말 두 번째 줄은 이제 꾸밈말이 아니라 **이름의 뒷부분**이다(K-Menu Voice Guide).
      폰에서 숨기면 이름이 반쪽만 남는다.
      `.brand span`으로 뭉뚱그리면 워드마크 안의 `K`(.wordmark-k)와 심벌 안쪽 span까지
@@ -593,3 +724,164 @@ html[lang="ko"] .landing-copy h1 { font-size: min(46px, 8.2cqi); line-height: 1.
 @media (max-width: 560px) {
   .language span { display: none; }
 }
+
+
+/* 촬영 화면 제목도 **한 줄로** 둔다. 랜딩과 같은 방식 — 뷰포트(vw)가 아니라 이 칸의
+   실제 폭(cqi)에 맞춘다. 스크롤막대가 있고 없고에 흔들리지 않기 때문이다.
+
+   재서 얻은 값이다: 영어 "Scan the menu."는 글자크기 1px당 6.18px, 한국어
+   "메뉴판을 촬영해 주세요."는 10.35px를 쓴다. 100/6.18 = 16.2, 100/10.35 = 9.7이고
+   여기서 4%가량 여유를 뺐다. **문구를 바꾸면 이 값도 다시 재야 한다** — 더 긴 문장을
+   넣으면 한 줄을 넘겨 잘린다. */
+.camera-copy { container-type: inline-size; }
+.camera-copy h1 {
+  white-space: nowrap;
+  max-width: none;
+  font-size: min(80px, 15.4cqi);
+}
+html[lang="ko"] .camera-copy h1 { font-size: min(50px, 9.2cqi); line-height: 1.2; }
+
+/* 뒤로가기는 제목 위에 붙는다. .back-link의 기본 여백이 제목과 너무 붙어 보여 조금 띄운다. */
+.camera-back { margin-bottom: 14px; }
+
+
+/* 창호문(窓戶門) 개폐 — 촬영 화면으로 넘어갈 때 청기와 처마 아래 격자문이 좌우로 열린다.
+
+   이미지 파일을 새로 넣지 않고 CSS로 그린다. 배포는 정적 파일 몇 개뿐인 HF static Space라
+   1초짜리 연출에 사진을 얹으면 첫 화면이 그만큼 늦게 뜬다. 색과 살 무늬만으로도 창호문은
+   알아볼 수 있다.
+
+   문이 도는 동안 **뒤에는 이미 촬영 화면이 그려져 있다.** 연출이 화면 전환을 붙잡지 않으며,
+   pointer-events도 꺼두어 도는 중에 눌러도 뒤 화면이 받는다. 애니메이션을 꺼둔 사용자에게는
+   파일 위쪽 prefers-reduced-motion 규칙이 순간에 끝내므로 문이 보이지 않는다. */
+:root {
+  /* 청기와 — 푸른 유약을 입힌 기와. 위에서 아래로 빛을 받는 순서로 세 단계를 둔다. */
+  --cheong-light: #4a90a4;
+  --cheong: #2b6376;
+  --cheong-dark: #143743;
+  /* 문살과 문틀에 쓰는 나무빛. */
+  --changho-wood: #6d4c2f;
+  --changho-bar: rgba(88, 61, 36, .5);
+  --hanji: #f4ead6;
+  /* 한옥 사진을 화면에 꽉 채우는 폭. 사진 가로세로비 3:2에서 나온 값이 150vh다
+     (세로를 채우면 가로는 그 1.5배). **다른 비율의 사진으로 바꾸면 이 값도 고쳐야 한다** —
+     가로÷세로 × 100vh. max로 감싸 넓은 화면에서도 빈틈이 생기지 않게 한다. */
+  --changho-photo-w: max(100vw, 150vh);
+}
+.changho {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.changho-leaf {
+  flex: 1 1 50%;
+  position: relative;
+  background-color: var(--hanji);
+  /* 층이 넷이다. 맨 위가 한옥 사진이고, 그 아래 셋은 **사진이 없을 때** 드러나는 밑그림이다
+     (띠살 세로살·가로살·한지 빛). 사진 파일이 없으면 그 층만 그려지지 않고 나머지가 보이므로,
+     이미지를 넣기 전에도 문은 제대로 열린다. */
+  background-image:
+    url('/assets/kmenu-changho-door.jpg'),
+    repeating-linear-gradient(90deg, var(--changho-bar) 0 3px, transparent 3px 34px),
+    repeating-linear-gradient(0deg, var(--changho-bar) 0 3px, transparent 3px 30px),
+    radial-gradient(ellipse at 50% 45%, rgba(255, 250, 235, .85) 0%, transparent 62%);
+  background-size: var(--changho-photo-w) auto, auto, 100% 190px, auto;
+  background-repeat: no-repeat, repeat, repeat-y, no-repeat;
+  box-shadow: 0 0 45px rgba(20, 55, 67, .35);
+  will-change: transform;
+}
+/* 문틀 — 바깥 테두리와, 두 짝이 맞닿는 가운데 문설주. */
+.changho-leaf::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 6px solid var(--changho-wood);
+  box-shadow: inset 0 0 0 2px rgba(255, 246, 226, .25);
+}
+/* 두 짝이 합쳐 **한 장의 사진**이 되도록, 각 문짝은 화면 전체 크기로 깐 그림에서 제 몫만
+   보여준다. 왼쪽 짝은 왼쪽 절반, 오른쪽 짝은 오른쪽 절반이다. 그래서 닫혀 있을 때는 한옥
+   한 채가 통째로 보이고, 열리면 그 집이 좌우로 갈라진다. */
+.changho-leaf-left {
+  background-position: calc((100vw - var(--changho-photo-w)) / 2) center, 0 0, 0 22%, 0 0;
+  border-right: 3px solid rgba(60, 40, 24, .55);
+  animation: changho-open-left 1.15s cubic-bezier(.55, .05, .15, 1) forwards;
+}
+.changho-leaf-right {
+  background-position: calc((100vw - var(--changho-photo-w)) / 2 - 50vw) center, 0 0, 0 22%, 0 0;
+  border-left: 3px solid rgba(60, 40, 24, .55);
+  animation: changho-open-right 1.15s cubic-bezier(.55, .05, .15, 1) forwards;
+}
+
+/* 처음에 아주 살짝 머뭇거렸다가(문이 걸렸다 풀리듯) 미끄러진다. */
+@keyframes changho-open-left {
+  0%   { transform: translateX(0); }
+  14%  { transform: translateX(-1.5%); }
+  100% { transform: translateX(-100%); }
+}
+@keyframes changho-open-right {
+  0%   { transform: translateX(0); }
+  14%  { transform: translateX(1.5%); }
+  100% { transform: translateX(100%); }
+}
+
+
+/* 수묵 번짐 — 후보·상세·주문으로 넘어갈 때 먹물이 번지며 다음 화면이 드러난다.
+   한지 빛 바탕이 화면을 덮은 채로 시작해, 가운데서 먹이 퍼져 나가며 바탕이 걷힌다. */
+.inkwash {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* 한지 바탕 — 걷히면서 다음 화면을 내준다. */
+.inkwash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #faf6ec;
+  animation: ink-clear 1s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+/* 먹물 — 가운데서 퍼져 나간다. blur가 종이에 스미는 가장자리를 만든다. */
+.inkwash::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60vmax;
+  height: 60vmax;
+  margin: -30vmax 0 0 -30vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(18, 30, 28, .55) 0%, rgba(18, 30, 28, .3) 45%, transparent 72%);
+  filter: blur(18px);
+  animation: ink-bleed 1s cubic-bezier(.35, 0, .25, 1) forwards;
+}
+@keyframes ink-clear {
+  0%   { opacity: 1; }
+  55%  { opacity: .82; }
+  100% { opacity: 0; }
+}
+@keyframes ink-bleed {
+  0%   { transform: scale(.1); opacity: 0; }
+  22%  { opacity: .95; }
+  100% { transform: scale(2.7); opacity: 0; }
+}
+
+
+/* 쪽 번호 — 주소가 바뀌지 않는 앱이라 "지금 어디쯤인지"를 인쇄물처럼 쪽으로 알린다. */
+.page-mark {
+  max-width: 1240px;
+  margin: -6px auto 0;
+  padding: 0 40px;
+  text-align: right;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .2em;
+  color: var(--muted);
+}
+.page-mark b { color: var(--teal); font-size: 12px; }
+@media (max-width: 850px) { .page-mark { padding: 0 22px; } }
