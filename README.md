@@ -62,6 +62,8 @@
 - 설명 카테고리: 발음·맵기·설명·재료·먹는 법·알레르기/채식 6개 — 음식이 인식되면 6개 전부 자동 제공
 - TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
 - 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
+- 이름 음성: 음식 이름만 한국어 발음으로 읽어주는 별도 음성(`name_audio_path`) — 상세 음성과 따로 재생한다
+- 장바구니: 고른 음식을 담아 수량을 조절하고 주문 요약을 만든다 (`src/cart/`, `docs/specs/cart.md`)
 - 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
 - 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다. Streamlit 진입점은 2026-08-26에 저장소에서 제거했다
 
@@ -180,6 +182,10 @@ TTS에 넘기는 문장에서는 음식명만 한글 표기로 바꿔서 읽힌�
 
 `menu_modifiers` 테이블 (**492행**): `keyword`, `category`(spice/ingredient), `keyword_en`, `spice_tier`
 
+처음 503개를 넣었다가 한식 메뉴판과 무관한 것을 덜어내고 실제로 쓰이는 수식어를 몇 개 더해
+492개로 정리했다. `src/db/menu_modifiers_seed.sql`은 정제 전 목록이라 행 수가 다르다 —
+값의 정본은 DB다.
+
 메뉴판 줄에서 음식명을 뺀 나머지에 붙는 수식어다(`매운`→`Hot`, `해산물`→`Seafood`). 후보 카드의
 영어 태그가 이 값이다. `category`가 `spice`면 `spice_tier`(1~5)를 함께 쓰고, `ingredient`면 비어 있다.
 
@@ -191,7 +197,7 @@ Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜�
 
 ### 배포 전략
 
-Hugging Face Space를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 `K_Menu_Talk.py`(FastAPI)가 도는 Docker Space(T4 GPU) 한 곳에 몰고, 웹 화면(`frontend/`)은 **빌드 결과물만** 무료 Static Space에 올린다 — 화면 쪽에도 계산을 두면 GPU 비용이 두 배가 된다. `K_Menu_Talk.py`는 `/api/analyze`, `/api/foods/{id}` 두 엔드포인트를 노출한다(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨).
+Hugging Face Space를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 `K_Menu_Talk.py`(FastAPI)가 도는 Docker Space(T4 GPU) 한 곳에 몰고, 웹 화면(`frontend/`)은 **빌드 결과물만** 무료 Static Space에 올린다 — 화면 쪽에도 계산을 두면 GPU 비용이 두 배가 된다. `K_Menu_Talk.py`는 엔드포인트 6개를 노출한다(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨) — `POST /api/analyze`, `GET /api/foods`, `GET /api/foods/{id}`, `GET /api/cart`, `DELETE /api/cart`, `POST /api/cart/items`. 계약 상세는 `docs/specs/api-layer.md`.
 
 하드웨어는 API Space 쪽에 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없다(조사 2026-08-21). OCR 실측이 92상자 기준 CPU 22.8초 → GPU 0.8초(2026-08-23, RTX 3080 Ti)로 나와, 계산은 GPU에 있어야 한다는 것이 숫자로 굳었다. 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 터널로 임시 공유 링크를 만드는 방식으로 진행했다.
 
@@ -237,7 +243,8 @@ proj1-c/
 │
 ├── docs/
 │   ├── README.md
-│   ├── 기획서.md                     # 뼈대 상태 — 백엔드 완료 후 화면 내용과 합쳐 정리 예정
+│   ├── 기획서.md                     # 왜 만들었고 무엇을 달성했는가 — 문제 정의·성공 기준 대비 실측·
+│   │                                 #   모델 선택 근거·엔지니어링 판단·한계 (README는 코드 기준 문서)
 │   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (웹·앱 공통)
 │   ├── legal/                        # 동의서·공개용 가림본 등 운영 문서 (TTS 목소리 제공 동의)
 │   └── specs/                        # 백엔드·파이프라인·앱 스펙 (웹 화면 스펙은 frontend/docs/)
@@ -259,8 +266,6 @@ proj1-c/
 ├── frontend/                         # React + TypeScript 웹 화면 (Vite, pnpm) — 계산하지 않고 API만 호출한다
 │   ├── README.md                      # 범위·실행·빌드·구조
 │   ├── client/                        #   실제 앱 — src/pages/Home.tsx가 화면 상태, src/lib/api.ts가 HTTP 계약
-│   ├── server/                        #   빌드 산출물 서빙용 Express (API 로직 없음)
-│   ├── shared/                        #   client/server가 같이 쓰는 상수
 │   ├── space/deploy.sh                #   HF Static Space 배포 — VITE_API_BASE_URL을 넣어 빌드한 뒤 통째로 덮어쓴다
 │   └── docs/                          #   화면 기준 문서 (ui-flow, screen-spec, web-app, api-client, deployment 등)
 │                                       #   web-app.md = 화면 규칙 상세(예외 18가지) — 옛 docs/specs/streamlit-app.md
@@ -308,6 +313,10 @@ proj1-c/
 │   │   ├── supabase_client.py        #   읽기 전용 anon key, RLS로 SELECT만 허용 (foods/food_details/food_narration)
 │   │   ├── cache.py                  #   서버 시작 시 전체 데이터 메모리 캐싱
 │   │   └── menu_modifiers_seed.sql   #   menu_modifiers 테이블 생성·초기 데이터
+│   │
+│   ├── cart/                         # 장바구니 — 담기·수량·주문 요약
+│   │   ├── README.md
+│   │   └── store.py                  #   메모리 딕셔너리 (DB 외래키 없음 — 서버 재시작 시 비워진다)
 │   │
 │   ├── tts/                          # (내레이션 텍스트+스타일) ──▶ WAV
 │   │   ├── README.md
