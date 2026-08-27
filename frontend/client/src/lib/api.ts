@@ -180,6 +180,13 @@ export const EMPTY_CART: CartResponse = {
 // 한 줄로 합쳐지고 가격도 하나만 남는다.
 export type CartItemRef = { food_id: number; name_kr: string; name_en: string; price_krw: number | null; menu_text?: string | null };
 
+/** 카트가 줄을 나누는 기준. 서버의 `_line_key`(src/cart/store.py)와 **같아야 한다** —
+ *  서버는 (food_id, menu_text)로 줄을 나누는데 화면이 food_id만 보면, 메뉴판에 따로
+ *  인쇄된 두 줄(들깨칼국수 / 얼큰칼국수)이 화면에서만 한 줄처럼 취급된다. */
+export function cartLineKey(foodId: number | null | undefined, menuText: string | null | undefined): string {
+  return `${foodId ?? 0}\u0000${menuText ?? ""}`;
+}
+
 // ---------------------------------------------------------------------------
 // Requests
 // ---------------------------------------------------------------------------
