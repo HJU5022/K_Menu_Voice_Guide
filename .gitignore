@@ -32,6 +32,10 @@ build/
 # 로그
 *.log
 
+# 사전 생성 배치가 남기는 항목별 생성 시간·RTF 기록 (src/tts/pregenerate.py).
+# 돌린 컴퓨터마다 값이 달라 커밋 대상이 아니다 — eval/README.md도 그렇게 적고 있다.
+eval/tts_pregen_log.csv
+
 # TTS가 요청마다 생성하는 오디오 (K_Menu_Talk.py의 /audio 정적 서빙 디렉토리)
 static/
 

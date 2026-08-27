@@ -19,6 +19,9 @@ README.md
 # static/audio는 실행 중에 만들어지는 임시 음성이라 넣지 않는다.
 # 반면 static/tts_cache(사전 생성 안내 음성)는 반드시 이미지에 들어가야 한다 —
 # 없으면 요청마다 TTS를 새로 돌려 음식 하나에 60초 이상 걸린다(T4 실측 2026-08-24,
-# 캐시 적용 후 0.8초). 저장소에는 .gitignore 때문에 없으므로, 배포용 브랜치에서
-# `git add -f static/tts_cache`로 넣고 wav는 LFS로 추적한다.
+# 캐시 적용 후 0.8초).
+#
+# 저장소에는 .gitignore 때문에 캐시가 없다. deploy/api-space/deploy.sh가 배포할 때
+# 로컬 static/tts_cache에서 wav를 복사해 넣고, 실제로 담겼는지 개수까지 확인한 뒤
+# LFS로 올린다 — 캐시 없이 배포되면 서버는 뜨지만 느려서, 배포한 뒤에야 알게 된다.
 static/audio

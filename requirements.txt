@@ -55,3 +55,7 @@ fastapi
 uvicorn
 python-multipart      # UploadFile(이미지 업로드) 처리에 필요
 httpx                  # fastapi.testclient.TestClient 의존성
+
+# 테스트 — 실행에는 필요 없지만, README가 안내하는 `python -m pytest`가
+# 이 목록만 깔린 새 환경에서도 바로 돌아가야 한다.
+pytest

@@ -56,6 +56,14 @@ _worker_lock = threading.Lock()
 
 
 def _open_worker_log():
+    """TTS 워커가 뱉는 것을 받아 적을 로그 파일을 연다. 이미 열려 있으면 그걸 쓴다.
+
+    워커는 별도 프로세스라 그쪽 출력이 서버 화면에 안 보인다. 파일로 받아두지 않으면
+    모델 로딩이 왜 실패했는지가 아무 데도 안 남는다.
+
+    `buffering=1`은 줄 단위로 바로 쓰라는 뜻이다. 기본값이면 버퍼에 모아뒀다가 쓰는데,
+    워커가 죽는 순간 그 버퍼가 통째로 사라져 정작 죽기 직전 줄을 못 본다.
+    """
     global _worker_log
     if _worker_log is None or _worker_log.closed:
         _TTS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -100,6 +108,11 @@ def _readline_with_timeout(proc: subprocess.Popen, timeout: float) -> str | None
     answer: queue.Queue = queue.Queue(maxsize=1)
 
     def _read() -> None:
+        """워커의 응답 한 줄을 기다렸다가 큐에 넣는다 (별도 스레드에서 돈다).
+
+        읽기 자체는 시간 제한을 걸 수 없어서, 기다리는 일을 이 스레드에 맡기고
+        바깥에서 큐에 시간 제한을 건다.
+        """
         try:
             answer.put(proc.stdout.readline())
         except Exception:
