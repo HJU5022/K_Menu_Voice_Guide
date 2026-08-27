@@ -13,7 +13,7 @@
 |---|---|---|
 | 1 | **API Space 복구** — 현재 일시정지(paused) 상태다. 시연 컷이 전부 여기에 걸린다 | ☐ |
 | 2 | **웹 Space 공개 전환** — 현재 401(비공개)이라 외부에서 안 열린다 | ☐ |
-| 3 | **TTS 캐시 재생성** — `python -m src.tts.pregenerate --force`. 지금 캐시는 한글 표기 전환 이전 음성이다 | ☐ |
+| 3 | ~~TTS 캐시 재생성~~ — 2026-08-27 완료. 배포 Space(`d91f637`)의 한글 캐시 100개로 교체, sha256 100/100 확인 | ☑ |
 | 4 | 메뉴판 사진 — 실제 메뉴판 또는 [합성 메뉴판](assets/sample-menu-synthetic.jpg) | ☐ |
 | 5 | 스마트폰(모바일 화면 촬영용) + 화면 녹화 도구(PC) | ☐ |
 | 6 | 비교 청취용 오디오 4개 — [`eval/perso_comparison/`](../../eval/perso_comparison/) | ☐ |
