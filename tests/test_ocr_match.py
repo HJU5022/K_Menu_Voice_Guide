@@ -339,6 +339,77 @@ class ScanMenuLinesTests(unittest.TestCase):
             ["쌈싸먹는 김치찌개", "겨울동태찌개"],
         )
 
+    def test_a_lone_hanja_is_not_part_of_the_name(self):
+        """이름 자리에 홀로 남은 한 글자 한자는 이름이 아니다.
+
+        실측(2026-08-27, 테스트 사진 10장): 04번 카드의 이름이 "된장찌개 花"였다.
+        팀원 보고도 같은 모양이다 — 메뉴판에는 "참치김치찌개 7,900"이라 적혀 있는데
+        카드에는 "참치김치찌개 人"이 떴다.
+
+        종업원에게 그대로 보여줄 원문(menu_text)은 손대지 않는다. 그건 사진에 인쇄된
+        글자를 있는 그대로 보여주는 자리다.
+        """
+        boxes = [(10, 120, 320, 24, "참치김치찌개 人 7,900", 0.99)]
+
+        candidates, _unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(c["name_text"], c["menu_text"]) for c in candidates],
+            [("참치김치찌개", "참치김치찌개 人 7,900")],
+        )
+
+    def test_a_hanja_attached_to_the_name_is_kept(self):
+        """낱말에 붙어 있는 한자는 이름의 일부다 — "두루치기(小)"의 "(小)"를 지우면 안 된다."""
+        boxes = [(10, 120, 320, 24, "두루치기(小) 12,000원", 0.99)]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual([line["name_text"] for line in unsupported], ["두루치기(小)"])
+
+    def test_an_unread_price_number_does_not_stay_in_the_name(self):
+        """가격으로 안 읽힌 숫자가 이름 자리에 남으면 안 된다.
+
+        OCR이 "6,900"의 자릿수를 하나 흘려 "6.90"으로 읽으면 값으로 인정되지 않는다 —
+        6,900인지 690인지 글자만으로 알 수 없어서다. 그래서 가격 떼기에서도 살아남아
+        이름 자리에 그대로 남는다(팀원 보고 2026-08-27: 카드에 "비빔냉면6.90",
+        가격은 "없음").
+
+        **값으로 추정하지는 않는다.** 이름 자리에서 빼기만 한다.
+        """
+        boxes = [(10, 120, 320, 24, "김치찌개 6.90 8,000원", 0.99)]
+
+        candidates, _unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(c["name_text"], c["price_krw"]) for c in candidates],
+            [("김치찌개", 8000)],
+        )
+
+    def test_numbers_and_units_inside_a_name_are_kept(self):
+        """이름의 일부인 숫자·단위·괄호는 지우면 안 된다 — 지나친 정리는 이름을 깎는다.
+
+        마지막 줄이 안전선이다. 낱낱이 떨어져 나온 맨숫자("1")까지 지우면 OCR이 띄어
+        읽은 "1인분"의 앞 글자가 사라진다. 그래서 자릿수 구분이 들어간 숫자만 지운다.
+        """
+        boxes = [
+            (10, 120, 320, 24, "숯불소갈비살1인분 15,000원", 0.99),
+            (10, 170, 320, 24, "삼겹살 200g 13,000원", 0.99),
+            (10, 220, 320, 24, "한우불고기(국내산) 20,000원", 0.99),
+            (10, 270, 320, 24, "생선구이 1 인분 12,000원", 0.99),
+        ]
+
+        _candidates, unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [line["name_text"] for line in unsupported],
+            [
+                "숯불소갈비살1인분",
+                "삼겹살 200g",
+                "한우불고기(국내산)",
+                "생선구이 1 인분",
+            ],
+        )
+
     def test_two_column_menu_splits_at_the_column_boundary(self):
         """2단 메뉴판에서 왼쪽 칸과 오른쪽 칸이 한 항목으로 뭉치면 안 된다.
 
