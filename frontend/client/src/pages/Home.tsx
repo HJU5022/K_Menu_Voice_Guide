@@ -11,7 +11,7 @@ import { LangContext, useT } from "@/lang";
 import { STRINGS, type Lang, type Strings } from "@/i18n";
 import Landing from "./Landing";
 import {
-  analyzeMenu, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
+  analyzeMenu, cartLineKey, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
   EMPTY_CART, apiBaseUrl, isUsingCustomApi, BadUploadError,
   type ApiCandidate, type CartItemRef, type CartLine, type CartResponse, type FoodDetail, type SupportedFood,
 } from "@/lib/api";
@@ -202,7 +202,10 @@ export default function Home() {
     }
   }
 
-  const quantityOf = (foodId: number) => cart.items.find((line) => line.food_id === foodId)?.quantity ?? 0;
+  // 줄을 찾는 기준이 서버와 같아야 한다. food_id만 보면 같은 음식의 다른 줄(들깨칼국수 /
+  // 얼큰칼국수)이 먼저 찾힌 한 줄을 공유해, 하나를 담으면 다른 카드의 수량도 같이 오른다.
+  const quantityOf = (foodId: number, menuText: string | null) =>
+    cart.items.find((line) => cartLineKey(line.food_id, line.menu_text) === cartLineKey(foodId, menuText))?.quantity ?? 0;
 
   const header: HeaderProps = {
     lang,
@@ -415,7 +418,7 @@ function Candidates({
   cart: CartResponse;
   cartError: string;
   photoUrl: string | null;
-  quantityOf: (foodId: number) => number;
+  quantityOf: (foodId: number, menuText: string | null) => number;
   onBack: () => void;
   onOrder: () => void;
   onDetail: (c: ApiCandidate) => void;
@@ -513,7 +516,7 @@ function Candidates({
                 key={`${candidate.food_id}-${index}`}
                 candidate={candidate}
                 index={index}
-                count={quantityOf(candidate.food_id)}
+                count={quantityOf(candidate.food_id, candidate.menu_text)}
                 onQuantityChange={onQuantityChange}
                 onDetail={onDetail}
                 onOpenImage={setLightbox}
@@ -944,7 +947,7 @@ function CartPanel({
       ) : (
         <div className="cart-lines">
           {cart.items.map((line) => (
-            <div className="cart-line" key={line.food_id}>
+            <div className="cart-line" key={cartLineKey(line.food_id, line.menu_text)}>
               <div><b>{line.name_kr}</b><span>{line.name_en}</span></div>
               <div className="line-right">
                 <strong>{line.line_total_display ?? "—"}</strong>
@@ -1000,7 +1003,7 @@ function Order({ header, cart, onBack }: { header: HeaderProps; cart: CartRespon
           <p className="order-staff-note" lang="ko">아래는 손님이 고른 메뉴입니다.</p>
           <div className="order-lines">
             {cart.items.map((line) => (
-              <div className="order-line" key={line.food_id}>
+              <div className="order-line" key={cartLineKey(line.food_id, line.menu_text)}>
                 {/* 이 줄은 두 사람이 함께 본다 — 종업원은 한국어를 읽고, 손님은 자기가
                   무엇을 시키는지 확인한다. 한쪽만 적으면 둘 중 하나는 읽지 못한다. */}
               <div><b lang="ko">{line.name_kr}</b><span className="order-line-en">{line.name_en}</span></div>
