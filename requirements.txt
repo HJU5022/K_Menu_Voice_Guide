@@ -18,21 +18,22 @@ paddlepaddle==3.3.1; sys_platform == "darwin"
 opencv-python
 paddleocr
 numpy               # 전처리·추론이 이미지를 다루는 기본 배열 타입 (src/ocr/preprocess.py, infer.py)
-paddleslim          # 3안: 모델 양자화
 rapidfuzz           # 음식명 유사도 매칭
-lmdb                # ppocr 데이터 로더 의존성
-shapely              # ppocr 내부 폴리곤 계산용
-scikit-image
-pyclipper
-tqdm
+shapely             # 글자 상자 폴리곤 계산 (검출 후처리)
+pyclipper           # 위와 같음
+tqdm                # vendor/ppocr가 모델을 받을 때 진행률 표시
 opencv-contrib-python
 cython
 Pillow
 pyyaml
 requests
-albumentations
-albucore
 packaging
+
+# 학습에만 쓰는 것은 여기 넣지 않는다. 이 목록은 Dockerfile이 그대로 설치하는데,
+# 배포 서버는 학습을 하지 않고 다 만들어진 모델을 불러다 쓰기만 한다.
+#   빼둔 것: paddleslim(모델 양자화) · albumentations·albucore(학습 사진 증강) ·
+#            lmdb(학습 데이터 로더) · scikit-image(증강 보조)
+# 학습을 돌릴 때는 그 환경에서 따로 설치한다 (docs/specs/ocr-finetuning.md).
 
 # TTS
 peft                # LoRA 파인튜닝

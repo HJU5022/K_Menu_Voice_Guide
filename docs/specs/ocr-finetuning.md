@@ -61,6 +61,16 @@
 
 - 학습 데이터 출처: AI Hub "관광 음식메뉴판 데이터" — 학습 39,000장(13개 지역 × 3,000), 검증 6,500장(13개 지역 × 500), 평가용 테스트 50장(`OCR_test_set_50`, 학습/검증과 별도 구성)
 - 커스텀 딕셔너리 파일 경로/형식: `OCR_finetune_data/custom_dict.txt` — 한 줄에 문자 1개, 총 1,118자. 학습·검증 데이터에 등장한 문자 + 등록 음식명 문자의 합집합(`prepare_dataset.py`의 `build_dictionary`)
+- **학습에만 필요한 패키지는 그때 따로 설치한다.** `requirements.txt`는 Dockerfile이 그대로
+  설치하는 목록이라, 배포 서버가 쓰지 않는 것을 넣으면 이미지만 무거워진다. 학습·양자화를
+  돌릴 환경에서 아래를 추가로 깐다(2026-08-27에 목록에서 분리함).
+
+  ```bash
+  pip install paddleslim albumentations albucore lmdb scikit-image
+  ```
+
+  `paddleslim`은 양자화(3안), 나머지는 학습 데이터 증강과 데이터 로더용이다. 추론 경로는
+  이것들 없이 동작한다 — 없는 환경에서 실제 메뉴판으로 후보·가격까지 정상 인식됨을 확인했다.
 - 매칭 임계값 (RapidFuzz score): `match.py`의 `MATCH_THRESHOLD = 85` (`name_score()` 기준, 2026-08-23 오탐 측정 후 65에서 상향 — `eval/measure_match_precision.py` 참고)
 
 ## AC (Given-When-Then)
