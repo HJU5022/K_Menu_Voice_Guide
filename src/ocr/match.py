@@ -172,6 +172,10 @@ _NON_MENU_MARKERS = (
     # 때문이다 — "된장찌개(무한리필이용시)", "한우불고기(국내산)", "공기밥 추가".
     # 종결 어미 전체("...니다")로 넓히지 않은 이유도 같다. 실제로 본 안내문만 넣는다.
     "합니다", "습니다", "입니다", "바랍니다",
+    # 부탁하는 안내 문장의 종결 어미 — 실측: "산낙지주문시미리말쏨해주세요"가 옆 칸
+    # "칼국수사리"와 한 줄로 묶여 주문 화면에 그대로 나왔다(2026-08-27).
+    # 위 네 개와 같은 이유로 안전하다. 메뉴 이름은 명사구라 청유형으로 끝나지 않는다.
+    "주세요",
 )
 
 # 원산지 표시는 "원산지"라는 말 없이 산지만 나열하기도 한다
@@ -488,6 +492,19 @@ def _fill_missing_from_row(candidates: list[dict], line: str, row: list[TextBox]
             candidate["price_krw_display"] = format_price_krw(lone_price)
 
 
+def _display_line(row: list[TextBox], boxes: list[TextBox]) -> str:
+    """화면에 내보낼 줄 글자 — 그 줄에서 안내 문장 상자를 뺀 나머지.
+
+    menu_text는 주문 화면에서 **종업원에게 그대로 보여주는 글자**라, 가게 안내문이
+    섞이면 주문이 어긋난다(실측 2026-08-27: 후보 "칼국수"의 menu_text가
+    "산낙지주문시미리말쏨해주세요 칼국수사리"였다).
+
+    거르는 판정은 [_is_non_menu_box]로, _unsupported_menu_line()이 쓰는 것과 같다.
+    글자 크기를 다른 상자와 견주는 판정이라 사진 전체(boxes)가 필요하다.
+    """
+    return row_text([box for box in row if not _is_non_menu_box(box, boxes)])
+
+
 def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
     """메뉴판을 줄 단위로 훑어 **안내 가능한 후보**와 **그러지 못한 메뉴 줄**을 함께 돌려준다.
 
@@ -518,13 +535,19 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
 
         # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
         # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
+        # 화면에 나가는 글자에서만 안내 문장을 뺀다. 매칭·가격에 쓰는 line은 그대로 둔다 —
+        # 그쪽은 이미 all_boxes로 안내 문구를 걸러내고 있어서(match_food_candidates,
+        # _is_non_menu_box), 여기서 글자를 줄이면 판정 근거만 잃는다.
+        # 안내 상자를 다 빼면 남는 글자가 없을 수 있다. 그때는 원래 줄 글자를 쓴다 —
+        # 종업원에게 보여줄 것이 아예 없어지는 편이 더 나쁘다.
+        display_line = _display_line(row, boxes) or line
         # 가격을 뗀 이름 쪽 글자. 화면이 가격을 따로 보여주므로 이름 자리에는 이걸 쓴다.
         # 뗄 것이 없으면(가격 없는 줄) 줄 글자가 그대로 남는다.
-        name_text = strip_prices(line) or line
+        name_text = strip_prices(display_line) or display_line
 
         seen: dict[int, dict] = {}
         for candidate in matches:
-            candidate["menu_text"] = line
+            candidate["menu_text"] = display_line
             candidate["name_text"] = name_text
             candidate["line_no"] = line_no
             kept = seen.get(candidate["food_id"])
