@@ -158,6 +158,9 @@ abstract interface class CartAddable {
   CandidateSource? get source;
 
   /// 메뉴판에서 위에서부터 센 줄 번호. 목록을 메뉴판 순서로 늘어놓을 때 쓴다.
+  ///
+  /// 줄 위치를 못 잡은 후보는 번호가 없어서 [lineNoLast]가 대신 들어간다 —
+  /// 그런 줄은 목록 맨 뒤로 간다.
   int get lineNo;
 
   /// 장바구니에서 이 줄을 가리키는 신원. 서버가 묶는 기준과 같아야 한다.
@@ -179,6 +182,7 @@ class Candidate implements CartAddable {
     required this.nameText,
     required this.source,
     required this.rawLineNo,
+    required this.spiceLevel,
     required this.spiceModifiers,
     required this.ingredientModifiers,
   });
@@ -209,6 +213,8 @@ class Candidate implements CartAddable {
           ? null
           : CandidateSource.fromJson(json['source'] as Map<String, dynamic>),
       rawLineNo: json['line_no'] as int?,
+      // 등록되지 않은 맵기는 서버가 null로 준다(`K_Menu_Talk.py`의 Candidate).
+      spiceLevel: json['spice_level'] as int?,
       spiceModifiers: _modifiers(json, 'spice'),
       ingredientModifiers: _modifiers(json, 'ingredient'),
     );
@@ -262,6 +268,12 @@ class Candidate implements CartAddable {
   /// 서버가 준 줄 번호. 옛 응답에는 없어 null일 수 있다.
   final int? rawLineNo;
 
+  /// 이 음식의 맵기(1~5). 후보 카드의 불꽃 눈금에 쓴다.
+  ///
+  /// DB에 맵기가 등록되지 않은 음식이면 서버가 null을 주고, 그때는 눈금을 아예
+  /// 그리지 않는다 — 모르는 값을 0칸으로 그리면 "안 맵다"는 거짓말이 된다.
+  final int? spiceLevel;
+
   /// 이 줄에 붙어 있던 맵기 수식어(`매운` → Hot).
   final List<Modifier> spiceModifiers;
 
@@ -271,8 +283,20 @@ class Candidate implements CartAddable {
   /// 화면에 배지로 그릴 수식어. 맵기를 앞에 둔다 — 못 먹는 사람에게 더 급한 정보다.
   List<Modifier> get modifiers => [...spiceModifiers, ...ingredientModifiers];
 
+  /// 줄 번호를 못 받은 후보를 목록 맨 뒤로 보내는 대체 값.
+  ///
+  /// 정렬에만 쓰는 값이라 "가장 큰 줄 번호"이기만 하면 되고, 실제 메뉴판 줄 수와는
+  /// 상관없다. 웹앱이 같은 자리에서 쓰는 Number.MAX_SAFE_INTEGER와 같은 역할이다.
+  static const int lineNoLast = 1 << 62;
+
+  /// 줄 번호가 없으면 [lineNoLast]로 미뤄 **목록 맨 뒤**에 놓는다.
+  ///
+  /// 예전에는 0을 넣어 맨 앞으로 보냈는데, 줄 위치를 못 잡은 후보는 사진 위에 상자도
+  /// 못 그린다. 그래서 목록은 01·02부터 시작하는데 사진의 상자는 03부터 시작해,
+  /// 번호가 서로 어긋난 것처럼 보였다. 웹앱(`frontend/client/src/pages/Home.tsx`)이
+  /// 이미 맨 뒤로 보내고 있어 앱도 같은 순서로 맞춘다.
   @override
-  int get lineNo => rawLineNo ?? 0;
+  int get lineNo => rawLineNo ?? lineNoLast;
 
   @override
   String get cartNameKr => nameKr;

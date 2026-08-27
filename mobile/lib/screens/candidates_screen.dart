@@ -36,6 +36,7 @@ import 'menu_photo_overlay.dart';
 import 'detail_screen.dart';
 import 'order_summary_screen.dart';
 import 'settings_button.dart';
+import 'spice_gauge.dart';
 import 'stitch_bar.dart';
 
 class CandidatesScreen extends StatefulWidget {
@@ -347,6 +348,15 @@ class _CandidateCard extends StatelessWidget {
                               color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
+                        ],
+                        // 맵기 눈금. 고를지 말지를 카드 단계에서 판단하게 해주는 값이라
+                        // 상세로 들어가기 전에 보여준다(웹앱도 후보 카드에 그린다).
+                        //
+                        // 맵기가 등록되지 않은 음식은 서버가 null을 준다. 그때는 눈금을
+                        // 통째로 뺀다 — 0칸으로 그리면 "안 맵다"고 잘못 알려주는 셈이다.
+                        if (candidate.spiceLevel != null) ...[
+                          const SizedBox(height: 6),
+                          SpiceGauge(level: candidate.spiceLevel!, size: 14),
                         ],
                         // 사진 출처 표기. 프로젝트가 외부 사진을 쓰면서 출처를 남기기로
                         // 한 항목이라, **사진을 보여주는 자리에는 반드시 함께 둔다.**
