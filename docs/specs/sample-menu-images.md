@@ -8,10 +8,9 @@
 > 1. 대상 화면이 Streamlit이 아니라 **React**다(`frontend/client/src/pages/Home.tsx`).
 >    아래 Happy Path의 `session_state`는 그 시절 표현이며, React에서는 분석에 쓴 바이트를
 >    화면 상태에 담아 후보 화면의 사진 위 상자에 쓴다.
-> 2. **이미 쓸 수 있는 합성 메뉴판이 한 장 있다** —
->    [`docs/submission/assets/sample-menu-synthetic.jpg`](../submission/assets/sample-menu-synthetic.jpg).
->    6줄짜리이고 실제로 `POST /api/analyze`에서 후보 5개가 나온 것이 기록돼 있다
->    (`docs/submission/05-io-samples.md` 1절). 3장을 새로 만들기 전에 이것부터 붙이면 된다.
+> 2. 예전에는 `docs/submission/assets/`에 6줄짜리 합성 메뉴판이 한 장 있었지만, 제출물
+>    문서를 저장소에서 걷어내면서 같이 지웠다(2026-08-27). **지금 저장소에 바로 쓸 수 있는
+>    샘플 메뉴판 사진은 없다** — 아래 3장을 처음부터 만들어야 한다.
 
 ## Why
 
