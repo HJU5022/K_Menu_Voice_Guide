@@ -18,10 +18,14 @@ DB에 직접 접근하는 코드는 전부 여기에만 둡니다. 다른 폴더
 
 | 테이블 | 내용 |
 |---|---|
-| `foods` | 음식 기본 정보 (음식명, spice_level, 대표사진 URL·출처). `name_kr`은 TTS가 읽는 이름으로도 씁니다 |
-| `food_details` | 카테고리 6개 상세 설명 (PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY) + TTS 전용 `PRONUNCIATION_TTS` |
-| `food_narration` | style별 내레이션 문장 |
-| `menu_modifiers` | 메뉴판 줄에서 음식명을 뺀 나머지에 붙는 수식어. `keyword_en`이 후보 카드의 **영어 태그**가 됩니다(`매운`→`Hot`, `해산물`→`Seafood`). `category`가 `spice`면 `spice_tier`(1~5)를 함께 씁니다 |
+| `foods` (50행) | 음식 기본 정보 (음식명, spice_level, 대표사진 URL·출처). `name_kr`은 TTS가 읽는 이름으로도 씁니다 |
+| `food_details` (350행) | 카테고리 6개 상세 설명 (PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY) + TTS 전용 `PRONUNCIATION_TTS` |
+| `food_narration` (50행) | style별 내레이션 문장. 음식마다 한 행이다 — 스타일은 `spice_level`이 정하므로(4 이상이면 CAUTION) 한 음식에 두 벌을 두지 않는다 |
+| `menu_modifiers` (492행) | 메뉴판 줄에서 음식명을 뺀 나머지에 붙는 수식어. `keyword_en`이 후보 카드의 **영어 태그**가 됩니다(`매운`→`Hot`, `해산물`→`Seafood`). `category`가 `spice`면 `spice_tier`(1~5)를 함께 씁니다 |
+
+`menu_modifiers`는 처음 503개를 넣었다가 한식 메뉴판과 무관한 것을 덜어내고 실제로 쓰이는
+수식어를 몇 개 더해 492개로 정리했습니다. `menu_modifiers_seed.sql`은 **정제 전** 목록이라
+행 수가 다릅니다 — 값의 정본은 DB입니다.
 
 ## 보안
 

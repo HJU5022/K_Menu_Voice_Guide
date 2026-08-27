@@ -67,7 +67,7 @@
 
 **AC-01 · 정상 촬영된 메뉴판에서 등록 음식명 인식**
 - GIVEN: 사용자가 조명이 양호하고 기울기가 크지 않은 메뉴판 사진을 촬영
-- WHEN: 전처리 → 파인튜닝 OCR → `match_food` 파이프라인을 실행
+- WHEN: 전처리 → 파인튜닝 OCR → `scan_menu_lines()` 파이프라인을 실행
 - THEN: `OCR_test_set_50` 기준 90% 이상의 사진에서 등록 음식명과 정확히 매칭된다
 
 **AC-02 · 기울어진 사진 보정**
@@ -77,7 +77,7 @@
 
 **AC-03 · 등록되지 않은 음식명 처리**
 - GIVEN: OCR이 등록되지 않은 음식명 글자를 추출함 (EC-03)
-- WHEN: `match_food`가 호출됨
+- WHEN: `scan_menu_lines()`가 호출됨
 - THEN: `name_score()`가 `MATCH_THRESHOLD`(현재 85) 미만이라 후보를 만들지 않고, UI에 "미지원 안내"가 표시된다
 
 **AC-04 · 글자 인식 완전 실패**

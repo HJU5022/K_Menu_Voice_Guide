@@ -33,6 +33,14 @@ _FAILED = {"audio_path": None, "status": "not_ready", "latency_ms": 0.0}
 
 
 def main() -> None:
+    """한 줄씩 요청을 받아 음성을 만들고, 결과 JSON을 한 줄로 돌려주는 반복문.
+
+    별도 프로세스로 도는 이유는 `paddle`(OCR)과 `torch`(TTS)를 한 프로세스에 함께
+    올릴 수 없어서다. 이 파일은 paddle을 전혀 import하지 않는다.
+
+    요청마다 프로세스를 새로 띄우지 않고 **살려두고 재사용**한다 — 모델 로딩이 이
+    작업에서 제일 비싼 부분이라, 매번 띄우면 그 비용을 요청마다 다시 낸다.
+    """
     # 결과 JSON을 쓸 진짜 stdout은 따로 붙들어둔다 — 아래에서 stdout을 stderr로
     # 돌리는 동안에도 이 핸들로는 정상적으로 쓸 수 있다.
     real_stdout = sys.stdout

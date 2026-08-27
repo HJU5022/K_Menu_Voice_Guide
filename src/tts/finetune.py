@@ -231,6 +231,11 @@ def download_base_model(work_dir: Path) -> Path:
 # --- 2. 학습 데이터 빌드 ------------------------------------------------------
 
 def _load_label_csv(path: Path) -> list[dict]:
+    """녹음 라벨 CSV를 읽어 행 목록으로 돌려준다.
+
+    `audio_path`가 빈 행은 버린다 — 표를 만들다 남은 빈 줄이 실제로 섞여 들어오는데,
+    그대로 두면 존재하지 않는 파일을 변환하려다 학습 준비가 통째로 멈춘다.
+    """
     # utf-8-sig: Excel에서 저장된 CSV에 BOM이 붙어 있다.
     with open(path, encoding="utf-8-sig") as f:
         return [row for row in csv.DictReader(f) if row.get("audio_path")]
@@ -357,6 +362,12 @@ def encode_audio_codes(work_dir: Path, data_dir: Path, device: str = "cuda:0") -
 # --- 3. 학습 ------------------------------------------------------------------
 
 def _append_log_rows(log_csv: Path, rows: list[dict]) -> None:
+    """에폭별 학습 기록을 CSV에 이어 붙인다. 파일이 없으면 헤더부터 쓴다.
+
+    덮어쓰지 않고 이어 쓰는 이유는, 이 CSV가 **여러 런의 기록을 한 파일에 모으는**
+    자리이기 때문이다(`run_id` 칸으로 런을 구분한다). 런마다 파일을 새로 만들면
+    나중에 조합끼리 비교할 때 파일을 일일이 합쳐야 한다.
+    """
     exists = log_csv.exists()
     log_csv.parent.mkdir(parents=True, exist_ok=True)
     with open(log_csv, "a", newline="", encoding="utf-8") as f:
@@ -484,6 +495,15 @@ def upload_adapter(ckpt: Path, repo_id: str = TTS_ADAPTER_REPO_ID,
 # --- 실행 ---------------------------------------------------------------------
 
 def main() -> None:
+    """준비 → 데이터 빌드 → 학습 → (선택) 업로드를 순서대로 실행한다.
+
+    각 단계는 **이미 끝난 일을 건너뛴다**(zip 풀기, 모델 내려받기, wav 변환 등).
+    학습이 몇 시간짜리라 중간에 끊기는 일이 잦은데, 매번 처음부터 다시 하면 GPU 시간이
+    그만큼 사라지기 때문이다. 그래서 같은 명령을 다시 실행해도 안전하다.
+
+    하이퍼파라미터는 전부 명령줄로 받되 기본값은 채택된 조합이다 — 값을 바꿔 비교
+    실험을 돌릴 때 코드를 고치지 않아도 되고, 무엇으로 돌렸는지가 로그 CSV에 남는다.
+    """
     parser = argparse.ArgumentParser(description="Qwen3-TTS LoRA 파인튜닝")
     parser.add_argument("--zip-path", type=Path, required=True,
                         help="녹음 원본 zip 경로")

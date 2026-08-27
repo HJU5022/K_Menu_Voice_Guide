@@ -1,458 +1,257 @@
-# K-MENU VOICE GUIDE
+# K-Menu Voice Guide
 
-*영어권 관광객을 위한 한국 음식 멀티모달 음성 가이드*
+영어권 관광객이 한국어 메뉴판을 촬영하면, 음식의 발음·맵기·재료·먹는 법·알레르기까지
+영어 텍스트와 음성으로 설명해주는 멀티모달 한국 음식 가이드.
 
-**MVP 기획서 v3**
-
-| 항목 | 내용 |
+| | |
 |---|---|
-| 프로젝트 | KDT AI Human 7기 1차 프로젝트 · 나만의 음성모델 만들기 |
-| 팀 구성 | 팀 C (4명) — 아래 팀원 소개 참고 |
-| 개발 기간 | 14일 |
-| 가용 자원 | 노트북 RTX 5060 1대 · 원격 데스크톱 RTX 3080 Ti 12GB · 필요 시 Colab |
-| 주제 유형 | 유형 2 · 입력 조건에 따른 조건부 TTS |
+| 웹 | <https://hju5022-k-menu-react.static.hf.space> |
+| API | <https://hju5022-k-menu.hf.space> (`GET /api/foods`로 살아있는지 확인) |
+| 프로젝트 | KDT AI Human 7기 1차 프로젝트 · 팀 C |
 
-> 본 문서는 GitHub 공개용으로 정리된 버전이다(v3). 내부 검토 로그, 실험 경과, 상세 하이퍼파라미터 등은 팀 내부 문서에서 별도로 관리한다.
+> **이 문서는 저장소를 어떻게 실행·검증·배포하는가**를 다룬다.
+> 왜 만들었고 무엇을 달성했는가(문제 정의·성공 기준 대비 실측·모델 선택 근거·엔지니어링
+> 판단·한계)는 [`docs/기획서.md`](docs/기획서.md)에 있다.
 
-### 팀원 소개
+### 팀원
 
-| 이름 | GitHub | 역할 | 비고 |
-|---|---|---|---|
-| 하정운(조장) | @HJU5022 | PM·OCR 파인튜닝·파이프라인 통합·DB·배포 | |
-| 박민영 | @pastar20250101-creator | TTS 파인튜닝·하이퍼파라미터 실험·UX/UI | |
-| 배재훈 | @Bae-JaeHun | 데이터 구축 | 프로젝트 참여 종료 |
-| 차백호 | @cosohotmas | TTS 추론 | |
-
----
-
-## 1. 프로젝트 소개
-
-영어권 외국인 관광객이 한국어 메뉴판을 촬영하면, 음식의 특징·재료·맛·맵기·먹는 법·알레르기 정보까지 이해하기 쉬운 영어 텍스트와 음성으로 자동 설명해주는 멀티모달 한국 음식 가이드. 기존 번역 서비스가 '글자를 옮기는 것'에 그치는 것과 달리, 사진 한 장만으로 재료·맛·맵기·먹는 법까지 실용적으로 전달하는 것이 차별점이다.
-
-- 프로젝트 유형: 유형 2 — 입력 조건(음식의 매운 정도)에 따른 TTS 음성 변화
-- 핵심 학습 대상: 딥러닝 TTS 모델 + Vision/OCR 모델 (둘 다 파인튜닝 대상)
-
----
-
-## 2. 문제 정의
-
-한국 음식에 익숙하지 않은 영어권 개별 관광객은 한국어 메뉴판을 번역하더라도 음식의 재료·맛·맵기·먹는 방법을 충분히 이해하기 어려워 메뉴 선택에 불편을 겪으므로, 메뉴를 촬영하면 필요한 음식 정보를 이해하기 쉬운 텍스트와 음성으로 자동 설명해주는 서비스가 필요하다.
-
-> 곱창전골 → Beef intestine hot pot
-> 번역은 되었지만 맛·조리 방식·먹는 방법은 여전히 알기 어렵다.
-
-**근거**: 방한 외국인 관광객은 2023년 1,103만 명에서 2025년 1,893만 명으로 증가했고, 음식점 소비 중 한식 비중이 80.6%로 가장 높다(제주관광공사·신한카드 빅데이터, 2023). 여행 블로거·현지 리뷰 등 1차 자료에서도 한글 메뉴판을 이해하지 못해 주문에 실패한 사례가 확인된다(예: [Jaclynn Seah, "My Seoul Food Experience," 2024](https://theoccasionaltraveller.com/seoul-food/)).
-
-### 왜 번역 앱만으로는 부족한가
-
-| 서비스 | 분류 | 한계 |
+| 이름 | GitHub | 역할 |
 |---|---|---|
-| 캐치테이블 영어버전 | 예약 앱 + 메뉴/매장 번역 | 예약이 핵심 기능, 재료·맵기 등 음식 정보 응답 기능 없음 |
-| 네이버 파파고 | 번역 앱 (TTS 포함) | 텍스트/음성 번역은 되지만 재료·맛·맵기·먹는 법 등 실용 정보는 제공하지 않음 |
-| '맛말' (글나무) | QR코드 기반 외국어 메뉴판 | 맵기 단계·재료·알레르기 정보를 텍스트로 제공하나 음성 설명 없음 |
-
-결론: 기존 서비스들은 '번역'과 '일부 음성 낭독'에 그치며, 재료·맛·맵기·먹는 법·알레르기 정보를 음성과 텍스트로 함께 설명하는 서비스는 확인되지 않았다. 이것이 이 프로젝트의 핵심 차별점이다.
-
----
-
-## 3. MVP 기능 범위
-
-- 지원 언어: 영어 1개
-- 지원 음식: 한국 대표 음식50개
-- 설명 카테고리: 발음·맵기·설명·재료·먹는 법·알레르기/채식 6개 — 음식이 인식되면 6개 전부 자동 제공
-- TTS 스타일: GUIDE·CAUTION 2개, 음식의 맵기 단계(spice_level) 기준 자동 결정
-- 맵기 표시: 불꽃 아이콘 5개 채움 + 참고 스코빌 수치
-- 이름 음성: 음식 이름만 한국어 발음으로 읽어주는 별도 음성(`name_audio_path`) — 상세 음성과 따로 재생한다
-- 장바구니: 고른 음식을 담아 수량을 조절하고 주문 요약을 만든다 (`src/cart/`, `docs/specs/cart.md`)
-- 입력 방식: 메뉴 사진 촬영(Vision/OCR)만 지원, 별도 음성 질문(STT) 없음
-- 배포 형태: React 웹(`frontend/`) + Flutter 앱(최종 목표). 웹 화면은 2026-08-23에 Streamlit(`app.py`) 하나로 정리했다가 08-25에 React로 되돌렸다 — 화면을 정적 빌드로 만들면 무료 Static Space에 올라가므로, 돈이 드는 GPU Space는 API 한 곳만 두면 된다. Streamlit 진입점은 2026-08-26에 저장소에서 제거했다
-
-### 카테고리 구성
-
-| 번호 | 카테고리 | 설명 |
-|---|---|---|
-| 1 | 발음 | 정확한 이름과 발음 |
-| 2 | 맵기 | 매운 단계 |
-| 3 | 설명 | 어떤 음식인지 |
-| 4 | 재료 | 무엇으로 만들었는지 |
-| 5 | 먹는 법 | 어떻게 먹는지 |
-| 6 | 알레르기/채식 | 알레르기 유발 성분·채식 여부 |
-
-### 맵기 척도
-
-| 단계 | 비유 기준 | 참고 수치 |
-|---|---|---|
-| 1 (순함) | Bell Pepper-level | 0 SHU |
-| 2 (약간 매움) | Poblano-level | 약 1,000~2,000 SHU |
-| 3 (보통) | Jalapeño-level | 약 2,500~8,000 SHU |
-| 4 (매움) | Cheongyang Chili-level | 약 4,000~12,000 SHU |
-| 5 (아주 매움) | Buldak Bokkeummyeon-level | 4,404 SHU |
-
-### Out of Scope (이번 MVP)
-
-- 등록되지 않은 모든 한국 음식 설명
-- 실시간 동영상 OCR·손글씨 메뉴 완벽 인식
-- 식당 주문·결제·예약, 직원과의 실시간 통역
-- 사용자 음식 등록 기능
-- 영어 이외 다국어 지원, 자유로운 AI 대화(외부 LLM API)
+| 하정운(조장) | [@HJU5022](https://github.com/HJU5022) | PM · OCR 파인튜닝 · 파이프라인 통합 · DB · 배포 |
+| 박민영 | [@pastar20250101-creator](https://github.com/pastar20250101-creator) | TTS 파인튜닝 · 하이퍼파라미터 실험 · UX/UI |
+| 배재훈 | [@Bae-JaeHun](https://github.com/Bae-JaeHun) | 데이터 구축 (프로젝트 참여 종료) |
+| 차백호 | [@cosohotmas](https://github.com/cosohotmas) | TTS 추론 |
 
 ---
 
-## 4. 시스템 아키텍처
+## 저장소 구조
 
-### 파이프라인
-
-```mermaid
-flowchart TD
-    A[메뉴 이미지] --> B[OpenCV 전처리<br/>회전·대비·크기 보정]
-    B --> C[한국어 OCR<br/>파인튜닝 PaddleOCR]
-    C --> D[문자열 유사도 매칭<br/>RapidFuzz]
-    D --> E{등록된 음식인가?}
-    E -->|아니오| X[미지원 안내]
-    E -->|예| F[음식 선택<br/>후보 여러 개면 사용자가 선택]
-    F --> G[텍스트 생성<br/>카테고리 6개 상세 + 축약 내레이션]
-    G --> H{spice_level 4 이상?}
-    H -->|예| I1[style = CAUTION]
-    H -->|아니오| I2[style = GUIDE]
-    I1 --> J[파인튜닝 TTS<br/>Qwen3-TTS + LoRA]
-    I2 --> J
-    J --> K[텍스트 + 음성 출력]
-```
-
-### 정상 흐름
-
-1. 사용자가 메뉴판을 촬영하거나 사진을 업로드한다.
-2. Vision/OCR(파인튜닝)이 메뉴판의 한국어 글자를 추출한다.
-3. 등록된 50개 음식명과 OCR 결과를 문자열 유사도(RapidFuzz)로 비교한다.
-4. 인식된 음식 목록을 보여주고 사용자가 하나를 선택한다.
-5. 선택된 음식을 기준으로 카테고리별 상세 텍스트(6개)와 축약 내레이션 텍스트를 만든다.
-6. 음식의 맵기 단계(spice_level)를 기준으로 GUIDE 또는 CAUTION 스타일을 자동 결정한다.
-7. 파인튜닝 TTS가 축약 내레이션 음성을 생성한다.
-8. 카테고리별 상세 텍스트(화면)와 축약 내레이션 음성을 함께 출력한다.
-
-### 예외 상황
-
-| 상황 | 처리 |
-|---|---|
-| OCR 결과 없음 | 조명·거리·각도 안내 후 재촬영 요청 |
-| 여러 음식 인식 | 번호+카드 UI로 목록을 보여주고 하나를 선택 |
-| 등록되지 않은 음식 | 미지원 안내 |
-| TTS 생성 실패 | 상세 텍스트 우선 출력 + 재생 버튼 제공 |
-| GPU/DB 연결 실패 | 오류 메시지 + 재시도 버튼 |
-
-### 데이터 소스
-
-AI Hub '관광 음식메뉴판 데이터'(이미지 100,113장, 한식 28.1%)를 OCR 테스트·학습 양쪽에 활용한다. 맛·먹는 법·알레르기 같은 서술형 설명은 팀이 직접 조사해 보완한다.
-
-### Vision/OCR
-
-- OpenCV로 회전·대비·크기 보정
-- PaddleOCR을 커스텀 딕셔너리 방식으로 파인튜닝
-- RapidFuzz로 OCR 결과와 등록 음식명 유사도 비교
-- 메뉴 사진 50장 이상으로 인식 성능 평가
-
-### 텍스트생성
-
-외부 LLM API를 사용하지 않고, 팀이 미리 작성해 Supabase에 저장해 둔 텍스트를 조회하는 방식이다(자유 생성 아님).
-
-- 상세 텍스트(화면용): `food_details` 테이블에서 6개 카테고리 텍스트를 조회
-- 축약 내레이션(음성용): spice_level로 결정된 style(GUIDE/CAUTION)에 해당하는 `food_narration` 텍스트에, `food_details`의 PRONUNCIATION·ALLERGY 문장을 이어붙여 만든다 — 셋 다 미리 작성된 문장이라 그대로 조회해서 이어붙일 뿐, 새로 생성하지 않는다 (`docs/specs/text-generation.md` 참고)
-
-### 음식 DB (Supabase)
-
-`foods` 테이블 (음식 50개)
-
-| 열 | 설명 |
-|---|---|
-| id | 기본키 |
-| name_kr / name_en | 한글명 / 영문·로마자명 |
-| spice_level | 맵기 단계(1~5) |
-| thumbnail_url | 대표 사진 링크 |
-| thumbnail_attribution | 그 사진의 출처 문구. **사진을 보여주는 자리에는 반드시 함께 표시한다** |
-
-`food_details` 테이블 (음식 × 카테고리, **350행**): `food_id`, `category`, `detail_text`
-
-카테고리는 화면용 6개(PRONUNCIATION·SPICY·DESCRIPTION·INGREDIENT·HOW_TO_EAT·ALLERGY)다. 음성 전용 `PRONUNCIATION_TTS` 행이 DB에 남아 있지만 2026-08-27부터 코드가 읽지 않는다. 화면용 발음 문장은 로마자 표기를 알려주는데, TTS 입력에서는 음식명이 한글 표기로 치환되어 같은 이름을 한국어 발음으로 한 번, 로마자로 한 번 연달아 읽게 되기 때문이다 (`src/text_gen/narration.py`).
-
-TTS에 넘기는 문장에서는 음식명만 한글 표기로 바꿔서 읽힌다(`Tteokbokki` → `떡볶이`). 값은 이미 있는 `foods.name_kr`을 그대로 쓰므로 표기 전용 컬럼은 없다. 화면에 보이는 텍스트는 로마자 그대로다 — 여행자가 소리 내어 읽어야 하는 정보이기 때문이다.
-
-`food_narration` 테이블 (**50행**): `food_id`, `style`(GUIDE/CAUTION), `narration_text`
-
-음식마다 한 행이다 — 스타일은 `spice_level`이 정하므로(4 이상이면 CAUTION) 한 음식에 두 벌을 두지 않는다.
-
-`menu_modifiers` 테이블 (**492행**): `keyword`, `category`(spice/ingredient), `keyword_en`, `spice_tier`
-
-처음 503개를 넣었다가 한식 메뉴판과 무관한 것을 덜어내고 실제로 쓰이는 수식어를 몇 개 더해
-492개로 정리했다. `src/db/menu_modifiers_seed.sql`은 정제 전 목록이라 행 수가 다르다 —
-값의 정본은 DB다.
-
-메뉴판 줄에서 음식명을 뺀 나머지에 붙는 수식어다(`매운`→`Hot`, `해산물`→`Seafood`). 후보 카드의
-영어 태그가 이 값이다. `category`가 `spice`면 `spice_tier`(1~5)를 함께 쓰고, `ingredient`면 비어 있다.
-
-앱(런타임)에서는 읽기 전용 anon key만 사용하고 RLS로 SELECT만 허용한다. Supabase URL·anon key는 `.env`로만 관리한다.
-
-### TTS 모델
-
-Qwen3-TTS-12Hz-1.7B-Base를 Colab 환경에서 LoRA/PEFT 기반으로 파인튜닝했다(어댑터: `k-bite-team/k-menu-qwen3-tts-lora`). TTS는 음식 지식을 학습하지 않고 발음·톤만 담당한다(지식은 DB로 관리, 환각 방지).
-
-### 배포 전략
-
-Hugging Face Space를 **둘로 나눠** 쓴다. 계산(OCR·매칭·TTS)은 `K_Menu_Talk.py`(FastAPI)가 도는 Docker Space(T4 GPU) 한 곳에 몰고, 웹 화면(`frontend/`)은 **빌드 결과물만** 무료 Static Space에 올린다 — 화면 쪽에도 계산을 두면 GPU 비용이 두 배가 된다. `K_Menu_Talk.py`는 엔드포인트 6개를 노출한다(Gradio 아님 — 클라이언트가 별도 앱이라 API 계약이 필요해서 전환됨) — `POST /api/analyze`, `GET /api/foods`, `GET /api/foods/{id}`, `GET /api/cart`, `DELETE /api/cart`, `POST /api/cart/items`. 계약 상세는 `docs/specs/api-layer.md`.
-
-하드웨어는 API Space 쪽에 전용 GPU(T4 small)가 필요하다 — ZeroGPU는 PyTorch 전용 메커니즘이라 PaddleOCR이 GPU를 쓸 수 없다(조사 2026-08-21). OCR 실측이 92상자 기준 CPU 22.8초 → GPU 0.8초(2026-08-23, RTX 3080 Ti)로 나와, 계산은 GPU에 있어야 한다는 것이 숫자로 굳었다. 체크포인트 데모는 원격 데스크톱(RTX 3080 Ti)에서 서버를 띄우고 cloudflared 터널로 임시 공유 링크를 만드는 방식으로 진행했다.
-
-웹과 앱은 같은 HTTP 계약(`docs/specs/api-layer.md`)을 쓰지만, **서버 주소를 넣는 방법이 다르다.** 웹은 Vite 규칙상 빌드 시점에 `VITE_API_BASE_URL`이 JS 안에 박히므로 주소를 바꾸려면 다시 빌드해야 하고(`frontend/space/deploy.sh`가 빌드와 업로드를 같이 한다), 앱은 `mobile/lib/config.dart` 한 곳만 고쳐 로컬·터널·배포 환경을 전환한다(`docs/specs/flutter-mobile-app.md`). 웹 Space 배포는 대상 Space를 매번 통째로 덮어쓴다(`--force`) — 소스는 GitHub에 있고 Space에는 산출물만 둔다.
-
-2026-08-25까지는 Streamlit 진입점(`app.py`)이 웹 화면이었다. 애초에 Streamlit을 고른 뒤 **Streamlit Cloud에 올리려 했으나 모델을 올릴 수 없어 포기하고** Hugging Face Spaces로 옮겼다. 처음에는 화면과 파이프라인을 한 프로세스에서 직접 연결했고, 08-23에 API를 HTTP로 부르는 화면 전용 클라이언트로 바꿨다가, 08-25에 React를 도입하고 **08-26에 Streamlit 진입점·테마 설정·테스트를 저장소에서 제거했다**(경위는 `frontend/docs/web-app.md` 머리말).
-
-### 디렉토리 구조
+폴더가 무슨 일을 하는지만 적는다. **파일 단위 설명은 각 폴더의 README에 있다** — 같은 내용을
+두 군데 적으면 한쪽만 고쳤을 때 조용히 갈라지기 때문이다.
 
 ```
 proj1-c/
-├── README.md
-├── AGENTS.md / CLAUDE.md
-├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, OCR_RAW_DATA_ROOT,
-│                                   #   TTS_VENV_PYTHON(macOS·Linux는 필수), OCR_TEST_SET_ROOT,
-│                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME,
-│                                   #   HF_TOKEN(TTS LoRA 저장소가 비공개일 때만)
-├── .gitignore
-├── .gitattributes                   # vendor 코드는 리뷰에서 접고, *.sh 줄바꿈을 LF로 고정한다
-│                                     #   윈도우에서 CRLF 때문에 deploy.sh가 첫 줄부터 죽었다(2026-08-26)
-├── .dockerignore                    # API 이미지에서 뺄 것 — .env·mobile·docs·tests·static/audio
-│                                     #   static/tts_cache는 반대로 반드시 넣는다 — 없으면 음식당 60초
-├── requirements.txt                 # opencv-python, paddleocr, paddleslim(양자화), rapidfuzz, supabase, peft,
-│                                     #   fastapi·uvicorn(API) ...
-│                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
+├── K_Menu_Talk.py        API 진입점 (FastAPI). 화면을 갖지 않고 엔드포인트 6개만 노출한다
+├── Dockerfile            API를 올리는 GPU Docker Space용 이미지
+├── requirements.txt      API·OCR·TTS가 쓰는 파이썬 패키지
 │
-├── K_Menu_Talk.py                   # API 진입점 — FastAPI. 엔드포인트 6개
-│                                     #   POST /api/analyze · GET /api/foods · GET /api/foods/{id}
-│                                     #   GET·DELETE /api/cart · POST /api/cart/items (+ /audio 정적 서빙)
-│                                     #   화면을 갖지 않는다. 웹·앱 등 별도 클라이언트가 붙는 쪽
-├── Dockerfile                       # API Space(HF Docker SDK, T4)용 이미지
-│                                     #   베이스 이미지를 digest로 못 박는다 — 이름표만 쓰면 빌드가 조용히 바뀐다
+├── src/                  실제 로직 → src/README.md
+│   ├── ocr/                이미지 ──▶ 음식 후보 목록
+│   ├── text_gen/           음식 ──▶ 상세 텍스트 6개 + 내레이션 텍스트 1개
+│   ├── db/                 Supabase 읽기 전용 접근 + 메모리 캐시
+│   ├── tts/                내레이션 텍스트 + 스타일 ──▶ WAV
+│   ├── cart/               장바구니 (파이프라인 단계가 아니라 별도 상태 저장소)
+│   └── pipeline.py         위 블록들을 입출력 계약대로 연결
 │
-├── deploy/
-│   └── api-space/                    # API Space 배포 — deploy.sh(커밋에 든 파일만 올린다) + Space 설정 README
+├── frontend/             React + TypeScript 웹 화면 → frontend/README.md
+├── mobile/               Flutter 모바일 앱 (iOS·Android) → mobile/README.md
 │
-├── static/                          # 전체가 .gitignore 대상 — 저장소로 따라오지 않는다
-│   ├── audio/                       #   TTS가 요청마다 만든 wav — /audio/{파일명}으로 서빙
-│   └── tts_cache/                   #   사전 생성 캐시 100개 — 나레이션 food_{id}_{STYLE}.wav 50개와
-│                                    #   음식 이름만 읽은 name_{id}.wav 50개 (이름 옆 스피커용)
-│                                    #   커밋되지 않으므로 새 컴퓨터에서는 비어 있다.
-│                                    #   `python -m src.tts.pregenerate`로 다시 만들거나 파일을 직접 옮겨야
-│                                    #   캐시 히트가 나고, 없으면 매 요청 라이브 생성으로 폴백한다
-│
-├── logs/                            # tts_worker.log 등 실행 로그 (*.log는 .gitignore 대상)
-│
-├── .github/
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/secret-scan.yml
-│
-├── docs/
-│   ├── README.md
-│   ├── 기획서.md                     # 왜 만들었고 무엇을 달성했는가 — 문제 정의·성공 기준 대비 실측·
-│   │                                 #   모델 선택 근거·엔지니어링 판단·한계 (README는 코드 기준 문서)
-│   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (웹·앱 공통)
-│   │                                 #   상세 카드 6개의 순서·영어 제목, 예외 화면 문구가 여기 있다
-│   ├── legal/                        # 동의서·공개용 가림본 등 운영 문서 (TTS 목소리 제공 동의)
-│   └── specs/                        # 백엔드·파이프라인·앱 스펙 (웹 화면 스펙은 frontend/docs/)
-│       ├── _example.md
-│       ├── api-layer.md              # FastAPI 엔드포인트 계약
-│       ├── cart.md                   # 장바구니 — 담기·수량·주문 요약
-│       ├── db-cache.md               # 메모리 캐싱
-│       ├── error-logging.md          # 예외를 삼키지 않고 stdout에 남기는 규칙 (실제 사고 사례 포함)
-│       ├── fastapi-space-deploy.md   # API를 GPU Docker Space에 올리는 절차·제약
-│       ├── flutter-mobile-app.md     # 앱 주 흐름 3화면·서버 주소 전환·iOS 권한
-│       ├── ocr-candidate-results.md  # 음식 후보 결과 계약
-│       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
-│       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
-│       ├── sample-menu-images.md     # 처음 온 사람이 눌러볼 예시 메뉴판 사진
-│       ├── supported-foods.md        # 지원 음식 50개 목록·선정 기준
-│       ├── text-generation.md        # 카테고리 6개 조합 + spice_level→style 결정 로직
-│       └── tts-finetuning.md
-│
-├── frontend/                         # React + TypeScript 웹 화면 (Vite, pnpm) — 계산하지 않고 API만 호출한다
-│   ├── README.md                      # 범위·실행·빌드·구조
-│   ├── client/                        #   실제 앱 — src/pages/Home.tsx가 화면 상태, src/lib/api.ts가 HTTP 계약
-│   ├── space/deploy.sh                #   HF Static Space 배포 — VITE_API_BASE_URL을 넣어 빌드한 뒤 통째로 덮어쓴다
-│   └── docs/                          #   화면 기준 문서 (ui-flow, screen-spec, web-app, api-client, deployment 등)
-│                                       #   web-app.md = 화면 규칙 상세(예외 18가지) — 옛 docs/specs/streamlit-app.md
-│
-├── mobile/                           # Flutter 모바일 앱 (iOS·Android)
-│   ├── README.md                      # 앱 구조·실행 방법·자주 겪는 문제
-│   ├── pubspec.yaml                   # image_picker(촬영) / http(API 호출) / audioplayers(음성 재생)
-│   │                                  #   flutter_tts(기기 음성으로 이름 읽기) / shared_preferences(첫 실행 안내)
-│   ├── lib/
-│   │   ├── main.dart                  #   앱 시작점 + 화면 전환
-│   │   ├── config.dart                #   서버 주소 — 환경(개발/터널/배포)이 바뀌면 이 파일만 고친다
-│   │   ├── api.dart                   #   analyze · foods · foods/{id} · cart 호출 + 응답 파싱
-│   │   ├── korean_speaker.dart        #   기기에 깔린 음성으로 한국어 메뉴 이름 읽기(flutter_tts)
-│   │   │                              #   우리 TTS와 별개다 — 우리 모델은 영어 설명을 읽도록 학습됐다
-│   │   └── screens/                   #   주 흐름 3개 + 보조 화면·공통 위젯
-│   │       ├── camera_screen.dart     #     ① 메뉴판 촬영 ──▶ POST /api/analyze
-│   │       ├── candidates_screen.dart #     ② 음식 후보 선택 + 장바구니
-│   │       ├── detail_screen.dart     #     ③ 상세 6개 카테고리 + 음성 재생 ──▶ GET /api/foods/{id}
-│   │       ├── order_summary_screen.dart      #  주문 확인 — 종업원에게 보여주는 화면
-│   │       ├── menu_photo_overlay.dart        #  사진 위에 후보 자리를 번호 상자로 표시
-│   │       ├── first_run_guide.dart           #  첫 실행 4단계 안내
-│   │       ├── supported_foods_screen.dart    #  안내 가능한 음식 전체 ──▶ GET /api/foods
-│   │       ├── settings_screen.dart · settings_button.dart
-│   │       ├── how_it_works_screen.dart · credits_screen.dart
-│   │       ├── spice_gauge.dart               #  맵기 눈금 — 후보 카드·상세가 같이 쓴다
-│   │       └── stitch_bar.dart · animated_gradient_back_button.dart   # 공통 위젯
-│   ├── ios/                           # Info.plist에 카메라 권한·ATS 설정 (없으면 앱이 즉시 종료된다)
-│   └── android/
-│                                      #   앱은 계산하지 않는다 — src/ 로직을 복제하지 않고 서버 응답만 표시한다
-│
-├── data/
-│   └── README.md                     # AI Hub 신청 링크 + OCR 학습라벨(rec_gt_train.txt) 변환법
-│                                      #   + 커스텀 딕셔너리 파일 생성법 + TTS 학습 녹음 데이터 준비법
-│
-├── models/
-│   └── README.md                     # HF Hub 모델 ID만 기록: 파인튜닝 OCR 체크포인트, 파인튜닝 TTS 체크포인트
-│
-├── src/
-│   ├── README.md                     # 블록 구성·입출력 계약·작업 원칙
-│   ├── ocr/                          # 이미지 ──▶ 음식 후보 목록
-│   │   ├── README.md
-│   │   ├── preprocess.py             #   OpenCV: 회전·대비·크기 보정
-│   │   ├── prepare_dataset.py        #   AI Hub 라벨 → PaddleOCR 학습 포맷 + 커스텀 딕셔너리 생성
-│   │   ├── finetune.py               #   1안 전체학습 / 2안 LoRA·QLoRA / 3안 mobile+양자화
-│   │   ├── infer.py                  #   추론 — 파인튜닝 모델로 한국어 글자 추출 (export 없이 원본 체크포인트 직접 로드, src/ocr/README.md 참고)
-│   │   ├── match.py                  #   RapidFuzz: 등록 음식명 50개와 유사도 매칭
-│   │   └── vendor/ppocr/             #   PaddleOCR 내부 코드 일부(Apache-2.0) — infer.py가 export 우회하는 데 필요
-│   │
-│   ├── text_gen/                     # 음식 ──▶ 상세 텍스트 6개 + 내레이션 텍스트 1개
-│   │   ├── README.md
-│   │   ├── detail.py                 #   food_details 6개 카테고리 조회·카드 조합
-│   │   └── narration.py              #   spice_level ──▶ style(GUIDE/CAUTION) 자동 결정 + narration_text 조회
-│   │
-│   ├── db/                           # Supabase 데이터 접근 계층
-│   │   ├── README.md                 #   테이블 구성 + 아직 실행 안 된 SQL을 여기 적어둔다
-│   │   ├── supabase_client.py        #   읽기 전용 anon key, RLS로 SELECT만 허용 (foods/food_details/food_narration)
-│   │   ├── cache.py                  #   서버 시작 시 전체 데이터 메모리 캐싱
-│   │   └── menu_modifiers_seed.sql   #   menu_modifiers 테이블 생성·초기 데이터
-│   │
-│   ├── cart/                         # 장바구니 — 담기·수량·주문 요약
-│   │   ├── README.md
-│   │   └── store.py                  #   메모리 딕셔너리 (DB 외래키 없음 — 서버 재시작 시 비워진다)
-│   │
-│   ├── tts/                          # (내레이션 텍스트+스타일) ──▶ WAV
-│   │   ├── README.md
-│   │   ├── finetune.py               #   LoRA/PEFT 파인튜닝 — 학습 시에만 사용
-│   │   ├── infer.py                  #   추론 — 캐시에 없는 조합만 처리하는 폴백 경로 (라이브 생성)
-│   │   ├── worker.py                 #   infer.py를 별도 프로세스에서 실행하는 진입점
-│   │   │                             #   (paddle과 torch를 한 프로세스에 못 올려서 분리, 아래 참고)
-│   │   ├── pregenerate.py            #   사전 생성 배치 — 등록 음식 전체(50개×스타일)를 미리 만들어
-│   │   │                             #   static/tts_cache에 저장. 2026-08-21 Plan B 전환 결정으로
-│   │   │                             #   조건부가 아니라 기본 경로가 됐다 (src/tts/README.md 참고)
-│   │   └── perso_client.py           #   Perso.ai API 호출 — 동일 내레이션 텍스트 비교용 음성 생성
-│   │
-│   └── pipeline.py                   # 위 블록들을 입출력 계약대로 순서대로 연결
-│                                      #   {image_path, selected_food} ──▶ {detail_text(6개), narration_text, narration_audio_path, tts_latency_ms}
-│
-├── tests/
-│   ├── README.md                     # 테스트 파일 목록·실행법·작성 규칙
-│   └── test_*.py
-│
-├── eval/                             # 모델 성능 측정·기록 — "이 모델을 왜 골랐는지"의 근거
-│   ├── README.md
-│   ├── model_comparison.md           # OCR · 숫자 인식 · TTS 후보군 · Perso.ai · Plan B 판단 — 표로 모은 결론
-│   ├── TTS_MODULE.md                 # TTS 파인튜닝 실험 기록 (9차까지, 표기 한글 전환, instruct)
-│   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그 (3~8차 — 9차 미반영)
-│   ├── qwen3_tts_lora_final.ipynb    # 학습에 쓴 Colab 노트북 (8차 기준 — 배포본 9차 아님)
-│   ├── pregenerate_tts_cache_colab.ipynb  # static/tts_cache wav 50개 재생성 절차 (Colab GPU)
-│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 원본 (헤더만 — 채점 전)
-│                                     #   평가 설계·자료 일체는 별도 브랜치에서 준비 중이다
-│   ├── measure_ocr.py                # OCR 동일 조건 비교 — base/체크포인트/최종을 같은 코드로
-│   ├── measure_ocr_final.json        #   그 결과 원본 (2026-08-21, 매칭 91.67%)
-│   ├── measure_match_precision.py    # 매칭 오탐 측정 — measure_ocr.py가 못 보는 사각지대
-│   ├── measure_digits.py             # 숫자(가격) 인식만 분리 측정 — 테스트셋·GPU 없이 재현된다
-│   ├── measure_digits.json           #   그 결과 원본 (2026-08-25, base 77.78% vs 파인튜닝 5.56%)
-│   └── perso_comparison/             # Perso.ai 비교 원본 오디오 4개 (ours/perso × guide/caution)
-│
-└── reorganize_dataset.py             # OCR 학습데이터 폴더 구조 정리용 1회성 스크립트
-                                      #   (배포 경로 아님 — data/README.md의 데이터 준비 단계에서만 사용)
+├── tests/                pytest — 모델·DB를 부르지 않고 로직만 검사 → tests/README.md
+├── eval/                 모델 성능 측정과 그 원본 기록 → eval/README.md
+├── docs/                 기획서 · Spec · 문구 기준 · 운영 문서 → docs/README.md
+├── deploy/api-space/     API Space 배포 스크립트와 Space 설정
+├── data/                 데이터 받는 법·변환법만 (파일 자체는 git 제외) → data/README.md
+└── models/               HF Hub 모델 ID 기록 → models/README.md
 ```
 
+git에 따라오지 않지만 실행하면 생기는 폴더가 둘 있다.
+
+| 폴더 | 무엇 | 없으면 |
+|---|---|---|
+| `static/tts_cache/` | 사전 생성 음성 100개 (나레이션 50 + 이름 50) | 요청마다 라이브 생성으로 넘어가 음식당 수십 초가 걸린다 |
+| `static/audio/` | 라이브 생성한 wav — `/audio/{파일명}`으로 서빙 | 서버가 알아서 만든다 |
+| `logs/` | `tts_worker.log` 등 실행 로그 | 서버가 알아서 만든다 |
+
 ---
 
-## 5. 입출력 예시
+## 실행하기
 
-```json
-입력: {"image_path": "menu.jpg", "selected_food": "..."}
+### 준비물
 
-중간 결과: {"detected_food": "...", "spice_level": 4, "style": "CAUTION"}
+- Python 3.11
+- Node.js + [pnpm](https://pnpm.io) (웹 화면을 볼 때만)
+- Flutter SDK (모바일 앱을 볼 때만)
+- GPU는 **없어도 된다.** OCR은 CPU에서도 돌고(느릴 뿐), TTS는 사전 생성 캐시를 읽는다.
 
-출력: {
-  "detail_text": {
-    "pronunciation": "...", "spicy": "...", "description": "...",
-    "ingredient": "...", "how_to_eat": "...", "allergy": "..."
-  },
-  "narration_text": "...",
-  "style": "CAUTION",
-  "narration_audio_path": "/audio/8f3c....wav",
-  "tts_status": "ok",
-  "tts_latency_ms": 1.8
-}
+### 1. 파이썬 환경
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-`tts_latency_ms`는 사전 생성 캐시를 읽어오는 데 걸린 시간이다 — 캐시 50개 전량 실측 평균 **1.8ms**
-(2026-08-25, 로컬 NVMe SSD). 캐시가 없어 라이브 생성으로 넘어가면 워밍업 후 약 33초가 걸린다.
-서버 기동 후 **첫 요청**만 Supabase 테이블을 한 번에 읽느라 약 2.5초가 더 붙고, 그 뒤로는
-메모리 캐시라 사라진다. 근거: `eval/model_comparison.md` 3절
+### 2. TTS는 별도 환경에 깐다
 
-위 수치는 나레이션 캐시 기준이다. 2026-08-26부터 **이름만 읽은 음성**(`name_audio_path`)이
-함께 나가고 그것도 같은 폴더에 캐시된다 — 배포 T4에서 상세 응답 전체가 캐시 히트 시 0.83초,
-이름을 새로 만들면 3~4초였다.
+`paddle`(OCR)과 `torch`(TTS)를 한 프로세스에 함께 올릴 수 없어서, TTS는 자식 프로세스로
+분리해 돌린다(`src/tts/worker.py`). 그 자식이 쓸 환경을 따로 만든다.
+
+```bash
+python -m venv .venv-tts
+.venv-tts/bin/pip install "torch==2.6.0" "torchaudio==2.6.0" qwen-tts peft transformers safetensors soundfile huggingface_hub numpy
+```
+
+`torch`와 `torchaudio`는 **버전을 못 박아야 한다.** 둘은 같은 버전끼리만 맞물리는데, 버전을
+안 적으면 그날의 최신을 각각 집어와 짝이 깨진다. 실제로 어긋났을 때 `qwen_tts` 임포트가
+`OSError: [WinError 127]`로 죽어 TTS가 통째로 멈췄다. 로딩 실패라 **캐시가 있으면 증상이
+안 보인다** — 라이브 생성만 조용히 죽는다.
+
+### 3. 환경변수
+
+`.env.example`을 `.env`로 복사한 뒤 값을 채운다. 필요한 키의 설명은 그 파일 안에 다 적혀 있다.
+
+```bash
+cp .env.example .env
+```
+
+macOS·Linux에서는 **`TTS_VENV_PYTHON`을 반드시 채워야 한다.** 기본값이 Windows 구조
+(`.venv-tts/Scripts/python.exe`)라, 비워두면 위에서 만든 환경을 못 찾는다.
+
+```env
+TTS_VENV_PYTHON=.venv-tts/bin/python
+```
+
+### 4. API 서버 띄우기
+
+```bash
+uvicorn K_Menu_Talk:app --host 0.0.0.0 --port 8000
+```
+
+`--host 0.0.0.0`은 실제 휴대폰에서 붙을 때 필요하다. 기본값(`127.0.0.1`)이면 이 컴퓨터
+자신만 접속할 수 있다.
+
+```bash
+curl http://localhost:8000/api/foods
+```
+
+지원 음식 50개가 JSON으로 나오면 DB 연결까지 정상이다. 서버 기동 후 **첫 요청**만
+Supabase를 한 번에 읽느라 2.5초쯤 걸리고, 그 뒤로는 메모리 캐시라 사라진다.
+
+엔드포인트는 6개다. 요청·응답 계약은 [`docs/specs/api-layer.md`](docs/specs/api-layer.md)가 정본이다.
+
+| 메서드 | 경로 | 하는 일 |
+|---|---|---|
+| `POST` | `/api/analyze` | 메뉴판 사진 ──▶ 음식 후보 목록 |
+| `GET` | `/api/foods` | 안내 가능한 음식 50개 목록 |
+| `GET` | `/api/foods/{food_id}` | 상세 텍스트 6개 + 내레이션 텍스트·음성 |
+| `GET` | `/api/cart` | 장바구니 조회 |
+| `POST` | `/api/cart/items` | 담기·수량 조절 |
+| `DELETE` | `/api/cart` | 비우기 |
+
+### 5. 음성 캐시 만들기
+
+캐시는 git에 올라가지 않으므로 **새 컴퓨터에서는 비어 있다.** 채우지 않으면 요청마다
+라이브 생성으로 넘어간다.
+
+```bash
+python -m src.tts.pregenerate
+```
+
+음식 50개의 나레이션 음성과 이름 음성을 미리 만들어 `static/tts_cache/`에 넣는다.
+나레이션 문장이 바뀐 뒤라면 `--force`를 붙여 다시 만들어야 한다 — 파일이 이미 있으면
+건너뛰기 때문이다.
+
+### 6. 웹 화면
+
+```bash
+cd frontend
+pnpm install
+pnpm run dev
+```
+
+`frontend/.env`에 백엔드 주소를 넣는다. `VITE_` 값은 브라우저에 그대로 실리므로 토큰·비밀번호를
+넣지 않는다.
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+### 7. 모바일 앱
+
+```bash
+cd mobile
+flutter run
+```
+
+서버 주소는 `mobile/lib/config.dart` 한 곳에서 바꾼다(기본값은 배포 서버). 시뮬레이터·에뮬레이터는
+`http://localhost:8000`, 실제 휴대폰은 `http://<이 컴퓨터의 LAN IP>:8000`이다 — 폰에게
+`localhost`는 폰 자신이라 서버를 못 찾는다. 자세한 것은 [`mobile/README.md`](mobile/README.md).
 
 ---
 
-## 6. 완료 기준 (요약)
+## 테스트
 
-- 메뉴 이미지에서 음식이 인식되면 6개 카테고리 상세 텍스트와 내레이션 음성을 자동 출력한다.
-- 맵기 단계에 따라 GUIDE/CAUTION 스타일과 불꽃 아이콘·스코빌 수치가 함께 표시된다.
-- 등록되지 않은 음식은 추측 없이 미지원 안내를 출력한다.
-- 다중 음식 인식 시 사용자가 선택한 음식 하나만 설명을 생성한다.
-- 기본 모델 대비 파인튜닝 모델의 음식명 발음 점수가 유의미하게 향상된다(외부 평가자 기준).
-- 파인튜닝 TTS와 Perso.ai 음성을 비교해서 들을 수 있는 옵션을 제공한다.
+```bash
+python -m pytest
+```
+
+OCR·TTS 모델도 Supabase도 부르지 않는다. `unittest.mock`으로 가짜 값을 끼워넣어 **로직과 연결
+방식만** 검사하므로 GPU 없이, 인터넷 없이 몇 초 만에 돈다. 무엇을 왜 검사하는지는
+[`tests/README.md`](tests/README.md).
+
+모델 성능은 테스트가 아니라 `eval/`에서 잰다. 실제 사진과 GPU가 필요한 것과 없이도 되는 것이
+갈리므로 [`eval/README.md`](eval/README.md)를 먼저 볼 것.
 
 ---
 
-## 7. 고객 여정 맵
+## 배포
 
-| 단계 | 사용자 행동 | Pain Point | 서비스 개입 |
+Hugging Face Space를 **둘로 나눠** 쓴다.
+
+| | Space | 무엇이 올라가나 | 왜 |
 |---|---|---|---|
-| 식당 방문 | 한글 메뉴판을 봄 | 한글을 읽지 못함 | 메뉴 촬영 |
-| 번역 시도 | 사진 촬영 | 직역만으로는 이해 어려움 | OCR로 음식명 인식·매칭 |
-| 다중 인식 시 선택 | 후보 중 카드 선택 | 어떤 게 맞는지 헷갈림 | 번호+카드 UI |
-| 설명 확인 | 통합 설명 확인 | 정보 부족, 발음 어려움 | 파인튜닝 TTS 내레이션 + 상세 카드 |
-| 메뉴 결정 | 음식 선택 | - | 텍스트·음성 재확인 |
+| API | `HJU5022/K_Menu` (Docker, T4 GPU) | 저장소 전체 | 계산(OCR·매칭·TTS)을 한 곳에 몬다 |
+| 웹 | `HJU5022/K_Menu_react` (Static, 무료) | `pnpm run build` 결과물만 | 화면 쪽에도 계산을 두면 GPU 비용이 두 배가 된다 |
+
+API Space에 전용 GPU가 필요한 이유는 ZeroGPU가 PyTorch 전용이라 PaddleOCR이 GPU를 못 쓰기
+때문이다. OCR 실측이 92상자 기준 **CPU 22.8초 → GPU 0.8초**로 나와, 계산은 GPU에 있어야
+한다는 것이 숫자로 굳었다.
+
+```bash
+deploy/api-space/deploy.sh                                  # main을 API Space에
+frontend/space/deploy.sh HJU5022/K_Menu_react               # 웹 빌드 결과물을 Static Space에
+```
+
+두 스크립트 모두 **대상 Space를 통째로 덮어쓴다(`--force`).** 소스는 GitHub에 있고 Space에는
+산출물만 두므로, 되돌릴 일이 생기면 그 시점 소스를 다시 올리면 된다.
+
+웹은 서버 주소가 **빌드 시점에 JS 안에 박힌다**(Vite의 `VITE_` 규칙). 그래서 주소를 바꾸려면
+다시 빌드해야 한다 — Space에 환경변수를 넣는 것으로는 바뀌지 않는다. 절차와 제약은
+[`docs/specs/fastapi-space-deploy.md`](docs/specs/fastapi-space-deploy.md)와
+[`frontend/docs/deployment.md`](frontend/docs/deployment.md).
 
 ---
 
-## 8. 일정 (14일)
+## 데이터와 모델
 
-| 구간 | 내용 |
-|---|---|
-| 1~2일 | 범위 확정, 저장소 구성, TTS·OCR 후보 스크리닝 |
-| 3~6일 | 음식 DB·텍스트 작성, OCR/TTS 1·2차 파인튜닝 |
-| 7일 | 중간 검증 체크포인트 (범위 축소 여부, Flutter 착수 여부 판단) |
-| 8~10일 | 파이프라인 통합, UI 연결, 모델 비교 실험 |
-| 11~12일 | 외부 사용자 테스트, 배포 |
-| 13~14일 | 발표 자료 준비, 리허설, 최종 점검 |
-
-> **확정 일정 (2026-08-21 기준)**: 기능 동결 **08-23** · 최종 제출 **08-27**
+- **음식 데이터**는 Supabase 테이블 4개에 있다. 무엇이 어느 테이블에 있고 왜 캐싱하는지는
+  [`src/db/README.md`](src/db/README.md). 런타임은 읽기 전용 anon key만 쓰고 RLS로 `SELECT`만 열려 있다.
+- **설명 문장은 LLM이 만들지 않는다.** 팀이 미리 써서 DB에 넣어둔 문장을 조회해 조합할 뿐이다 —
+  알레르기·재료에서 환각이 나오면 안전 문제가 되기 때문이다.
+- **OCR 학습 데이터**를 받아 변환하는 법은 [`data/README.md`](data/README.md). 데이터 파일 자체는
+  git에 올리지 않는다.
+- **파인튜닝한 모델**의 HF Hub ID는 [`models/README.md`](models/README.md).
 
 ---
 
-## 9. 주요 위험과 대응
+## 문서 지도
 
-| 위험 | 대응 |
+| 무엇이 궁금한가 | 어디를 보나 |
 |---|---|
-| TTS 후보 모델의 공식 지원 범위(풀 파인튜닝 vs LoRA/PEFT)를 착각함 | 후보별로 공식 저장소 문서를 직접 확인 후 후보 확정(예: 풀 파인튜닝만 공식 지원, LoRA는 커뮤니티 도구인 경우 구분) |
-| OCR·TTS 동시 파인튜닝으로 GPU·일정 자원 경합 | TTS는 Colab, OCR은 로컬 GPU+Colab 병행으로 분산 |
-| Supabase 무료 프로젝트 자동 일시정지(7일 비활동) | 배포 후 자동 조회 스케줄러로 비활동 기간 방지, 서버 캐싱으로 의존도 최소화 |
-| TTS 응답 지연이 목표치 초과 | **현실화됨** — 라이브 생성이 워밍업 후에도 33초로 목표(5~7초) 미달이라 사전 생성 캐싱으로 전환. 전환 후 캐시 히트 실측 1.8ms (`eval/model_comparison.md` 3절) |
-| 메뉴 OCR 정확도 낮음 | 이미지 전처리·파인튜닝·유사도 매칭·사용자 선택 보조(번호+카드 UI) |
-| 알레르기 정보 오인 위험 | 참고용 정보임을 화면에 명시, 의학적 안전 보장이 아님을 고지 |
+| 왜 만들었나, 목표를 달성했나 | [`docs/기획서.md`](docs/기획서.md) |
+| 기능별 Spec (API·OCR·TTS·장바구니·배포) | [`docs/README.md`](docs/README.md) |
+| 웹 화면 흐름·화면별 스펙 | [`frontend/docs/README.md`](frontend/docs/README.md) |
+| 화면에 쓰는 영어 문구 기준 (웹·앱 공통) | [`docs/content-style.md`](docs/content-style.md) |
+| 모델을 왜 이걸 골랐나, 실측값 | [`eval/README.md`](eval/README.md) |
+| 에이전트·기여 규칙 (브랜치·PR·보안) | [`AGENTS.md`](AGENTS.md) |
+
+---
+
+## 기여 규칙 요약
+
+- `main`에 직접 커밋·push하지 않는다. `feat/{내용}`·`fix/{내용}` 브랜치를 만들고 PR로만 합친다.
+- 기능을 만들기 전에 `docs/specs/{기능명}.md`를 먼저 쓴다.
+- API 키·토큰을 코드에 넣지 않는다. `.env`로만 불러오고, `.env.example`에는 키 이름만 적는다.
+- AC 테스트가 통과하기 전에는 "완료"라고 하지 않는다.
+
+전문은 [`AGENTS.md`](AGENTS.md)에 있다.

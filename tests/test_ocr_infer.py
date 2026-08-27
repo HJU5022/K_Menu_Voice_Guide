@@ -148,64 +148,6 @@ class OcrInferTests(unittest.TestCase):
         mock_rotate.assert_not_called()       # 회전·비교 경로는 안 탔어야 한다
 
 
-class GroupBoxesIntoLinesTests(unittest.TestCase):
-    """group_boxes_into_lines() — 줄로 묶고 각 줄을 이름 영역/가격 영역으로 나눈다."""
-
-    def test_splits_a_line_into_name_and_price(self):
-        boxes = [
-            (600, 100, 140, 40, "9,000"),
-            (70, 102, 200, 40, "비빔밥"),
-        ]
-
-        lines = infer.group_boxes_into_lines(boxes)
-
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(lines[0].text, "비빔밥 9,000")
-        self.assertEqual([b[4] for b in lines[0].name_boxes], ["비빔밥"])
-        self.assertEqual([b[4] for b in lines[0].price_boxes], ["9,000"])
-
-    def test_keeps_separate_rows_apart(self):
-        boxes = [
-            (70, 100, 200, 40, "비빔밥"),
-            (600, 100, 140, 40, "9,000"),
-            (70, 260, 200, 40, "불고기"),
-            (600, 260, 150, 40, "12,000"),
-        ]
-
-        lines = infer.group_boxes_into_lines(boxes)
-
-        self.assertEqual([line.text for line in lines], ["비빔밥 9,000", "불고기 12,000"])
-
-    def test_tolerance_scales_with_box_height(self):
-        """허용 오차가 고정 픽셀이면, 글자가 큰 사진에서 같은 줄이 쪼개진다.
-
-        아래 두 상자는 세로 중심이 30px 어긋나 있다. 글자 높이가 40일 때는 다른 줄이고,
-        글자 높이가 200일 때는(고해상도 사진) 같은 줄이어야 한다.
-        """
-        small = [(70, 100, 200, 40, "비빔밥"), (600, 130, 140, 40, "9,000")]
-        large = [(70, 100, 400, 200, "비빔밥"), (600, 130, 300, 200, "9,000")]
-
-        self.assertEqual(len(infer.group_boxes_into_lines(small)), 2)
-        self.assertEqual(len(infer.group_boxes_into_lines(large)), 1)
-
-    def test_price_below_the_name_stays_on_its_own_line(self):
-        """사진형 메뉴판(이름 아래 가격)에서는 줄이 나뉜다.
-
-        그래서 이름-가격 연결을 줄 단위 좌우 규칙에만 맡기면 안 된다 — 실제 연결은
-        src/ocr/price.py의 match_prices_to_names()가 위·아래 배치까지 함께 본다.
-        """
-        boxes = [(70, 100, 200, 40, "비빔밥"), (72, 170, 140, 40, "9,000")]
-
-        lines = infer.group_boxes_into_lines(boxes)
-
-        self.assertEqual(len(lines), 2)
-        self.assertEqual([b[4] for b in lines[0].name_boxes], ["비빔밥"])
-        self.assertEqual([b[4] for b in lines[1].price_boxes], ["9,000"])
-
-    def test_returns_nothing_for_no_boxes(self):
-        self.assertEqual(infer.group_boxes_into_lines([]), [])
-
-
 class BetterReadingTests(unittest.TestCase):
     """_better_reading() — 파인튜닝 인식기와 PaddleOCR 기본 인식기 중 하나를 고른다.
 

@@ -59,6 +59,15 @@ def _wav_duration_sec(path: Path) -> float | None:
 
 
 def main() -> None:
+    """등록 음식 전체의 음성을 미리 만들어 캐시에 넣는다.
+
+    이 스크립트가 조건부가 아니라 **기본 경로**가 된 경위: 라이브 생성이 워밍업 뒤에도
+    33초가 걸려 목표(5~7초)를 못 맞췄고, 음식이 50개로 정해져 있어 경우의 수가 유한하다는
+    점을 이용해 미리 만들어두는 쪽으로 2026-08-21에 방향을 바꿨다(캐시 히트 1.8ms).
+
+    이미 있는 파일은 건너뛴다. 나레이션 문장이 바뀐 뒤라면 `--force`가 필요하다 —
+    안 붙이면 낡은 음성이 그대로 남아 화면 문장과 음성이 어긋난다.
+    """
     parser = argparse.ArgumentParser(description="등록 음식 전체의 TTS 음성을 미리 생성한다.")
     parser.add_argument("--force", action="store_true", help="이미 있는 파일도 다시 생성")
     args = parser.parse_args()
