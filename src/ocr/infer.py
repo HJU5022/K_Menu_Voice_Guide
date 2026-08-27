@@ -257,7 +257,7 @@ def _better_reading(tuned: tuple[str, float], stock: tuple[str, float]) -> tuple
     return tuned_text, tuned_score
 
 
-# 두 글자 상자를 같은 줄로 볼 세로 중심 허용 오차 — 큰 쪽 상자 높이에 대한 비율.
+# 두 글자 상자를 같은 줄로 볼 세로 중심 허용 오차 — 상자 높이 중앙값에 대한 비율.
 # 같은 줄에 있는 글자들은 세로 중심이 거의 일치하고, 다음 줄은 최소 한 줄 높이만큼
 # 떨어져 있으므로 0.6이면 줄 간격이 좁은 메뉴판에서도 섞이지 않는다.
 _ROW_CENTER_TOLERANCE = 0.6
@@ -270,7 +270,19 @@ def group_boxes_into_row_groups(boxes: list[TextBox]) -> list[list[TextBox]]:
     없다. 줄 단위 매칭(src/ocr/match.py의 match_food_candidates_by_line)이 그 정보를
     필요로 해서 상자를 살린 버전을 따로 둔다. 줄을 나누는 규칙은 아래 문자열 버전과
     같고, 실제로 그쪽이 이 함수를 감싼다 — 규칙이 두 벌로 갈라지지 않게 하기 위함이다.
+
+    허용 오차는 [group_boxes_into_lines]와 같이 **상자 높이의 중앙값**에 건다. 예전에는
+    그 줄을 처음 연 상자와 지금 상자 중 큰 쪽 높이(max)에 걸었는데, 그러면 같은 규칙이
+    아니었다. "(2인기준)" 같은 작은 첨자(높이 19)가 줄을 먼저 열면 오차가 그 상자 크기로
+    좁아져서, 정작 그 메뉴의 가격 상자(높이 37)가 아래 줄로 밀려난다. 밀려난 자리에는
+    옆 칸 메뉴의 가격만 남아 그것이 메뉴에 붙었다(실측: 낙지볶음 35,000 -> 20,000).
+    중앙값은 상자 하나가 크거나 작다고 흔들리지 않아 줄을 여는 순서와 무관하다.
     """
+    if not boxes:
+        return []
+
+    tolerance = _ROW_CENTER_TOLERANCE * statistics.median(float(box[3]) for box in boxes)
+
     rows: list[list[TextBox]] = []
     for box in sorted(boxes, key=lambda b: b[1] + b[3] / 2):
         _x, y, _w, h, _text = box[:5]
@@ -278,7 +290,7 @@ def group_boxes_into_row_groups(boxes: list[TextBox]) -> list[list[TextBox]]:
         for row in rows:
             _anchor_x, anchor_y, _anchor_w, anchor_h, _anchor_text = row[0][:5]
             anchor_center = anchor_y + anchor_h / 2
-            if abs(center - anchor_center) <= _ROW_CENTER_TOLERANCE * max(anchor_h, h):
+            if abs(center - anchor_center) <= tolerance:
                 row.append(box)
                 break
         else:

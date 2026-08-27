@@ -294,3 +294,34 @@ class GroupBoxesIntoRowsTests(unittest.TestCase):
         """아무 글자도 못 읽은 상자는 빈 줄을 만들지 않는다."""
         boxes = [(10, 100, 80, 20, ""), (10, 200, 80, 20, "비빔밥")]
         self.assertEqual(infer.group_boxes_into_rows(boxes), ["비빔밥"])
+
+    def test_small_subscript_opening_a_row_keeps_the_price_on_that_row(self):
+        """작은 첨자가 줄을 먼저 열어도 그 줄의 가격 상자가 밀려나면 안 된다.
+
+        허용 오차를 "그 줄을 연 상자와 지금 상자 중 큰 쪽 높이"에 걸면, "(2인기준)"처럼
+        작은 첨자(높이 19)가 줄을 열었을 때 그 줄의 중심이 첨자 쪽으로 당겨진다. 그러면
+        정작 그 메뉴의 가격(높이 37)은 오차 22.2px 밖으로 나가 아래 줄로 떨어지고,
+        남은 자리에 옆 칸 가격이 붙는다(실측: 낙지볶음 35,000 -> 20,000). 상자 높이의
+        중앙값(48)에 걸면 오차가 28.8px이 되어 같은 줄에 남는다.
+
+        줄 단위 매칭(src/ocr/match.py)도 같은 줄 묶기를 쓰므로 여기서 고정해둔다.
+        """
+        boxes = [
+            (100, 496, 200, 48, "낙지볶음"),    # 중심 520
+            (320, 499, 110, 19, "(2인기준)"),   # 중심 508.5 — 가장 위라 이 줄을 연다
+            (700, 515, 170, 37, "35,000"),     # 중심 533.5 — 첨자와 25px 차이
+            (100, 616, 240, 48, "코다리회무침"),
+            (700, 622, 170, 37, "20,000"),
+            (100, 736, 120, 48, "공기밥"),
+            (400, 736, 160, 48, "해물추가"),
+        ]
+
+        self.assertEqual(
+            infer.group_boxes_into_rows(boxes),
+            ["낙지볶음 (2인기준) 35,000", "코다리회무침 20,000", "공기밥 해물추가"],
+        )
+
+    def test_returns_nothing_for_no_boxes(self):
+        """상자가 하나도 없으면 중앙값을 낼 것이 없다 — 빈 목록으로 끝낸다."""
+        self.assertEqual(infer.group_boxes_into_row_groups([]), [])
+        self.assertEqual(infer.group_boxes_into_rows([]), [])
