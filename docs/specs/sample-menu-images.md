@@ -3,6 +3,15 @@
 > **상태: 착수 전.** 2026-08-23 브레인스토밍에서 확정됐으나 분량이 커서 뒤로 미뤘다
 > (2026-08-24). 이 문서는 그때 정한 요구사항을 잃지 않으려고 남긴다.
 > 웹 화면 본체는 `frontend/docs/web-app.md`가 다룬다.
+>
+> **2026-08-27 갱신 두 가지.**
+> 1. 대상 화면이 Streamlit이 아니라 **React**다(`frontend/client/src/pages/Home.tsx`).
+>    아래 Happy Path의 `session_state`는 그 시절 표현이며, React에서는 분석에 쓴 바이트를
+>    화면 상태에 담아 후보 화면의 사진 위 상자에 쓴다.
+> 2. **이미 쓸 수 있는 합성 메뉴판이 한 장 있다** —
+>    [`docs/submission/assets/sample-menu-synthetic.jpg`](../submission/assets/sample-menu-synthetic.jpg).
+>    6줄짜리이고 실제로 `POST /api/analyze`에서 후보 5개가 나온 것이 기록돼 있다
+>    (`docs/submission/05-io-samples.md` 1절). 3장을 새로 만들기 전에 이것부터 붙이면 된다.
 
 ## Why
 
@@ -30,7 +39,7 @@
 
 1. 첫 화면에 샘플 메뉴판 3장이 썸네일/버튼으로 보인다.
 2. 하나를 누르면 그 이미지 바이트를 그대로 `POST /api/analyze`에 보낸다.
-3. 이후 흐름은 업로드했을 때와 완전히 같다(`session_state["image"]`에도 같은 바이트를 담는다).
+3. 이후 흐름은 업로드했을 때와 완전히 같다 — 화면이 들고 있는 "방금 올린 사진" 자리에 같은 바이트를 담는다(후보 화면이 사진 위 상자를 그리는 데 쓴다).
 
 **Edge Cases**
 

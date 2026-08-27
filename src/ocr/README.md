@@ -12,7 +12,8 @@
 | `prepare_dataset.py` | AI Hub 라벨 → PaddleOCR 학습 포맷 + 커스텀 딕셔너리 생성 |
 | `finetune.py` | 학습 (1안 전체학습 / 2안 LoRA·QLoRA / 3안 mobile+양자화) |
 | `infer.py` | 추론 — 파인튜닝 모델로 한국어 글자 추출 |
-| `match.py` | RapidFuzz로 등록 음식명 50개와 유사도 매칭 |
+| `match.py` | RapidFuzz로 등록 음식명 50개와 유사도 매칭 (`MATCH_THRESHOLD = 85`, 점수 함수는 `name_score()`) |
+| `price.py` | 메뉴판 줄에서 가격 읽기·이름에서 가격 떼기·₩ 표기 (`format_price_krw` / `strip_prices`) |
 | `vendor/ppocr/` | PaddleOCR 저장소의 내부 코드 일부(Apache-2.0)를 그대로 가져온 것. `infer.py`가 recognition 모델을 export 없이 직접 불러오는 데 씀 — 이유는 아래 "왜 vendor 코드가 있나" 참고. 직접 수정하지 말 것(원본 유지, 딱 한 줄만 우리가 안 쓰는 기능 때문에 지웠음: `data/imaug/__init__.py`의 `CopyPaste` import) |
 
 ## 흐름

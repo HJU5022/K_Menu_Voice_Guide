@@ -213,7 +213,8 @@ proj1-c/
 ├── AGENTS.md / CLAUDE.md
 ├── .env.example                   # SUPABASE_URL, SUPABASE_ANON_KEY, OCR_RAW_DATA_ROOT,
 │                                   #   TTS_VENV_PYTHON(macOS·Linux는 필수), OCR_TEST_SET_ROOT,
-│                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME
+│                                   #   PERSO_API_KEY(eval 전용), PADDLE_PDX_CACHE_HOME,
+│                                   #   HF_TOKEN(TTS LoRA 저장소가 비공개일 때만)
 ├── .gitignore
 ├── .gitattributes                   # vendor 코드는 리뷰에서 접고, *.sh 줄바꿈을 LF로 고정한다
 │                                     #   윈도우에서 CRLF 때문에 deploy.sh가 첫 줄부터 죽었다(2026-08-26)
@@ -223,7 +224,9 @@ proj1-c/
 │                                     #   fastapi·uvicorn(API) ...
 │                                     #   + src/ocr/vendor/ppocr 의존성(shapely, lmdb, albumentations 등, 아래 참고)
 │
-├── K_Menu_Talk.py                   # API 진입점 — FastAPI. /api/analyze, /api/foods/{id} 노출
+├── K_Menu_Talk.py                   # API 진입점 — FastAPI. 엔드포인트 6개
+│                                     #   POST /api/analyze · GET /api/foods · GET /api/foods/{id}
+│                                     #   GET·DELETE /api/cart · POST /api/cart/items (+ /audio 정적 서빙)
 │                                     #   화면을 갖지 않는다. 웹·앱 등 별도 클라이언트가 붙는 쪽
 ├── Dockerfile                       # API Space(HF Docker SDK, T4)용 이미지
 │                                     #   베이스 이미지를 digest로 못 박는다 — 이름표만 쓰면 빌드가 조용히 바뀐다
@@ -250,6 +253,9 @@ proj1-c/
 │   ├── 기획서.md                     # 왜 만들었고 무엇을 달성했는가 — 문제 정의·성공 기준 대비 실측·
 │   │                                 #   모델 선택 근거·엔지니어링 판단·한계 (README는 코드 기준 문서)
 │   ├── content-style.md              # 화면에 쓰는 영어 문구·용어 통일 기준 (웹·앱 공통)
+│   │                                 #   상세 카드 6개의 순서·영어 제목, 예외 화면 문구가 여기 있다
+│   ├── submission/                   # 1차 프로젝트 제출물 8종 (고객여정·구조도·노드·입출력·
+│   │                                 #   모델 비교·데모 대본·발표 원고) + assets/ 캡처·그래프·오디오
 │   ├── legal/                        # 동의서·공개용 가림본 등 운영 문서 (TTS 목소리 제공 동의)
 │   └── specs/                        # 백엔드·파이프라인·앱 스펙 (웹 화면 스펙은 frontend/docs/)
 │       ├── _example.md
@@ -258,7 +264,7 @@ proj1-c/
 │       ├── db-cache.md               # 메모리 캐싱
 │       ├── error-logging.md          # 예외를 삼키지 않고 stdout에 남기는 규칙 (실제 사고 사례 포함)
 │       ├── fastapi-space-deploy.md   # API를 GPU Docker Space에 올리는 절차·제약
-│       ├── flutter-mobile-app.md     # 앱 화면 3개·서버 주소 전환·iOS 권한
+│       ├── flutter-mobile-app.md     # 앱 주 흐름 3화면·서버 주소 전환·iOS 권한
 │       ├── ocr-candidate-results.md  # 음식 후보 결과 계약
 │       ├── ocr-finetuning.md         # 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준
 │       ├── ocr-preprocess-runtime.md # 추론 경로에 전처리 연결
@@ -277,14 +283,25 @@ proj1-c/
 ├── mobile/                           # Flutter 모바일 앱 (iOS·Android)
 │   ├── README.md                      # 앱 구조·실행 방법·자주 겪는 문제
 │   ├── pubspec.yaml                   # image_picker(촬영) / http(API 호출) / audioplayers(음성 재생)
+│   │                                  #   flutter_tts(기기 음성으로 이름 읽기) / shared_preferences(첫 실행 안내)
 │   ├── lib/
 │   │   ├── main.dart                  #   앱 시작점 + 화면 전환
 │   │   ├── config.dart                #   서버 주소 — 환경(개발/터널/배포)이 바뀌면 이 파일만 고친다
-│   │   ├── api.dart                   #   /api/analyze, /api/foods/{id} 호출 + 응답 파싱
-│   │   └── screens/
+│   │   ├── api.dart                   #   analyze · foods · foods/{id} · cart 호출 + 응답 파싱
+│   │   ├── korean_speaker.dart        #   기기에 깔린 음성으로 한국어 메뉴 이름 읽기(flutter_tts)
+│   │   │                              #   우리 TTS와 별개다 — 우리 모델은 영어 설명을 읽도록 학습됐다
+│   │   └── screens/                   #   주 흐름 3개 + 보조 화면·공통 위젯
 │   │       ├── camera_screen.dart     #     ① 메뉴판 촬영 ──▶ POST /api/analyze
-│   │       ├── candidates_screen.dart #     ② 음식 후보 선택
-│   │       └── detail_screen.dart     #     ③ 상세 6개 카테고리 + 음성 재생 ──▶ GET /api/foods/{id}
+│   │       ├── candidates_screen.dart #     ② 음식 후보 선택 + 장바구니
+│   │       ├── detail_screen.dart     #     ③ 상세 6개 카테고리 + 음성 재생 ──▶ GET /api/foods/{id}
+│   │       ├── order_summary_screen.dart      #  주문 확인 — 종업원에게 보여주는 화면
+│   │       ├── menu_photo_overlay.dart        #  사진 위에 후보 자리를 번호 상자로 표시
+│   │       ├── first_run_guide.dart           #  첫 실행 4단계 안내
+│   │       ├── supported_foods_screen.dart    #  안내 가능한 음식 전체 ──▶ GET /api/foods
+│   │       ├── settings_screen.dart · settings_button.dart
+│   │       ├── how_it_works_screen.dart · credits_screen.dart
+│   │       ├── spice_gauge.dart               #  맵기 눈금 — 후보 카드·상세가 같이 쓴다
+│   │       └── stitch_bar.dart · animated_gradient_back_button.dart   # 공통 위젯
 │   ├── ios/                           # Info.plist에 카메라 권한·ATS 설정 (없으면 앱이 즉시 종료된다)
 │   └── android/
 │                                      #   앱은 계산하지 않는다 — src/ 로직을 복제하지 않고 서버 응답만 표시한다
@@ -347,7 +364,8 @@ proj1-c/
 │   ├── training_log.csv              # 위 실험의 에폭별 Val Loss 원본 로그 (3~8차 — 9차 미반영)
 │   ├── qwen3_tts_lora_final.ipynb    # 학습에 쓴 Colab 노트북 (8차 기준 — 배포본 9차 아님)
 │   ├── pregenerate_tts_cache_colab.ipynb  # static/tts_cache wav 50개 재생성 절차 (Colab GPU)
-│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 결과 (헤더만 — 미반영)
+│   ├── mos_scores.csv                # TTS 발음·자연스러움 MOS 채점 원본 (헤더만 — 채점 전)
+│                                     #   평가 설계·자료 일체는 별도 브랜치에서 준비 중이다
 │   ├── measure_ocr.py                # OCR 동일 조건 비교 — base/체크포인트/최종을 같은 코드로
 │   ├── measure_ocr_final.json        #   그 결과 원본 (2026-08-21, 매칭 91.67%)
 │   ├── measure_match_precision.py    # 매칭 오탐 측정 — measure_ocr.py가 못 보는 사각지대

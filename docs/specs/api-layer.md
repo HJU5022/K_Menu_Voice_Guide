@@ -14,7 +14,7 @@
   1. 이미지를 업로드하면 OCR 상태(`ocr_empty`/`not_a_menu`/`unsupported_food`/`candidates_found`)와 후보 목록을 JSON으로 받는다.
   2. `food_id`로 상세정보(6개 카테고리)와 나레이션 결과(텍스트·스타일·오디오 상태)를 JSON으로 받는다.
   3. 등록되지 않은 `food_id`는 404를 반환한다.
-- **Out of Scope**: 프론트엔드 코드 자체, 인증/로그인, 주문·결제 기능, Flutter 클라이언트 코드, 배포(HF Spaces/Tailscale) 설정. 장바구니(`/api/cart`)는 별도 Spec(`docs/specs/cart.md`)에서 다룬다.
+- **Out of Scope**: 프론트엔드 코드 자체, 인증/로그인, 주문·결제 기능, Flutter 클라이언트 코드, 배포(HF Spaces/Tailscale) 설정. 장바구니(`/api/cart`)는 `docs/specs/cart.md`, 지원 음식 목록(`GET /api/foods`)은 `docs/specs/supported-foods.md`가 정본이다 — 이 문서에는 계약만 옮겨 적는다.
 
 ## What
 
@@ -62,14 +62,35 @@ POST /api/analyze
         "ingredient": [{"keyword": string, "keyword_en": string | null}]
       },
       "spice_level": 1 | 2 | 3 | 4 | 5 | null,
+      "line_no": int | null,
       "menu_text": string | null,
       "name_text": string | null,
+      "price_krw": int | null,
+      "price_krw_display": string | null,
       "thumbnail_url": string | null,
-      "thumbnail_attribution": string | null
+      "thumbnail_attribution": string | null,
+      "source": {
+        "text": string,
+        "left": float, "top": float, "width": float, "height": float
+      } | null
     }
   ]
 }
 ```
+
+**`source`는 사진 위 상자다.** 그 후보를 어느 글자에서 읽었는지 알려주는 좌표이며, 값은
+**업로드한 원본 사진 기준 0~1 비율**이다(px가 아니다). 화면이 사진을 어떤 크기로 그리든 비율만
+곱하면 자리가 맞고, 서버 쪽 전처리(회전·크기 조정)는 이미 되돌린 값이다. `text`는 그 자리에서
+OCR이 **실제로 읽은 글자**라 음식명과 다를 수 있는데, 그 차이 자체가 "왜 이 후보가 나왔는지"를
+보여준다. 이름이 여러 글자 상자에 걸쳐 잘리면 위치를 특정할 수 없어 `null`이 된다 — 그때 화면은
+사진 위 상자 없이 후보 카드만 보여주고, 자리를 못 찾은 줄 수를 목록 위 한 줄 안내에 밝힌다.
+
+**`line_no`는 메뉴판에서 위에서부터 센 줄 번호다.** 화면은 서버가 주는 점수 순이 아니라 이
+값으로 정렬한다 — 메뉴판에 인쇄된 순서와 화면 순서가 같아야 사진과 목록을 눈으로 짝지을 수 있다.
+
+**가격은 DB 값이 아니라 그 사진에 적혀 있던 값이다.** `src/ocr/price.py`가 같은 줄에서 읽어낸
+숫자이며, 못 읽으면 두 필드 모두 `null`이다. `price_krw_display`는 `₩` + 천 단위 콤마를 붙인
+표시용 문자열이다.
 
 **수식어는 영어와 함께 싣는다.** 화면이 보여주는 것은 `keyword_en` 쪽이다 — 이 서비스를
 쓰는 사람은 한국어를 읽지 못한다. 같은 음식이 여러 줄 나올 때(`돼지김치찌개` /
@@ -97,6 +118,9 @@ GET /api/foods/{food_id}
 
 응답 200:
 {
+  "food_id": int,
+  "name_kr": string,
+  "name_en": string,
   "spice_level": 1 | 2 | 3 | 4 | 5,
   "details": {"DESCRIPTION": string, "PRONUNCIATION": string, ...},
   "narration_text": string,
@@ -123,6 +147,33 @@ GET /api/foods/{food_id}
 
 캐시 파일명이 다르다 — 나레이션은 `static/tts_cache/food_{id}_{STYLE}.wav`,
 이름은 `static/tts_cache/name_{id}.wav`. 둘 다 없으면 요청 시점에 생성한다.
+
+**`details`에는 음성 전용 `PRONUNCIATION_TTS`가 섞여 올 수 있다.** 화면용 6개
+(`PRONUNCIATION`·`SPICY`·`DESCRIPTION`·`INGREDIENT`·`HOW_TO_EAT`·`ALLERGY`)와 같은 dict에
+담기므로, 클라이언트는 **자기가 그리기로 한 키만 꺼내 쓰고 나머지는 무시한다**. 이 행이 왜
+따로 있는지는 `docs/specs/text-generation.md`.
+
+```
+GET /api/foods
+
+응답 200:
+[
+  { "food_id": int, "name_kr": string, "name_en": string }
+]
+```
+
+안내할 수 있는 음식 전체를 **영문명 오름차순**으로 돌려준다. 사진을 찍기 전에 "내 앞의 메뉴를
+이 앱이 알아볼 수 있나"를 확인하는 용도라 일부만 추리지 않는다. 사진·맵기·가격은 싣지 않는다 —
+이 화면의 질문은 "무엇을 지원하나"이지 "무엇을 먹을까"가 아니다. 화면 요구사항과 AC의 정본은
+`docs/specs/supported-foods.md`이며, 여기에는 계약만 적는다.
+
+```
+GET  /api/cart          헤더 X-Cart-Id (필수)
+POST /api/cart/items    헤더 X-Cart-Id (필수)
+DELETE /api/cart        헤더 X-Cart-Id (필수)
+```
+
+장바구니 세 엔드포인트의 요청·응답 스키마와 규칙은 `docs/specs/cart.md`가 정본이다.
 
 - 대상 파일: `K_Menu_Talk.py` (README에 이미 "배포 진입점"으로 문서화된 파일 — Gradio 대신 FastAPI 앱을 둠)
 - 업로드된 이미지는 임시 파일로 저장 후 기존 `analyze_image(image_path)`에 그대로 전달한다 (OCR 쪽 함수 시그니처를 바꾸지 않음).

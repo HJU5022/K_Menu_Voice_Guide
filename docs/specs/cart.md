@@ -89,7 +89,7 @@ POST /api/cart/items
 헤더: X-Cart-Id: string (필수)
 요청 바디:
 {
-  "food_id":        int,
+  "food_id":        int | null,   // 등록 안 된 메뉴는 없다. 설명은 못 해도 담을 수는 있다
   "name_kr":        string,
   "name_en":        string,
   "menu_text":      string | null,  // 메뉴판 그 줄에 인쇄된 글자. 줄을 구분하는 기준
@@ -104,7 +104,7 @@ CartResponse (두 엔드포인트 공통 — 언제나 카트 전체 상태):
   "cart_id": string,
   "items": [
     {
-      "food_id": int, "name_kr": string, "name_en": string,
+      "food_id": int | null, "name_kr": string, "name_en": string,
       "menu_text": string | null,
       "name_text": string | null,   // menu_text에서 가격만 뗀 것. 표시 전용
       "price_krw": int | null, "price_krw_display": string | null,
@@ -133,7 +133,7 @@ DELETE /api/cart
 **웹 화면에서의 차이** (`frontend/`)
 
 - 카드 전체를 누르는 것이 아니라 **설명 보기 버튼과 담기 스테퍼(`−`/`+`)를 따로** 둔다. 처음에는 Streamlit에 "카드 아무 데나 누르기"에 해당하는 위젯이 없어서 이렇게 했고, React로 옮긴 뒤에도 같은 구조를 유지한다(`frontend/client/src/pages/Home.tsx`의 후보 카드).
-- **안내 못 하는 줄은 담기만 되고 설명 보기는 막는다.** 안내할 내용이 없는데 눌리면 고장으로 읽히지만, 설명을 못 해도 주문은 되기 때문이다(공기밥 같은 줄). 담을 때 이름 자리에는 메뉴판 글자를 그대로 보낸다 — 서버가 거기서 가격을 떼어 화면에 쓸 이름을 만든다(`src/cart/store.py`).
+- ~~안내 못 하는 줄은 담기만 되고 설명 보기는 막는다.~~ **지금 화면에는 해당하는 줄이 없다** (2026-08-27 정정). 2026-08-25 결정으로 서버가 등록 음식과 매칭되지 않은 줄을 아예 응답에 싣지 않기 때문이다(`docs/specs/api-layer.md`). `food_id: null`을 받는 요청 경로는 계약에 남겨두되, 웹·앱 어느 쪽도 지금은 그런 줄을 만들지 않는다. 담을 때 이름 자리에 메뉴판 글자를 그대로 보내는 규칙은 그대로다 — 서버가 거기서 가격을 떼어 화면에 쓸 이름을 만든다(`src/cart/store.py`).
 - 카트 상태는 응답을 그대로 담는다. 요청이 실패하면 그 값을 건드리지 않고 오류 문구만 따로 남긴다(EC-06).
 
 - 저장소: 서버 프로세스 메모리(`dict`). 재시작하면 비워진다 — Out of Scope의 "영속 저장"에 해당.

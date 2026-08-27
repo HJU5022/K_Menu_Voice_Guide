@@ -69,6 +69,7 @@
 | EC-10 | 상세 화면에서 서버 호출 실패 | 화면 안에서 재시도 버튼을 제공한다. 뒤로 나갔다 들어오게 만들지 않는다 |
 | EC-07 | 응답 지연(첫 요청 시 서버 모델 로딩) | 로딩 표시를 유지하고 사용자 입력을 막는다. 타임아웃은 두지 않는다 |
 | EC-11 | 후보가 1개뿐 | 선택 화면을 건너뛰고 바로 상세 화면으로 간다 — 고를 것이 없다. 웹앱(`frontend/docs/web-app.md` EC-03)과 같은 동작 |
+| EC-12 | 메뉴판이 아닌 사진 (`status = "not_a_menu"`) | EC-03·EC-04와 **다른 문구**로 안내하고 재촬영을 유도한다. 얼굴·풍경을 찍어도 OCR이 잡음 글자를 만들어내 `ocr_empty`로는 안 잡히는데, 이쪽은 다시 찍으면 해결되므로 "지원하지 않는 음식"이라고 하면 사용자가 포기한다 |
 
 **후보가 사진 어디에서 나왔는지** — 후보 화면 위쪽에 방금 찍은 사진을 두고, 후보가 읽힌 자리에 번호 상자를 얹는다. 상자와 카드 배지가 **같은 번호·같은 색**이라 눈으로 짝지을 수 있다. 목록만 보면 "왜 이게 나왔지?"를 확인할 방법이 없는데, 실제로 사진에 없는 음식이 후보로 뜬 적이 있어(`막국수` → `칼국수`) 판단 근거를 화면에 둔다. 좌표는 서버가 원본 사진 기준 0~1 비율로 준다(`candidate.source`). 번호는 두 자리로 적는다(`01`, `02` …).
 
@@ -89,21 +90,28 @@ POST /api/analyze
 요청: multipart/form-data, 필드명 "image" (JPEG)
 응답 200:
 {
-  "status": "candidates_found" | "unsupported_food" | "ocr_empty",
+  "status": "candidates_found" | "not_a_menu" | "unsupported_food" | "ocr_empty",
   "ocr_text": string,
   "candidates": [
     { "food_id": int, "name_kr": string, "name_en": string,
       "score": int, "modifiers": object,
+      "spice_level": int | null,               // 1~5. 카드의 불꽃 눈금
+      "line_no": int | null,                   // 메뉴판 줄 번호 — 목록 정렬 기준
+      "menu_text": string | null,              // 그 줄에 인쇄된 글자. 줄을 구분하는 신원
+      "name_text": string | null,              // 위에서 가격만 뗀 것. 이름 자리에 쓴다
+      "price_krw": int | null,                 // 사진에서 읽은 값 (DB 값 아님)
       "price_krw_display": string | null,      // 예 "₩8,000"
       "thumbnail_url": string | null,          // 완전한 URL
       "thumbnail_attribution": string | null,
-      "source": object | null }                // 사진 속 이름 위치(좌표)
+      "source": object | null }                // 사진 속 이름 위치(원본 기준 0~1 비율)
   ]
 }
 
-status 세 값의 의미 (src/pipeline.py analyze_image):
+status 네 값의 의미 (src/pipeline.py analyze_image):
   candidates_found  후보를 찾음 — candidates에 1개 이상
-  unsupported_food  글자는 읽었으나 등록된 50개 음식과 매칭 실패 — candidates 빈 배열
+  not_a_menu        글자는 읽혔으나 가격 붙은 메뉴 줄이 하나도 없음 — 메뉴판이 아닌 사진.
+                    **다시 찍으면 해결되는** 상황이라 unsupported_food와 문구가 달라야 한다
+  unsupported_food  메뉴 줄은 있으나 등록된 50개 음식과 매칭 실패 — candidates 빈 배열
   ocr_empty         글자를 전혀 읽지 못함 — ocr_text·candidates 모두 빈 값
 앱은 이 값으로 분기한다. 성공 값이 "ok"가 아님에 주의.
 
@@ -120,10 +128,20 @@ GET /api/foods/{food_id}
   "style": "GUIDE" | "CAUTION",
   "tts_status": string,
   "narration_audio_path": string | null,
-  "tts_latency_ms": float
+  "tts_latency_ms": float,
+  "name_audio_path": string | null,            // 음식 이름만 읽은 음성 (서버 TTS)
+  "name_tts_status": string
 }
 응답 404: 등록되지 않은 food_id
+
+GET /api/foods                                  // 설정 화면의 지원 음식 목록
+응답 200: [ { "food_id": int, "name_kr": string, "name_en": string } ]
+
+GET / POST / DELETE  /api/cart…                 // 장바구니, X-Cart-Id 헤더 필수
 ```
+
+`details`에는 음성 전용 `PRONUNCIATION_TTS`가 섞여 올 수 있다 — 아래 "상세 화면 카테고리
+순서"에 없는 키는 그리지 않는다.
 
 **중요** — `narration_audio_path`는 `/audio/xxx.wav` 형태의 **상대 경로**다. 앱은 여기에 `apiBaseUrl`을 앞에 붙여 완전한 URL로 만들어야 재생할 수 있다.
 
@@ -146,7 +164,8 @@ GET /api/foods/{food_id}
 |---|---|
 | `image_picker` | 카메라 촬영 / 사진첩 선택 |
 | `http` | API 호출 |
-| `audioplayers` | 내레이션 WAV 재생 |
+| `audioplayers` | 서버가 만든 내레이션·이름 WAV 재생 |
+| `flutter_tts` | **기기에 깔린 음성**으로 한국어 메뉴 이름 읽기 (`lib/korean_speaker.dart`) — 우리 TTS와 별개다. 우리 모델은 영어 설명을 읽도록 학습돼 한국어 이름을 발음하지 못하고, 등록 안 된 메뉴는 읽을 대본 자체가 없다 |
 | `shared_preferences` | 첫 실행 안내를 닫았는지 기기에 boolean으로 저장 |
 
 **iOS 필수 설정** — `ios/Runner/Info.plist`

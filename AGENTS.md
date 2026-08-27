@@ -53,7 +53,7 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 
 - API 키·비밀번호·토큰을 코드에 직접 작성(하드코딩 포함)하지 않습니다. 항상 `.env`를 통해 불러옵니다.
 - 새로 필요한 키가 생기면 `.env.example`에 값 없이 키 이름만 추가합니다.
-- 모든 push는 Secret Scan(GitHub Actions, `.github/workflows/secret-scan.yml`)으로 자동 검사됩니다. 실패 시 커밋 히스토리에서 지워도 유출로 간주되므로, 애초에 키를 커밋하지 않는 것이 유일한 대응입니다.
+- Secret Scan(GitHub Actions, `.github/workflows/secret-scan.yml`)이 **PR의 모든 커밋**과 **`main`으로의 push**를 검사합니다(브랜치 push마다 두 번 돌던 것을 2026-08-21에 정리). 머지 전 탐지 능력은 그대로입니다. 실패 시 커밋 히스토리에서 지워도 유출로 간주되므로, 애초에 키를 커밋하지 않는 것이 유일한 대응입니다.
 - PR은 조원 1명 이상의 approve를 받은 뒤에만 merge합니다. merge 실행은 조장만 진행합니다.
 
 ## 로깅 원칙
