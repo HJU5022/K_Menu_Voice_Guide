@@ -14,6 +14,7 @@
 | `measure_ocr.py` | OCR 동일 조건 비교 측정 스크립트 — base/로컬 체크포인트/최종(HF)을 같은 코드로 측정 (매칭 정확도·라벨일치·라벨 CER) |
 | `measure_ocr_final.json` | 최종(4차) 모델 실측 결과 원본 (2026-08-21, 매칭 91.67% · 라벨일치 66.67%) |
 | `measure_match_precision.py` | 매칭 **오탐** 측정 — `measure_ocr.py`가 재현율만 보는 사각지대를 메운다. AI Hub 관광 음식메뉴판 라벨을 정답으로 쓴다 (2026-08-23 추가) |
+| `measure_cards_per_line.py` | 메뉴판 **줄 하나에서 카드가 몇 장 나오는지** 측정 — `measure_match_precision.py`가 `scan_menu_lines()` 경로를 지나지 않아 못 보던 후보 중복을 본다. 줄당 카드 수 분포와 2장 이상인 줄의 실제 사례를 뽑아 준다(옳고 그름은 사람이 판단). OCR 결과를 `--cache`에 넣어 전후 비교에 재사용한다 (2026-08-27 추가) |
 | `measure_digits.py` | 숫자(가격) 인식만 따로 재는 벤치마크 — 같은 박스·같은 크롭을 base와 파인튜닝에 각각 먹여 원인을 분리한다. 가격을 그려 넣은 합성 이미지를 써서 테스트셋·GPU 없이 재현된다 |
 | `measure_digits.json` | 위 벤치마크 결과 원본 (2026-08-25 재측정 — base 77.78% vs 파인튜닝 5.56%, `model_comparison.md` 1-1절의 근거) |
 | `pregenerate_tts_cache_colab.ipynb` | `static/tts_cache` 나레이션 wav 50개를 Colab GPU에서 재생성하는 절차. 문구·`LORA_SCALE`이 바뀌면 캐시가 낡으므로 전량 재생성해야 한다. **이름 음성(`name_{id}.wav`) 50개는 이 노트북이 만들지 않는다** — `python -m src.tts.pregenerate`가 둘 다 만든다(2026-08-26) |
