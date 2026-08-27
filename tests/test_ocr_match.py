@@ -432,6 +432,47 @@ class ScanMenuLinesTests(unittest.TestCase):
             ],
         )
 
+    def test_a_notice_next_to_a_menu_is_not_shown_as_the_order_text(self):
+        """menu_text는 종업원에게 그대로 보여주는 글자다 — 가게 안내문이 섞이면 주문이 어긋난다.
+
+        실측(2026-08-27): 후보 "김치찌개"의 menu_text가
+        "재료소진시조기마감합니다 쌈싸먹는 김치찌개 7,000원"으로 나왔다. 안내 문장
+        상자가 메뉴 상자와 같은 높이라 한 줄로 묶인 것이다.
+        """
+        boxes = [
+            (10, 120, 260, 24, "재료소진시조기마감합니다", 0.99),
+            (300, 120, 320, 24, "쌈싸먹는 김치찌개 7,000원", 0.99),
+        ]
+
+        candidates, _unsupported = self.scan(boxes)
+
+        self.assertEqual(
+            [(c["menu_text"], c["name_text"]) for c in candidates],
+            [("쌈싸먹는 김치찌개 7,000원", "쌈싸먹는 김치찌개")],
+        )
+
+    def test_a_request_notice_is_stripped_too(self):
+        """부탁하는 안내 문장("...주세요")도 같이 걸러진다.
+
+        실측(2026-08-27): 후보 "칼국수"의 menu_text가
+        "산낙지주문시미리말쏨해주세요 칼국수사리"였다.
+        """
+        boxes = [
+            (10, 120, 320, 24, "산낙지주문시미리말쏨해주세요", 0.99),
+            (350, 120, 200, 24, "칼국수사리 3,000원", 0.99),
+        ]
+
+        with (
+            patch.object(cache, "get_foods", return_value=_menu_foods("칼국수")),
+            patch.object(cache, "get_modifiers", return_value=[]),
+        ):
+            candidates, _unsupported = match.scan_menu_lines(boxes)
+
+        self.assertEqual(
+            [c["menu_text"] for c in candidates],
+            ["칼국수사리 3,000원"],
+        )
+
     def test_a_matched_line_is_not_repeated_as_unsupported(self):
         """안내 가능한 줄은 후보 쪽에만 있어야 한다 — 양쪽에 나오면 카드가 두 개 뜬다."""
         candidates, unsupported = self.scan(self.BOXES)
