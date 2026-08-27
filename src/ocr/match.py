@@ -67,6 +67,7 @@ SPICE_TIERS = {
 }
 
 def _normalize(text: str) -> str:
+    """비교 전에 공백을 없앤다 — 메뉴판이 "김치 찌개"로 띄어 써도 "김치찌개"에 걸리게."""
     return text.replace(" ", "")
 
 
@@ -885,9 +886,3 @@ def _unsupported_menu_line(
         "source_text": name_box[4],
         "source_box": tuple(name_box[:4]),
     }
-
-
-def match_food(text: str) -> dict | None:
-    """Return the highest-ranked supported food candidate for existing callers."""
-    candidates = match_food_candidates(text)
-    return candidates[0] if candidates else None

@@ -358,59 +358,10 @@ class SynthesizeViaSubprocessTests(unittest.TestCase):
 
 
 class PipelineRunAndAnalyzeTests(unittest.TestCase):
-    """run()과 analyze_image() — 이미지 한 장을 받아 처리하는 두 진입 함수.
+    """analyze_image() — 이미지 한 장을 받아 음식 후보 목록까지 만드는 진입 함수.
 
-    run(): 이미지 → 음식 1개 확정까지 한 번에 (초기 버전)
-    analyze_image(): 이미지 → 후보 목록까지만 (사용자가 고르는 흐름, 지금 API가 쓰는 쪽)
+    사용자가 후보 중에서 직접 고르는 흐름이고, 지금 API(`POST /api/analyze`)가 쓰는 쪽이다.
     """
-
-    @patch("src.pipeline.get_details")
-    @patch("src.pipeline.create_tts_response")
-    @patch("src.pipeline.match_food")
-    @patch("src.pipeline.recognize")
-    def test_run_returns_full_response_when_matched(
-        self, mock_recognize, mock_match_food, mock_create_tts_response, mock_get_details
-    ):
-        """음식을 찾았을 때 — OCR 결과가 매칭으로, 매칭된 id가 상세·TTS로 이어지는 사슬 검사."""
-        mock_recognize.return_value = "비빔밥 8000원"
-        mock_match_food.return_value = {"food_id": 1, "name_kr": "비빔밥", "score": 100.0}
-        mock_create_tts_response.return_value = {
-            "narration_text": "This is Bibimbap.",
-            "style": "GUIDE",
-            "narration_audio_path": None,
-            "tts_status": "not_ready",
-            "tts_latency_ms": 1.25,
-        }
-        mock_get_details.return_value = {"DESCRIPTION": "A bowl of rice."}
-
-        result = pipeline.run("dummy.jpg")
-
-        # 각 단계의 출력이 다음 단계의 입력으로 정확히 전달됐는지 하나씩 확인
-        mock_recognize.assert_called_once_with("dummy.jpg")
-        mock_match_food.assert_called_once_with("비빔밥 8000원")
-        mock_create_tts_response.assert_called_once_with(1)
-        mock_get_details.assert_called_once_with(1)
-        self.assertEqual(result["matched_food"], {"food_id": 1, "name_kr": "비빔밥", "score": 100.0})
-        self.assertEqual(result["details"], {"DESCRIPTION": "A bowl of rice."})
-        self.assertEqual(result["narration_text"], "This is Bibimbap.")
-
-    @patch("src.pipeline.get_details")
-    @patch("src.pipeline.create_tts_response")
-    @patch("src.pipeline.match_food")
-    @patch("src.pipeline.recognize")
-    def test_run_returns_none_matched_food_when_no_match(
-        self, mock_recognize, mock_match_food, mock_create_tts_response, mock_get_details
-    ):
-        """못 찾았으면 거기서 멈춘다 — 없는 음식에 GPU를 쓰면 시간·비용 낭비."""
-        mock_recognize.return_value = "알수없는글자"
-        mock_match_food.return_value = None
-
-        result = pipeline.run("dummy.jpg")
-
-        self.assertEqual(result, {"matched_food": None})
-        # assert_not_called = "이 함수는 아예 불리면 안 된다"
-        mock_create_tts_response.assert_not_called()
-        mock_get_details.assert_not_called()
 
     @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
@@ -481,11 +432,10 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         )
 
     @patch("src.pipeline._synthesize_via_subprocess")
-    @patch("src.pipeline.get_details")
     @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_returns_candidates_without_creating_response(
-        self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
+        self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_synthesize
     ):
         """후보를 찾아도 여기서 상세·음성까지 만들지는 않는다.
 
@@ -519,15 +469,15 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         )
         # 좌표를 매칭 단계까지 그대로 넘겨야 줄을 나누고 가격을 위치로 짝지을 수 있다
         mock_match_candidates.assert_called_once_with(boxes)
-        mock_get_details.assert_not_called()
+        # 상세 조합(get_details)은 이 모듈이 아예 import하지 않는다 — 후보를 고른 뒤
+        # API(K_Menu_Talk.py)가 직접 부른다. 그래서 여기서는 음성만 확인한다.
         mock_synthesize.assert_not_called()
 
     @patch("src.pipeline._synthesize_via_subprocess")
-    @patch("src.pipeline.get_details")
     @patch("src.pipeline.scan_menu_lines")
     @patch("src.pipeline.recognize_boxes_with_mapping")
     def test_analyze_image_converts_source_box_to_original_photo_ratios(
-        self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_get_details, mock_synthesize
+        self, mock_recognize_boxes_with_mapping, mock_match_candidates, mock_synthesize
     ):
         """match가 준 전처리 좌표를 원본 사진 기준 비율로 옮겨 source로 내보낸다.
 
@@ -561,5 +511,6 @@ class PipelineRunAndAnalyzeTests(unittest.TestCase):
         self.assertAlmostEqual(candidate["source"]["height"], 0.08)
         # 내부용 원시 좌표는 응답에 남기지 않는다
         self.assertNotIn("source_box", candidate)
-        mock_get_details.assert_not_called()
+        # 상세 조합(get_details)은 이 모듈이 아예 import하지 않는다 — 후보를 고른 뒤
+        # API(K_Menu_Talk.py)가 직접 부른다. 그래서 여기서는 음성만 확인한다.
         mock_synthesize.assert_not_called()

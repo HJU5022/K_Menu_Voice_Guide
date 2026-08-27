@@ -44,19 +44,39 @@ def _to_tts_text(text: str, food: dict) -> str:
 
 
 def get_narration(food_id: int) -> dict[str, str]:
-    """Return the narration text, the TTS-facing text, and the style for one food."""
+    """한 음식의 안내 문장(화면용·TTS용)과 음성 스타일을 함께 돌려준다.
+
+    돌려주는 네 값은 서로 짝이다 — 스타일만 따로 구하거나 텍스트만 따로 구하면 둘이
+    어긋날 수 있어서 한 번에 만든다.
+
+    | 키 | 무엇 |
+    |---|---|
+    | `text` | 화면에 그대로 띄우는 문장 (음식명은 로마자) |
+    | `tts_text` | 음성이 읽는 문장 (음식명만 한글 표기) |
+    | `style` | `GUIDE` 또는 `CAUTION` — spice_level이 정한다 |
+    | `name_kr` | 이름만 읽어주는 별도 음성에 쓸 한글 표기 |
+
+    값이 이상하면 조용히 넘어가지 않고 전부 예외로 세운다. 안내 음성이 빈 문장을 읽거나
+    매운 음식을 차분한 톤으로 읽는 것은 사용자가 알아챌 수 없는 종류의 고장이라,
+    드러나지 않으면 그대로 배포된다.
+    """
     food = cache.get_food(food_id)
     if food is None:
         raise ValueError(f"food_id {food_id}에 대한 foods 데이터가 없습니다.")
 
+    # 스타일을 사용자가 고르지 않는다 — 음식 데이터가 정한다(주제 유형 2를 만족하는 지점).
+    # spice_level이 숫자가 아니면 아래 비교가 조용히 이상하게 동작하므로 먼저 막는다.
     spice_level = food["spice_level"]
     if not isinstance(spice_level, int):
         raise ValueError(f"food_id {food_id}의 spice_level이 숫자가 아닙니다.")
+    # 경계는 4다. 근거와 톤 정의는 docs/specs/text-generation.md.
     style = "CAUTION" if spice_level >= 4 else "GUIDE"
 
     narration_text = cache.get_narration_text(food_id, style)
     if narration_text is None:
         raise ValueError(f"food_id {food_id}, style {style}에 대한 narration이 없습니다.")
+    # 공백만 든 행도 "없음"으로 친다 — DB에 실수로 들어간 빈 칸이 음성으로 나가면
+    # 소리 없는 wav가 만들어지고, 화면은 정상으로 보인다.
     narration_text = narration_text.strip()
     if not narration_text:
         raise ValueError(f"food_id {food_id}, style {style}의 narration_text가 비어 있습니다.")

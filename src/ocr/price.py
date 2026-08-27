@@ -236,15 +236,25 @@ def _slice_token(box: TextBox, start: int, end: int) -> _Token:
 
 
 def _overlap(a_low: float, a_high: float, b_low: float, b_high: float) -> float:
+    """두 구간이 겹치는 길이. 안 겹치면 음수가 나오고, 그 부호를 호출부가 그대로 쓴다."""
     return min(a_high, b_high) - max(a_low, b_low)
 
 
 def _is_same_row(a: _Token, b: _Token) -> bool:
+    """두 글자 상자가 같은 줄에 있는가 — 세로로 얼마나 겹치는지로 판단한다.
+
+    겹친 길이를 **짧은 쪽 높이**와 견준다. 큰 쪽에 견주면 큰 글자 옆의 작은 첨자가
+    늘 "다른 줄"로 밀려난다.
+    """
     shorter = min(a.bottom - a.top, b.bottom - b.top)
     return shorter > 0 and _overlap(a.top, a.bottom, b.top, b.bottom) >= _ROW_OVERLAP_RATIO * shorter
 
 
 def _is_same_column(a: _Token, b: _Token) -> bool:
+    """두 글자 상자가 세로로 같은 자리에 있는가 — 가로로 얼마나 겹치는지로 판단한다.
+
+    가격을 이름 **아래**에 적는 사진형 메뉴판에서 이름과 값을 잇는 데 쓴다.
+    """
     narrower = min(a.right - a.left, b.right - b.left)
     return narrower > 0 and _overlap(a.left, a.right, b.left, b.right) >= _COLUMN_OVERLAP_RATIO * narrower
 

@@ -10,6 +10,7 @@
 |---|---|
 | `preprocess.py` | OpenCV로 회전·대비·크기 보정 |
 | `prepare_dataset.py` | AI Hub 라벨 → PaddleOCR 학습 포맷 + 커스텀 딕셔너리 생성 |
+| `reorganize_dataset.py` | 위 결과를 학습 스크립트가 기대하는 폴더 배치로 옮기는 1회성 정리 (`data/README.md` 2-1절) |
 | `finetune.py` | 학습 (1안 전체학습 / 2안 LoRA·QLoRA / 3안 mobile+양자화) |
 | `infer.py` | 추론 — 파인튜닝 모델로 한국어 글자 추출 |
 | `match.py` | RapidFuzz로 등록 음식명 50개와 유사도 매칭 (`MATCH_THRESHOLD = 85`, 점수 함수는 `name_score()`) |
@@ -33,7 +34,7 @@ EC-06 참고.
 그 메뉴의 가격 상자가 아래 줄로 밀려나지 않게 하려는 것입니다 — 밀려나면 그 자리에 옆 칸
 메뉴의 가격이 붙습니다.
 
-`prepare_dataset.py`와 `finetune.py`는 **학습할 때만** 씁니다. 배포 경로에는 들어가지 않습니다.
+`prepare_dataset.py`·`reorganize_dataset.py`·`finetune.py`는 **학습할 때만** 씁니다. 배포 경로에는 들어가지 않습니다.
 
 ## 왜 vendor 코드가 있나
 

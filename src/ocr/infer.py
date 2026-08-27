@@ -15,7 +15,6 @@ vendor/ppocr 안의 __init__.py 몇 개는 우리가 안 쓰는 기능(CopyPaste
 import os
 import re
 import statistics
-from typing import NamedTuple
 
 os.environ.setdefault("FLAGS_allocator_strategy", "auto_growth")
 # PP-OCRv5_mobile_det + oneDNN 조합에서 이 Paddle 버전(3.3.1)의 새 실행기가
@@ -36,7 +35,7 @@ from src.ocr.vendor.ppocr.modeling.architectures import build_model
 from src.ocr.vendor.ppocr.postprocess.rec_postprocess import CTCLabelDecode
 from src.ocr.vendor.ppocr.utils.save_load import load_model
 from src.ocr.preprocess import SourceMapping, preprocess_image_with_mapping
-from src.ocr.price import TextBox, find_prices
+from src.ocr.price import TextBox
 
 OCR_MODEL_REPO_ID = "k-bite-team/K_Bite_OCR"
 
@@ -124,6 +123,14 @@ def _load_rec_engine():
 
 
 def _transform(data: dict) -> list:
+    """학습 때 쓰던 전처리 단계들을 순서대로 통과시킨다.
+
+    중간에 어느 단계가 None을 주면 그대로 None을 돌려준다 — ppocr의 관례로, "이 조각은
+    쓸 수 없다"는 뜻이다. 호출부가 그 조각을 건너뛴다.
+
+    학습과 **같은** 전처리를 써야 한다. 크기·정규화 방식이 다르면 같은 사진에서도
+    다른 값이 나와 정확도가 조용히 떨어진다.
+    """
     for op in _rec_ops:
         data = op(data)
         if data is None:
@@ -271,12 +278,17 @@ def group_boxes_into_row_groups(boxes: list[TextBox]) -> list[list[TextBox]]:
     필요로 해서 상자를 살린 버전을 따로 둔다. 줄을 나누는 규칙은 아래 문자열 버전과
     같고, 실제로 그쪽이 이 함수를 감싼다 — 규칙이 두 벌로 갈라지지 않게 하기 위함이다.
 
-    허용 오차는 [group_boxes_into_lines]와 같이 **상자 높이의 중앙값**에 건다. 예전에는
+    허용 오차는 **그 사진에 있는 상자 높이의 중앙값**에 건다. 예전에는
     그 줄을 처음 연 상자와 지금 상자 중 큰 쪽 높이(max)에 걸었는데, 그러면 같은 규칙이
     아니었다. "(2인기준)" 같은 작은 첨자(높이 19)가 줄을 먼저 열면 오차가 그 상자 크기로
     좁아져서, 정작 그 메뉴의 가격 상자(높이 37)가 아래 줄로 밀려난다. 밀려난 자리에는
     옆 칸 메뉴의 가격만 남아 그것이 메뉴에 붙었다(실측: 낙지볶음 35,000 -> 20,000).
     중앙값은 상자 하나가 크거나 작다고 흔들리지 않아 줄을 여는 순서와 무관하다.
+
+    고정 픽셀 값을 안 쓰는 이유도 같은 자리에 적어둔다. 사진 해상도와 글자 크기가
+    제각각이라, 고정값을 쓰면 어떤 사진에서는 두 줄이 붙고 다른 사진에서는 한 줄이
+    쪼개진다. 평균이 아니라 중앙값인 이유는 메뉴판에 큰 제목과 작은 설명이 섞여
+    있어서다 — 평균은 그런 극단값 하나에 끌려간다.
     """
     if not boxes:
         return []
@@ -315,56 +327,6 @@ def group_boxes_into_rows(boxes: list[TextBox]) -> list[str]:
     """
     lines = [row_text(row) for row in group_boxes_into_row_groups(boxes)]
     return [line for line in lines if line]
-
-
-class MenuLine(NamedTuple):
-    """메뉴판 한 줄 — 같은 줄로 묶인 상자들을 이름 쪽과 가격 쪽으로 나눠 담는다."""
-
-    boxes: list[TextBox]       # 왼쪽 -> 오른쪽 순
-    text: str                  # 줄 전체 글자 (공백으로 이어붙임)
-    name_boxes: list[TextBox]  # 가격으로 안 읽히는 조각 = 메뉴 이름 후보
-    price_boxes: list[TextBox] # 가격으로 파싱되는 조각
-
-
-def group_boxes_into_lines(boxes: list[TextBox]) -> list[MenuLine]:
-    """상자를 줄로 묶고, 각 줄을 이름 영역과 가격 영역으로 나눈다.
-
-    줄 묶기 허용 오차를 **상자 높이의 중앙값**에 비례시킨다. 고정 픽셀 값을 쓰면 사진
-    해상도와 글자 크기에 따라 어떤 사진에서는 두 줄을 붙여버리고 다른 사진에서는 같은
-    줄을 쪼갠다. 중앙값을 쓰는 이유는 평균과 달리 아주 크거나 작은 상자 하나에 끌려가지
-    않기 때문이다(메뉴판에는 큰 제목과 작은 설명이 섞여 있다).
-
-    이름/가격 구분은 위치가 아니라 **내용**으로 한다. 가격을 오른쪽에 적는 메뉴판이
-    많지만 이름 아래에 적는 사진형 메뉴판도 있어서, "오른쪽 = 가격"으로 단정하면 후자를
-    통째로 놓친다. 가격으로 파싱되는 조각만 가격으로 본다.
-    """
-    if not boxes:
-        return []
-
-    line_height = statistics.median(float(box[3]) for box in boxes)
-    tolerance = _ROW_CENTER_TOLERANCE * line_height
-
-    rows: list[list[TextBox]] = []
-    for box in sorted(boxes, key=lambda b: b[1] + b[3] / 2):
-        center = box[1] + box[3] / 2
-        for row in rows:
-            anchor = row[0]
-            if abs(center - (anchor[1] + anchor[3] / 2)) <= tolerance:
-                row.append(box)
-                break
-        else:
-            rows.append([box])
-
-    lines = []
-    for row in rows:
-        ordered = sorted(row, key=lambda b: b[0])
-        text = " ".join(box[4] for box in ordered if box[4])
-        if not text:
-            continue
-        price_boxes = [box for box in ordered if box[4] and find_prices(box[4])]
-        name_boxes = [box for box in ordered if box[4] and not find_prices(box[4])]
-        lines.append(MenuLine(boxes=ordered, text=text, name_boxes=name_boxes, price_boxes=price_boxes))
-    return lines
 
 
 def recognize_boxes_with_mapping(image_path: str) -> tuple[list[TextBox], SourceMapping]:

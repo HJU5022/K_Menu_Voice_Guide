@@ -176,16 +176,6 @@ class MatchFoodCandidatesTests(unittest.TestCase):
 
         self.assertEqual(sorted(c["name_kr"] for c in result), ["감자전", "감자탕"])
 
-    def test_match_food_returns_highest_ranked_candidate(self):
-        """match_food()는 후보 목록의 1등 하나만 돌려준다 (사용자 선택 없이 바로 쓰는 경로)."""
-        with (
-            patch.object(cache, "get_foods", return_value=self.foods),
-            patch.object(cache, "get_modifiers", return_value=[]),
-        ):
-            result = match.match_food("닭갈비 15,000원")
-
-        self.assertEqual(result["name_kr"], "닭갈비")
-
 
 class MatchByLineTests(unittest.TestCase):
     """match_food_candidates_by_line() — 메뉴판을 줄 단위로 보는 쪽.

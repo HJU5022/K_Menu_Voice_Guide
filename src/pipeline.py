@@ -17,10 +17,9 @@ from pathlib import Path
 from time import perf_counter
 
 from src.text_gen.narration import get_narration
-from src.ocr.infer import group_boxes_into_rows, recognize, recognize_boxes_with_mapping
+from src.ocr.infer import group_boxes_into_rows, recognize_boxes_with_mapping
 from src.ocr.preprocess import to_original_bbox
-from src.ocr.match import match_food, scan_menu_lines
-from src.text_gen.detail import get_details
+from src.ocr.match import scan_menu_lines
 
 logger = logging.getLogger(__name__)
 
@@ -284,17 +283,3 @@ def _attach_source(candidate: dict, mapping) -> dict:
         "height": height,
     }
     return candidate
-
-
-def run(image_path: str) -> dict:
-    """이미지 하나를 받아 OCR → 매칭 → 텍스트생성 → TTS까지 이어서 최종 응답을 만든다."""
-    text = recognize(image_path)
-    match_result = match_food(text)
-    if match_result is None:
-        return {"matched_food": None}
-
-    food_id = match_result["food_id"]
-    response = create_tts_response(food_id)
-    response["matched_food"] = match_result
-    response["details"] = get_details(food_id)
-    return response

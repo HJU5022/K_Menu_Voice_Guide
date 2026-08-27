@@ -275,6 +275,16 @@ def list_foods():
 
 @app.get("/api/foods/{food_id}", response_model=FoodDetailResponse)
 def get_food(food_id: int):
+    """음식 하나의 상세 텍스트 6개와 음성(나레이션·이름)을 한 번에 돌려준다.
+
+    사용자가 후보 중 하나를 고른 **뒤에** 불린다. 무거운 TTS를 여기서 처리하는 이유가
+    그것이다 — 사진을 분석하는 시점에 후보 전부의 음성을 만들면, 고르지도 않은 음식에
+    GPU를 쓰게 된다.
+
+    없는 `food_id`는 404로 돌려준다. 조회 계층이 내는 `ValueError`를 그대로 흘려보내면
+    500(서버 잘못)이 되는데, 사실은 요청이 가리킨 것이 없는 상황이라 뜻이 다르다
+    (`docs/specs/api-layer.md` EC-01).
+    """
     try:
         details = get_details(food_id)
         food_info = get_food_info(food_id)
@@ -294,16 +304,27 @@ def get_food(food_id: int):
 # 처음 보는 ID면 빈 카트를 돌려준다 — 별도의 "카트 생성" 요청이 필요 없게.
 @app.get("/api/cart", response_model=CartResponse)
 def read_cart(x_cart_id: str = Header(..., alias="X-Cart-Id")):
+    """이 카트 ID의 현재 담긴 목록과 합계를 돌려준다."""
     return get_cart(x_cart_id)
 
 
 @app.delete("/api/cart", response_model=CartResponse)
 def empty_cart(x_cart_id: str = Header(..., alias="X-Cart-Id")):
+    """카트를 통째로 비운다. 주문을 마쳤거나 다른 가게로 옮길 때 쓴다."""
     return clear_cart(x_cart_id)
 
 
 @app.post("/api/cart/items", response_model=CartResponse)
 def change_cart_item(change: CartItemChange, x_cart_id: str = Header(..., alias="X-Cart-Id")):
+    """담기·빼기를 하나의 요청으로 처리한다 — `quantity_delta`의 부호가 방향이다.
+
+    "담기"와 "수량 줄이기"를 따로 두지 않은 이유는 둘이 같은 일이기 때문이다. 나눠 두면
+    0이 되는 순간 어느 쪽이 지우는지가 애매해진다.
+
+    줄 구분에 `menu_text`가 함께 쓰인다. 메뉴판에 "물만두"와 "군만두"가 둘 다 있으면
+    `food_id`가 같아도 서로 다른 줄이라, 이름만으로 묶으면 한 줄처럼 굴게 된다
+    (`docs/specs/cart.md`).
+    """
     return change_quantity(
         x_cart_id,
         food_id=change.food_id,

@@ -80,6 +80,12 @@ def _deskew(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _enhance_contrast(image: np.ndarray) -> np.ndarray:
+    """어두운 실내에서 찍힌 메뉴판의 글자를 또렷하게 만든다(CLAHE).
+
+    밝기 채널(L)만 손대고 색(a·b)은 그대로 둔다 — 색까지 건드리면 메뉴판이 이상한
+    색으로 변한다. 사진 전체를 한 번에 늘리지 않고 작은 타일별로 나눠 늘리는 이유는,
+    한쪽만 조명이 밝은 사진에서 전체 기준으로 늘리면 어두운 쪽이 그대로 남기 때문이다.
+    """
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
