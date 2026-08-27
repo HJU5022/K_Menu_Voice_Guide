@@ -31,6 +31,7 @@ DATA_DIR = Path("OCR_finetune_data")
 
 
 def main(data_dir: Path = DATA_DIR) -> None:
+    """위 세 가지 정리를 순서대로 수행한다. 자세한 이유는 파일 맨 위 설명 참고."""
     images_dir = data_dir / "images"
     images_dir.mkdir(exist_ok=True)
 

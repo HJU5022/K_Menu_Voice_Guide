@@ -19,6 +19,11 @@ DEFAULT_OUTPUT_FORMAT = "wav_24000"  # infer.py/UTMOS 평가와 동일하게 24k
 
 
 def _api_key() -> str:
+    """.env에서 API 키를 읽는다. 없으면 발급 주소까지 알려주고 멈춘다.
+
+    키를 코드에 적지 않는 이유는 이 저장소가 공개돼 있어서다. 비교 평가 전용이라
+    배포 경로에서는 이 함수가 아예 불리지 않는다.
+    """
     key = os.environ.get("PERSO_API_KEY")
     if not key:
         raise RuntimeError(
@@ -28,6 +33,11 @@ def _api_key() -> str:
 
 
 def _headers() -> dict[str, str]:
+    """JSON 요청에 쓰는 공통 헤더.
+
+    파일을 올리는 요청(multipart)에는 쓰지 않는다 — Content-Type에 경계 문자열이
+    들어가야 하는데 그건 requests가 알아서 붙인다. 여기서 미리 박으면 그게 덮여 깨진다.
+    """
     return {"PersoPlatform-APIKey": _api_key(), "Content-Type": "application/json"}
 
 

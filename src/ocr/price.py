@@ -28,10 +28,14 @@ class TextBox(NamedTuple):
 
     @property
     def center_x(self) -> float:
+        """상자의 가로 한가운데. 어느 칸에 속하는지 볼 때 왼쪽 끝 대신 이 값을 쓴다 —
+        글자 수가 다르면 왼쪽 끝은 같은 칸이어도 제각각이다."""
         return self.x + self.width / 2
 
     @property
     def center_y(self) -> float:
+        """상자의 세로 한가운데. 같은 줄인지 볼 때 쓴다 — 글자 크기가 섞인 줄에서는
+        위쪽 끝을 견주면 큰 글자와 작은 글자가 다른 줄로 갈린다."""
         return self.y + self.height / 2
 
     @property
