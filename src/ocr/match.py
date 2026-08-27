@@ -12,6 +12,7 @@ OCR이 글자를 조금 틀리게 읽어도 가장 비슷한 등록 음식으로
 수식어 목록에서 제외한다.
 """
 
+import re
 import statistics
 
 from rapidfuzz import fuzz
@@ -547,6 +548,62 @@ def _display_line(row: list[TextBox], boxes: list[TextBox]) -> str:
     return row_text([box for box in row if not _is_non_menu_box(box, boxes)])
 
 
+# 홀로 떨어진 한 글자 한자. 등록 음식 50개도 메뉴판의 음식 이름도 한글이라, **낱말 하나가
+# 통째로 한자 한 글자**인 자리는 이름이 아니라 인분(人)·맵기(辛)·크기(小中大) 표시이거나
+# OCR 잡음이다(실측 2026-08-27, 테스트 사진 10장: 04번 카드의 이름이 "된장찌개 花"였고,
+# 상자 글자에는 "欢"도 있었다. 팀원 보고: "참치김치찌개 人").
+#
+# **붙어 있는 한자는 건드리지 않는다** — "두루치기(小)"의 "(小)"는 낱말의 일부다.
+# 가격 바로 앞의 크기 표시는 strip_prices()가 이미 떼고 있어(_PRICE_MARKS), 여기까지
+# 남는 것은 가격과 떨어져 홀로 선 글자뿐이다.
+_LONE_HANJA = re.compile(r"^[一-鿿]$")
+
+# 숫자와 자릿수 구분(`,`·`.`)으로만 이루어진 낱말. 통화·"원" 표시가 붙은 것까지 본다.
+#
+# **자릿수 구분을 반드시 요구한다.** 맨숫자 한 조각("1", "2")까지 지우면 OCR이 띄어
+# 읽은 "1 인분"의 앞 글자를 깎을 수 있다. 구분이 들어간 숫자는 값으로 적은 것 말고는
+# 메뉴 이름에 쓰일 일이 없다.
+_NUMBER_ONLY_TOKEN = re.compile(r"^[₩\\Ww]?\d+[,.][\d,.]*\d원?$")
+
+
+def _is_orphan_number(token: str) -> bool:
+    """가격으로도 안 읽히고 이름에도 못 붙는 숫자 조각인가.
+
+    OCR이 "6,900"의 자릿수를 하나 흘려 "6.90"으로 읽으면, 그게 6,900인지 690인지
+    글자만으로는 알 수 없어 find_prices()가 값으로 인정하지 않는다. 그러면
+    strip_prices()도 뗄 자리를 못 찾아, 그 숫자가 **이름 자리에 그대로 남는다**
+    (팀원 보고 2026-08-27: 카드에 "비빔냉면6.90", 가격은 "없음").
+
+    값을 추정하지는 않는다 — 값이 없는 것보다 틀린 것이 나쁘다(PR #106). 다만 이름
+    자리는 다르다. 그 글자는 화면에 이름으로 보이고 종업원에게 들려줄 말로도 쓰이므로
+    (frontend/docs/web-app.md), 이름이 아닌 숫자는 빼는 쪽이 맞다.
+
+    가격으로 읽히는지는 find_prices()에 그대로 물어본다 — 판정 규칙을 새로 만들지 않는다.
+    """
+    return bool(_NUMBER_ONLY_TOKEN.match(token)) and not find_prices(token)
+
+
+def _clean_name_text(name_text: str) -> str:
+    """화면 이름 자리에 쓸 글자에서 **이름일 수 없는 낱말**만 걷어낸다.
+
+    가격을 뗀 뒤에도 이름 자리에는 이름이 아닌 조각이 남는다. 지우는 대상은 위 두
+    가지뿐이고, 낱말 가운데는 손대지 않는다 — "숯불소갈비살1인분"·"삼겹살 200g"·
+    "계란찜추가시"처럼 숫자와 단위가 이름의 일부인 메뉴가 실제로 있다.
+
+    다 걷어내 남는 낱말이 없으면 원래 글자를 그대로 돌려준다. 이름 자리가 비는 편이
+    잡음이 남는 것보다 나쁘다 — strip_prices()의 되돌림 규칙과 같다.
+
+    **menu_text는 여기를 거치지 않는다.** 그쪽은 종업원에게 보여줄 원문이라 사진에
+    인쇄된 글자를 있는 그대로 두어야 한다.
+    """
+    kept = [
+        token
+        for token in name_text.split()
+        if not _LONE_HANJA.match(token) and not _is_orphan_number(token)
+    ]
+    return " ".join(kept) or name_text
+
+
 def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
     """메뉴판을 줄 단위로 훑어 **안내 가능한 후보**와 **그러지 못한 메뉴 줄**을 함께 돌려준다.
 
@@ -583,7 +640,8 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
         display_line = _display_line(row, boxes) or line
         # 가격을 뗀 이름 쪽 글자. 화면이 가격을 따로 보여주므로 이름 자리에는 이걸 쓴다.
         # 뗄 것이 없으면(가격 없는 줄) 줄 글자가 그대로 남는다.
-        name_text = strip_prices(display_line) or display_line
+        # 가격을 떼도 이름이 아닌 조각은 남으므로 한 번 더 정리한다(_clean_name_text).
+        name_text = _clean_name_text(strip_prices(display_line) or display_line)
 
         # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
         # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
@@ -691,7 +749,8 @@ def _unsupported_menu_line(
         "menu_text": line,
         # 가격을 뗀 이름 쪽 글자. 이 줄은 등록 음식이 아니라 이름 자리에 줄 글자를
         # 그대로 쓰는데, 그러면 화면에 가격이 두 번 보인다.
-        "name_text": strip_prices(line) or line,
+        # 후보 줄과 같은 자리이므로 정리도 같은 것을 쓴다(_clean_name_text).
+        "name_text": _clean_name_text(strip_prices(line) or line),
         "price_krw": price_krw,
         "price_krw_display": format_price_krw(price_krw),
         "source_text": name_box[4],
