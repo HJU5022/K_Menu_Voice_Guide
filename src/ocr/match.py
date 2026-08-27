@@ -686,6 +686,107 @@ def _looks_like_a_name(text: str) -> bool:
     return _has_korean_name(text, find_prices(text))
 
 
+# 칸 경계로 인정하려면 몇 줄에서 같은 자리가 나와야 하는가. 한 줄만 그렇다고 사진
+# 전체에 적용하면 우연히 벌어진 간격 하나로 멀쩡한 줄이 부서진다. 실측(테스트 10장 +
+# 2단_최우선_후보)에서 진짜 칸 경계는 4~12줄이 같은 자리를 가리켰고, 근거가 1줄뿐인
+# 자리는 전부 가짜였다(02번 x=689, 09번 x=616·1294). 2줄이면 가짜는 다 걸러지고,
+# 09번 x=557(산낙지 칸 / 코다리 칸 경계)처럼 근거가 적은 진짜는 살아남는다.
+_COLUMN_EVIDENCE_MIN_ROWS = 2
+
+
+def _column_boundaries(rows: list[list[TextBox]], boxes: list[TextBox]) -> list[list[float]]:
+    """줄마다 적용할 **칸 경계 x**를 구한다 — 돌려주는 목록은 `rows`와 길이가 같다.
+
+    [_menu_entries]의 "가격 뒤 이름" 규칙은 줄 하나만 본다. 그래서 그 줄에 신호가
+    없으면 못 자른다 — 실측 예: `산낙지섯가 코다리비빔막국수 8,000 3,000`은
+    [이름][이름][가격]이라 두 이름 사이에 가격이 없고, `궁중삼계탕 쑥궁중 삼계탕`은
+    줄에 가격이 아예 없다. 둘 다 왼쪽 칸과 오른쪽 칸이 한 항목으로 뭉친다.
+
+    한 줄에는 신호가 없어도 **사진 전체를 모으면 경계가 드러난다.** 2단 메뉴판은 칸
+    위치가 위아래로 같으므로, 규칙이 실제로 자른 자리의 x가 몇 줄에 걸쳐 같은 곳에
+    뭉친다(실측 09번: 자른 자리 8곳 중 4곳이 x≈1041 한 자리). 그 자리를 칸 경계로
+    보고, 규칙이 못 자른 줄에도 같이 적용한다.
+
+    **근거를 규칙이 자른 자리에서만 얻는 것이 안전장치다.** 1단 메뉴판에서는 규칙이
+    한 번도 안 걸리므로 경계가 하나도 안 나오고, 따라서 아무 줄도 쪼개지지 않는다
+    (실측: 1단인 10번과 한 칸짜리인 01·03·07번 모두 0개).
+    """
+    per_row: list[list[float]] = [[] for _ in rows]
+    if not boxes:
+        return per_row
+
+    # 규칙이 실제로 자른 자리 — (경계 x, 그 줄 번호).
+    spots: list[tuple[float, int]] = []
+    for row_no, row in enumerate(rows):
+        seen_price = False
+        previous: TextBox | None = None
+        for box in row:
+            if seen_price and previous is not None and _looks_like_a_name(box[4]):
+                # 경계는 앞 상자가 끝난 곳과 이 상자가 시작하는 곳 사이 어딘가다.
+                spots.append(((previous[0] + previous[2] + box[0]) / 2, row_no))
+                seen_price = False
+            previous = box
+            if find_prices(box[4]):
+                seen_price = True
+
+    # 같은 칸 경계라도 줄마다 몇 픽셀씩 어긋난다. 글자 높이만큼 떨어진 것까지 한 자리로
+    # 본다 — 줄 나누기(group_boxes_into_row_groups)도 상자 높이의 중앙값을 잣대로 쓴다.
+    tolerance = statistics.median(float(box[3]) for box in boxes)
+
+    for group in _cluster_by_gap(sorted(spots), tolerance):
+        supporters = {row_no for _x, row_no in group}
+        if len(supporters) < _COLUMN_EVIDENCE_MIN_ROWS:
+            continue
+        boundary = statistics.median(x for x, _row_no in group)
+        for row_no in _rows_the_boundary_runs_through(rows, boundary, supporters):
+            per_row[row_no].append(boundary)
+    return per_row
+
+
+def _cluster_by_gap(
+    spots: list[tuple[float, int]],
+    tolerance: float,
+) -> list[list[tuple[float, int]]]:
+    """x로 정렬된 자리들을 `tolerance`보다 멀리 떨어진 곳에서 끊어 묶는다."""
+    groups: list[list[tuple[float, int]]] = []
+    for spot in spots:
+        if groups and spot[0] - groups[-1][-1][0] <= tolerance:
+            groups[-1].append(spot)
+        else:
+            groups.append([spot])
+    return groups
+
+
+def _rows_the_boundary_runs_through(
+    rows: list[list[TextBox]],
+    boundary: float,
+    supporters: set[int],
+) -> set[int]:
+    """이 경계가 **끊기지 않고 이어지는** 줄들만 고른다.
+
+    한 메뉴판 안에서도 구역마다 칸 짜임새가 다르다. 실측 06번이 그렇다 — 위쪽 음식
+    구역은 [이름][인분][가격] 2단인데, 아래 술 구역은 [이름][가격][이름][가격] 4단이라
+    x≈1112에 술 구역만의 경계가 생긴다. 그걸 사진 전체에 쓰면 위쪽 `아바이순대`와 그
+    가격 `20,000` 사이를 갈라, 멀쩡하던 가격 6개가 사라졌다.
+
+    경계는 사진 위의 **세로 빈 통로**다. 글자가 통로를 가로지르는 줄에서 통로는 끊긴다.
+    그래서 근거가 나온 줄에서 위아래로, 가로지르는 줄을 만날 때까지만 넓힌다. 06번은
+    `아바이순대모둠`(x 877~1136)이 1112를 가로질러 술 구역에서 딱 멈춘다.
+    """
+    covered: set[int] = set()
+    segment: list[int] = []  # 통로가 안 끊긴 채 이어지는 줄 묶음
+    for row_no, row in enumerate(rows):
+        if any(box[0] < boundary < box[0] + box[2] for box in row):
+            if supporters.intersection(segment):
+                covered.update(segment)
+            segment = []  # 여기서 통로가 끊긴다 — 다음 줄부터 새 묶음
+        else:
+            segment.append(row_no)
+    if supporters.intersection(segment):  # 마지막 묶음
+        covered.update(segment)
+    return covered
+
+
 def _menu_entries(boxes: list[TextBox]) -> list[list[TextBox]]:
     """글자 상자를 **메뉴 항목 단위**로 묶는다.
 
@@ -694,19 +795,30 @@ def _menu_entries(boxes: list[TextBox]) -> list[list[TextBox]]:
     한 줄로 뭉친다.** 그러면 한 항목에 이름과 가격이 두 벌씩 들어가, 어느 가격을
     집어도 틀린다(실측 예: "김치김밥 3,500 퍼퍼00 5,000 다 슬 기 9,").
 
-    가로로 훑다가 **가격이 이미 나온 뒤에 또 이름이 나오면** 거기를 칸 경계로 본다.
-    1단에서는 이름 뒤에 가격이 오고 끝나므로 쪼개지지 않고, 2단에서는
-    [이름][가격][이름][가격]이라 정확히 사이에서 갈린다.
+    자르는 신호는 둘이고, **둘 중 하나만 걸려도 자른다.**
+
+    1. 가로로 훑다가 **가격이 이미 나온 뒤에 또 이름이 나오면** 거기가 칸 경계다.
+       1단에서는 이름 뒤에 가격이 오고 끝나므로 쪼개지지 않고, 2단에서는
+       [이름][가격][이름][가격]이라 정확히 사이에서 갈린다.
+    2. 사진 전체에서 구한 **칸 경계 x**를 지나가면 거기가 칸 경계다([_column_boundaries]).
+       1번은 줄 하나만 봐서, 왼쪽 칸 가격이 그 줄에 없거나([이름][이름][가격]) 줄에
+       가격이 아예 없으면 못 자른다. 2번은 그 줄에 신호가 없어도 자른다.
 
     칸이 셋 이상이어도 같은 규칙이 그대로 적용된다.
     """
+    rows = group_boxes_into_row_groups(boxes)
+    boundaries_by_row = _column_boundaries(rows, boxes)
+
     entries: list[list[TextBox]] = []
-    for row in group_boxes_into_row_groups(boxes):
+    for row, boundaries in zip(rows, boundaries_by_row):
         current: list[TextBox] = []
         seen_price = False
         for box in row:
             text = box[4]
-            if seen_price and _looks_like_a_name(text):
+            if current and (
+                (seen_price and _looks_like_a_name(text))
+                or _crosses_a_column_boundary(current, box, boundaries)
+            ):
                 entries.append(current)
                 current = []
                 seen_price = False
@@ -716,6 +828,23 @@ def _menu_entries(boxes: list[TextBox]) -> list[list[TextBox]]:
         if current:
             entries.append(current)
     return entries
+
+
+def _crosses_a_column_boundary(
+    current: list[TextBox],
+    box: TextBox,
+    boundaries: list[float],
+) -> bool:
+    """지금까지 모은 상자들과 이 상자 **사이의 빈틈**에 칸 경계가 들어 있는가.
+
+    경계가 상자 한가운데를 지나면 자르지 않는다 — OCR이 이름과 가격을 한 상자로
+    뭉쳐 읽은 경우(실측: "섞어국밥3.")가 그렇고, 그건 여기서 고칠 수 있는 일이 아니다.
+    빈틈에 들어 있을 때만 자르므로 상자를 쪼개는 일은 생기지 않는다.
+    """
+    # 한 줄 안에서 상자가 겹쳐 읽히기도 해서(작은 첨자가 큰 이름 위에 겹침) 바로 앞
+    # 상자가 아니라 지금까지 모은 것 중 가장 오른쪽 끝을 본다.
+    left = max(kept[0] + kept[2] for kept in current)
+    return any(left <= boundary <= box[0] for boundary in boundaries)
 
 
 def _unsupported_menu_line(
