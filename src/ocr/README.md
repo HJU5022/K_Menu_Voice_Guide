@@ -21,6 +21,12 @@
 이미지 → preprocess → infer(글자 추출) → match(음식명 확정) → 후보 목록
 ```
 
+`match.py`의 `scan_menu_lines()`는 메뉴판을 줄 단위로 훑습니다. 이름이 닮은 정도로만
+걸린 후보(메뉴판 `콩물국수` → 등록 `콩국수`)는 글자로 위치를 못 찾아 사진 상자와 가격을
+잃는데, `_fill_missing_from_row()`가 그 줄에서 채웁니다. 가격은 줄에 값이 하나이고
+후보도 하나일 때만 채웁니다 — 자세한 이유는 `docs/specs/ocr-candidate-results.md`의
+EC-06 참고.
+
 `prepare_dataset.py`와 `finetune.py`는 **학습할 때만** 씁니다. 배포 경로에는 들어가지 않습니다.
 
 ## 왜 vendor 코드가 있나

@@ -830,5 +830,45 @@ class FindSourceBoxTests(unittest.TestCase):
         self.assertEqual(match.find_source_box(boxes, "비빔밥"), boxes[0])
 
 
+class FuzzyNameRowFallbackTests(unittest.TestCase):
+    """닮은 정도로만 걸린 후보도 사진 위치와 가격을 잃지 않는다.
+
+    메뉴판의 "콩물국수"는 등록된 "콩국수"에 임계값 85로 걸린다. 그런데 상자 글자에
+    "콩국수"가 통짜로 들어있지 않아서 find_source_box()도 match_prices_to_names()도
+    빈손으로 돌아왔다 — 화면에는 사진 상자도 가격도 없는 카드만 남았다.
+    """
+
+    FOODS = _menu_foods("콩국수", "비빔밥")
+
+    def scan(self, boxes):
+        with (
+            patch.object(cache, "get_foods", return_value=self.FOODS),
+            patch.object(cache, "get_modifiers", return_value=[]),
+        ):
+            return match.scan_menu_lines(boxes)[0]
+
+    def test_fuzzy_match_keeps_its_photo_box_and_price(self):
+        """"콩물국수"에서 나온 후보도 줄에서 위치와 값을 물려받는다."""
+        [candidate] = self.scan([(10, 10, 300, 30, "콩물국수 9,000원", 0.99)])
+
+        self.assertEqual(candidate["name_kr"], "콩국수")
+        self.assertEqual(candidate["price_krw"], 9000)
+        self.assertIsNotNone(candidate["source_box"])
+
+    def test_exact_match_is_untouched(self):
+        """글자로 찾을 수 있는 후보는 원래 경로 그대로다 — 보정이 끼어들지 않는다."""
+        [candidate] = self.scan([(10, 10, 300, 30, "비빔밥 8,000원", 0.99)])
+
+        self.assertEqual(candidate["price_krw"], 8000)
+        self.assertEqual(candidate["source_text"], "비빔밥 8,000원")
+
+    def test_price_is_not_shared_when_one_row_holds_two_menus(self):
+        """줄 나누기가 두 메뉴를 한 줄로 묶으면 값을 나눠주지 않는다 — 남의 가격이 붙는다."""
+        candidates = self.scan([(10, 10, 500, 30, "콩물국수 비빔밥 8,000원", 0.99)])
+        prices = {c["name_kr"]: c["price_krw"] for c in candidates}
+
+        self.assertEqual(prices["콩국수"], None)
+
+
 if __name__ == "__main__":
     unittest.main()
