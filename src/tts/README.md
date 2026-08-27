@@ -76,7 +76,7 @@ python -m src.tts.pregenerate --force    # 전부 다시 생성
 - **치환 위치**: `src/text_gen/narration.py`. 거기서 `foods` 행을 이미 조회하므로 `name_en`/`name_kr` 쌍이 손에 있습니다. 단어 경계로 매칭해서 짧은 이름이 긴 이름 안쪽을 파먹지 않게 합니다(`Galbi`가 `Tteokgalbi`를 건드리면 안 됨).
 - **`infer.py`는 손대지 않습니다**: 받은 `tts_text`를 그대로 넘깁니다. 여기서 또 치환하면 이미 바뀐 이름을 두 번 처리합니다.
 - **화면용 텍스트는 로마자 유지**: 여행자가 소리 내어 읽어야 하므로 `text`는 원본 표기 그대로입니다.
-- **발음 안내 문장은 TTS 전용 행**: 화면용 `PRONUNCIATION`을 그대로 쓰면 `비빔밥 is pronounced "bee-bim-bap."`이 되어 같은 이름을 연달아 두 번 읽습니다. TTS 쪽은 `PRONUNCIATION_TTS` 카테고리를 씁니다.
+- **발음 안내 문장은 음성에서 뺐습니다**: 화면용 `PRONUNCIATION`을 그대로 쓰면 `비빔밥 is pronounced "bee-bim-bap."`이 되어 같은 이름을 연달아 두 번 읽습니다. 음성이 이미 이름을 한글로 정확히 읽어주므로 발음 안내를 따로 읽을 필요가 없습니다. 발음법은 화면의 `Pronunciation` 카드로만 보여줍니다. (한때 쓰던 `PRONUNCIATION_TTS` 카테고리는 2026-08-27부터 코드가 읽지 않습니다.)
 
 앞서 쓰던 영문 리스펠링(`Tteokbokki` → `Duck-bok-kee`)은 폐기됐고 `RESPELL_MAP`·`apply_respelling()`도 코드에서 삭제했습니다. 전환 경위와 표기 21개 목록은 [`eval/TTS_MODULE.md`](../../eval/TTS_MODULE.md) 4절, 결정 기록은 [`docs/specs/tts-finetuning.md`](../../docs/specs/tts-finetuning.md) "구현 변경 이력 (2026-08-25, 최종)" 참고.
 

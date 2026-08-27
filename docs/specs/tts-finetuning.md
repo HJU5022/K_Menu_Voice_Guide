@@ -34,10 +34,9 @@
 1. `foods`에서 `food_id` 행을 조회한다 (`spice_level`, `name_en`, `name_kr`).
 2. `spice_level`이 1~3이면 GUIDE, 4~5면 CAUTION으로 정한다.
 3. `food_narration`에서 같은 `food_id`와 style의 `narration_text`를 조회한다.
-4. `food_details`에서 PRONUNCIATION·ALLERGY를 조회해 `narration_text` 뒤에 순서대로 이어붙인다
-   → 화면용 `text`.
-5. TTS용 문장은 4번 결과에서 PRONUNCIATION 자리를 PRONUNCIATION_TTS로 갈아끼운 뒤, 문장 속
-   `name_en`을 단어 경계 기준으로 `name_kr`로 치환한다 → `tts_text`.
+4. `narration_text`를 그대로 화면용 `text`로 쓴다 — 다른 카테고리를 덧붙이지 않는다.
+5. TTS용 문장은 같은 `text`에서 `name_en`을 단어 경계 기준으로 `name_kr`로 치환한 것이다
+   → `tts_text`. 즉 둘은 음식명 표기만 다르다.
 6. `{text, tts_text, style, name_kr}`을 반환한다.
 7. `synthesize(text, style)`는 style에 맞는 instruct를 붙여 모델을 호출하고, 앞뒤 무음을 다듬은
    WAV 경로를 반환한다.
@@ -52,8 +51,7 @@
 | EC-02 | food_narration에 해당 style 문장이 없음 | `ValueError` |
 | EC-03 | spice_level이 정수가 아님 | `ValueError` |
 | EC-04 | narration_text가 빈 문자열 | `ValueError` |
-| EC-05 | food_details에 PRONUNCIATION 또는 ALLERGY가 없음 | `ValueError` |
-| EC-06 | PRONUNCIATION_TTS 행이 없음 | 화면용 PRONUNCIATION으로 폴백 (예외 아님) |
+| EC-05 | 해당 style의 `narration_text`가 없거나 공백만 있음 | `ValueError` |
 | EC-07 | foods.name_kr이 비어 있음 | 치환하지 않고 로마자 원문을 그대로 씀 (예외 아님) |
 | EC-08 | DB 호출 실패 | 예외를 숨기지 않고 호출자에게 전달 |
 | EC-09 | TTS text가 빈 문자열 | `ValueError` |
@@ -107,10 +105,10 @@
 - THEN: `ValueError`가 발생한다.
 
 **AC-04 · 화면용/음성용 분리**
-- GIVEN: `name_en`/`name_kr`과 PRONUNCIATION_TTS 행이 있는 음식이 있다.
+- GIVEN: `name_en`/`name_kr`이 있는 음식이 있다.
 - WHEN: `get_narration(food_id)`를 호출한다.
-- THEN: `tts_text`는 음식명이 한글 표기이고 발음 안내가 음성 전용 문장이며, `text`는 로마자
-  원문과 화면용 PRONUNCIATION을 유지한다. 치환은 단어 경계 기준이라 긴 이름 안쪽을 건드리지
+- THEN: `tts_text`는 음식명이 한글 표기이고, `text`는 로마자 원문을 유지한다. 음식명을 되돌리면
+  두 문자열이 정확히 같다. 치환은 단어 경계 기준이라 긴 이름 안쪽을 건드리지
   않는다.
 
 **AC-05 · 폴백**
