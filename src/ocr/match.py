@@ -533,8 +533,6 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
         # 간판 판별에는 사진 전체를 넘긴다 — 글자 크기를 서로 견줘야 알 수 있다.
         matches = match_food_candidates(line, boxes=row, all_boxes=boxes)
 
-        # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
-        # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
         # 화면에 나가는 글자에서만 안내 문장을 뺀다. 매칭·가격에 쓰는 line은 그대로 둔다 —
         # 그쪽은 이미 all_boxes로 안내 문구를 걸러내고 있어서(match_food_candidates,
         # _is_non_menu_box), 여기서 글자를 줄이면 판정 근거만 잃는다.
@@ -545,6 +543,8 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
         # 뗄 것이 없으면(가격 없는 줄) 줄 글자가 그대로 남는다.
         name_text = strip_prices(display_line) or display_line
 
+        # 한 줄에서 같은 음식이 두 번 나오면 점수가 높은 쪽만 남긴다. 줄 하나가
+        # 카드 하나라는 약속이 깨지면 화면에 같은 카드가 겹쳐 보인다.
         seen: dict[int, dict] = {}
         for candidate in matches:
             candidate["menu_text"] = display_line
