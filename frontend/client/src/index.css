@@ -831,4 +831,12 @@ html[lang="ko"] .camera-copy h1 { font-size: min(50px, 9.2cqi); line-height: 1.2
     white-space: nowrap;
     border: 0;
   }
+
+  /* 좁은 폭에서 .dish-actions가 세로 배치(flex-direction:column)로 바뀌면서
+     align-items:stretch가 걸리는데, 그 바람에 수량 고르개가 카드 폭만큼 늘어난다.
+     늘어난 것 자체는 버튼과 폭을 맞추려는 의도라 그대로 두고, 안쪽만 고친다 —
+     기본 정렬이 flex-start라 −·수량·+ 셋이 왼쪽 끝에 뭉쳐 있었다. */
+  .stepper {
+    justify-content: space-between;
+  }
 }
