@@ -1,6 +1,6 @@
 # Spec — OCR 파인튜닝
 
-> 뼈대만 잡아둔 상태입니다. 형식은 [`_example.md`](./_example.md)를 따르고, 다섯 섹션을 모두 채운 뒤 구현에 들어갑니다.
+> **구현·배포 완료.** 다섯 섹션이 모두 채워져 있고, 아래 "구현 변경 이력"에 계획과 달라진 지점(export 경로 포기 → vendor 코드 직접 로딩)이 남아 있습니다. 실측 결과의 정본은 [`eval/model_comparison.md`](../../eval/model_comparison.md) 1절입니다.
 
 ## Why
 
@@ -33,7 +33,7 @@
 |---|---|---|
 | EC-01 | 메뉴판이 기울어져 촬영됨 | `preprocess.py`의 `_deskew`: Otsu 이진화 + `minAreaRect`로 회전각 추정 후 `warpAffine`으로 보정 |
 | EC-02 | 조명이 어둡거나 반사됨 | `preprocess.py`의 `_enhance_contrast`: LAB 색공간에서 CLAHE 적용(`clipLimit=2.0`, `tileGridSize=8x8`) |
-| EC-03 | 등록되지 않은 음식명이 인식됨 | `match.py`에서 부분일치 실패 또는 RapidFuzz 점수 70점 미만 → `None` 반환 → UI에 "미지원 안내" 표시 |
+| EC-03 | 등록되지 않은 음식명이 인식됨 | `match.py`의 `name_score()`가 `MATCH_THRESHOLD`(현재 **85**) 미만 → 후보를 만들지 않음 → UI에 "미지원 안내" 표시 |
 | EC-04 | 글자를 하나도 못 찾음 | OCR 결과 없음 → "조명·거리·각도 안내" 메시지와 함께 재촬영 요청 |
 | EC-05 | 유사도가 비슷한 후보가 여러 개 | EC-03과 동일한 카드 UI 정책 재사용: 후보들을 번호+카드 목록으로 보여주고 사용자가 하나를 직접 선택 |
 
@@ -45,7 +45,7 @@
 |---|---|---|
 | 1안 | 전체 학습 | 데이터 39,000장 규모로 대형 모델을 처음부터 학습시키면 과적합·학습 시간 부담 → 미선택 |
 | 2안 | LoRA · QLoRA | PaddleOCR 인식 모델은 LoRA 적용 사례가 드물고, 이미 mobile 모델 자체가 경량이라 이득이 적음 → 미선택 |
-| 3안 | mobile + 양자화(paddleslim) | **선택.** `korean_PP-OCRv5_mobile_rec` 사전학습 가중치로 전체 파인튜닝(현재 `finetune.py` 구현 상태) → HF Spaces ZeroGPU 배포 환경(추론 시간·메모리 제약)에 적합. 양자화는 파인튜닝 완료 후 순서대로 진행: ① 파인튜닝만으로 90% 인식률 확보 확인 → ② paddleslim으로 양자화 → ③ 양자화 후 재측정, 90% 밑으로 떨어지면 양자화 없는 mobile 가중치로 롤백 |
+| 3안 | mobile + 양자화(paddleslim) | **선택.** `korean_PP-OCRv5_mobile_rec` 사전학습 가중치로 전체 파인튜닝(현재 `finetune.py` 구현 상태) → 추론 시간·메모리 제약이 있는 Space 배포에 적합. *(2026-08-21 정정: 당시 전제였던 "HF Spaces **ZeroGPU**"는 폐기됐다 — ZeroGPU는 PyTorch 전용이라 PaddleOCR이 GPU를 쓸 수 없다. 실제 배포는 전용 GPU(T4 small) Docker Space다 — `docs/specs/fastapi-space-deploy.md`.)* 양자화는 파인튜닝 완료 후 순서대로 진행: ① 파인튜닝만으로 90% 인식률 확보 확인 → ② paddleslim으로 양자화 → ③ 양자화 후 재측정, 90% 밑으로 떨어지면 양자화 없는 mobile 가중치로 롤백 |
 
 **학습 하이퍼파라미터 결정 경위** *(2026-08-21 정정: 실제로는 4차까지 진행됨. 아래 이전 표의 "1차"는 실제 3차, "2차"는 실제 4차)*
 
@@ -78,7 +78,7 @@
 **AC-03 · 등록되지 않은 음식명 처리**
 - GIVEN: OCR이 등록되지 않은 음식명 글자를 추출함 (EC-03)
 - WHEN: `match_food`가 호출됨
-- THEN: 부분일치 실패 또는 점수 70점 미만으로 `None`을 반환하고, UI에 "미지원 안내"가 표시된다
+- THEN: `name_score()`가 `MATCH_THRESHOLD`(현재 85) 미만이라 후보를 만들지 않고, UI에 "미지원 안내"가 표시된다
 
 **AC-04 · 글자 인식 완전 실패**
 - GIVEN: 조명·각도 문제로 OCR이 텍스트를 전혀 추출하지 못함 (EC-04)

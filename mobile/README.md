@@ -13,23 +13,44 @@ mobile/
 ├── lib/
 │   ├── main.dart                  앱 시작점 + 화면 전환
 │   ├── config.dart                서버 주소 — 환경이 바뀌면 여기만 고친다
-│   ├── api.dart                   서버 호출 2개 + 응답 파싱
+│   ├── api.dart                   서버 호출 + 응답 파싱 (아래 표)
+│   ├── korean_speaker.dart        기기 음성으로 한국어 메뉴 이름 읽기 (우리 TTS와 별개)
 │   └── screens/
-│       ├── camera_screen.dart     ① 메뉴판 촬영
-│       ├── candidates_screen.dart ② 음식 후보 선택
-│       └── detail_screen.dart     ③ 상세 6개 카테고리 + 음성 재생
+│       ├── camera_screen.dart          ① 메뉴판 촬영 (앱을 열면 처음 보이는 화면)
+│       ├── candidates_screen.dart      ② 음식 후보 선택 + 장바구니
+│       ├── detail_screen.dart          ③ 상세 6개 카테고리 + 음성 재생
+│       ├── order_summary_screen.dart   주문 확인 — 종업원에게 보여주는 화면
+│       ├── menu_photo_overlay.dart     찍은 사진 위에 후보 자리를 번호 상자로 표시
+│       ├── first_run_guide.dart        첫 실행 4단계 안내 (한 번만 뜬다)
+│       ├── settings_button.dart        상단바 설정 진입 버튼
+│       ├── settings_screen.dart        설정 — 안내 항목을 한 줄씩 모아둔 자리
+│       ├── supported_foods_screen.dart   안내 가능한 음식 전체 목록
+│       ├── how_it_works_screen.dart      사용법·지원 범위·가격 출처
+│       ├── credits_screen.dart           사진·데이터 출처 모음
+│       ├── spice_gauge.dart              맵기 불꽃 눈금 — 후보 카드와 상세가 같이 쓴다
+│       ├── stitch_bar.dart               앱바 아래 공통 장식 바
+│       └── animated_gradient_back_button.dart  공통 뒤로가기 버튼
 ├── ios/                           iOS 설정 (Info.plist에 카메라 권한·ATS)
 ├── android/                       Android 설정
 └── pubspec.yaml                   패키지 목록
 ```
 
-화면 3개는 서버 API와 1:1로 대응합니다.
+**주 흐름은 화면 3개**이고 서버 API와 1:1로 대응합니다. 나머지는 그 주위의 보조 화면과 공통 위젯입니다.
 
 ```
 camera_screen      ──▶ POST /api/analyze       ──▶ candidates
 candidates_screen  ──▶ 사용자가 하나 선택
-detail_screen      ──▶ GET /api/foods/{id}     ──▶ details 6개 + 음성 URL
+detail_screen      ──▶ GET /api/foods/{id}     ──▶ details 6개 + 음성 URL 2개
 ```
+
+`api.dart`가 부르는 곳은 여섯 군데입니다.
+
+| 함수 | 요청 |
+|---|---|
+| `analyze()` | `POST /api/analyze` — 사진 → 후보 목록 |
+| `fetchFood()` | `GET /api/foods/{id}` — 상세 + 나레이션·이름 음성 |
+| `fetchSupportedFoods()` | `GET /api/foods` — 지원 음식 목록 (설정 화면) |
+| `fetchCart()` / `changeCartItem()` / `clearCart()` | `/api/cart…` — 장바구니 (`X-Cart-Id` 헤더 필수) |
 
 화면 사이에 넘기는 것은 매번 줄어듭니다 — 촬영→후보는 후보 목록 전체를, 후보→상세는 고른 `food_id` 하나만 넘깁니다. 상세 화면은 그 번호로 서버에 다시 물어보므로 목록을 들고 갈 이유가 없습니다.
 
@@ -38,6 +59,15 @@ detail_screen      ──▶ GET /api/foods/{id}     ──▶ details 6개 + �
 **사진을 보여주는 자리에는 출처(`thumbnail_attribution`)를 반드시 함께 표시합니다.** 외부 데이터셋 사진을 쓰면서 출처를 남기기로 한 프로젝트 조건이라, 화면을 고칠 때 이 부분이 빠지지 않도록 주의하세요.
 
 상세 화면은 열리자마자 음성을 자동 재생하고, 화면을 떠날 때 재생기를 정리합니다. 정리를 빠뜨리면 뒤로 가도 소리가 계속 납니다.
+
+**소리를 내는 곳이 두 군데입니다.** 헷갈리기 쉬우니 구분해 두세요.
+
+| | 내는 것 | 누가 만드나 |
+|---|---|---|
+| 나레이션·이름 음성 | 영어 설명, 그리고 음식 이름만 읽은 음성 | 우리가 파인튜닝한 모델. 서버가 wav로 내려준다 (`audioplayers`로 재생) |
+| 메뉴 이름 읽기 | 메뉴판에 적힌 한국어 이름 | **기기에 원래 있는 음성** (`korean_speaker.dart`, `flutter_tts`) |
+
+우리 모델은 영어 설명을 읽도록 학습한 것이라 한국어 음식명을 한국어로 발음하지 못하고, 등록되지 않은 메뉴는 읽을 대본 자체가 없습니다. 기기 음성은 글자만 주면 무엇이든 읽고 서버를 안 거치니 즉시 나옵니다.
 
 ## 실행 방법
 
@@ -118,4 +148,7 @@ cd mobile && flutter run
 |---|---|
 | `image_picker` | 카메라 촬영 / 사진첩 선택 |
 | `http` | API 호출 |
-| `audioplayers` | 내레이션 WAV 재생 |
+| `audioplayers` | 서버가 만든 내레이션·이름 WAV 재생 |
+| `flutter_tts` | 기기 음성으로 한국어 메뉴 이름 읽기 (`korean_speaker.dart`) |
+| `shared_preferences` | 첫 실행 안내를 닫았는지 기기에 저장 |
+| `cupertino_icons` | iOS 스타일 아이콘 |

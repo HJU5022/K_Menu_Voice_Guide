@@ -12,8 +12,11 @@
 - **해결 목표**: OCR 텍스트를 UI가 사용할 수 있는 상태 코드와 음식 후보 목록으로 변환한다.
 - **성공 기준**:
   1. 빈 OCR 텍스트는 `ocr_empty` 상태를 반환한다.
-  2. OCR 텍스트는 있으나 임계값 이상 후보가 없으면 `unsupported_food` 상태를 반환한다.
-  3. 후보가 있으면 `candidates_found` 상태와 점수순 후보 목록을 반환한다.
+  2. 글자는 읽혔지만 **가격이 붙은 메뉴 줄이 하나도 없으면** `not_a_menu` 상태를 반환한다(2026-08-25 추가).
+     얼굴·풍경을 찍어도 OCR이 잡음 글자를 만들어내 `ocr_empty`로는 안 잡히는데, 이쪽은 다시 찍으면
+     해결되는 상황이라 화면이 다른 안내를 띄워야 한다.
+  3. 메뉴 줄은 있으나 임계값 이상 후보가 없으면 `unsupported_food` 상태를 반환한다.
+  4. 후보가 있으면 `candidates_found` 상태와 후보 목록을 반환한다.
 - **Out of Scope**: Gradio UI, 후보 카드 렌더링, 사용자의 음식 선택 처리, 상세 정보 조회, TTS 생성, Supabase 스키마 변경, 매칭 임계값 변경.
 
 ## What
@@ -40,7 +43,10 @@
 
 - `src/ocr/match.py`에 `match_food_candidates(text: str) -> list[dict]`를 추가한다.
 - 후보의 반환 키는 기존 매칭 결과와 같은 `food_id`, `name_kr`, `score`, `modifiers`를 사용한다.
-- 후보 수집은 기존 `MATCH_THRESHOLD = 70`, `fuzz.partial_ratio`, 공백 제거 규칙을 그대로 사용한다.
+- 후보 수집 기준은 `match.py`의 `MATCH_THRESHOLD`와 `name_score()`다. **값과 함수가 그 뒤 두 번 바뀌었다** —
+  임계값은 70 → 85(2026-08-23, 오탐 측정 후 상향, `eval/measure_match_precision.py`), 점수 함수는
+  `fuzz.partial_ratio` → `name_score()`(부분일치가 늘 100을 내 임계값 검사가 작동하지 않았다).
+  공백 제거 규칙은 그대로다.
 - 기존 `match_food(text)`는 기존 호출부의 호환성을 위해 가장 높은 후보 하나 또는 `None`을 반환하도록 유지한다.
 - `src/pipeline.py`에 `analyze_image(image_path: str) -> dict`를 추가한다.
 - `analyze_image()` 반환 키는 `status`, `ocr_text`, `candidates`로 고정한다.

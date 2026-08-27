@@ -5,7 +5,7 @@
 | 담당 | 박민영 |
 | 베이스 모델 | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` |
 | 배포 어댑터 | [huggingface.co/k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) |
-| 최종 갱신 | 2026-08-26 — 배포 체크포인트 9차 반영 · 음식명 표기 한글 전환 반영 · `LORA_SCALE` 0.15 반영 |
+| 최종 갱신 | 2026-08-27 — TTS 캐시를 한글 표기본으로 교체 완료(7절). 그 전 2026-08-26에 배포 체크포인트 9차 · 음식명 표기 한글 전환 · `LORA_SCALE` 0.15를 반영했다 |
 
 ## 현재 배포 기준 (한눈에)
 

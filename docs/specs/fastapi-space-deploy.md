@@ -47,7 +47,7 @@
 - **HF Docker Space 규칙**: 컨테이너는 **uid 1000 비루트**로 실행되고, 웹서버는 **7860 포트**를 서빙해야 한다. Space 저장소 README 메타데이터에 `sdk: docker`, `app_port: 7860`을 넣는다(Space 생성 단계).
 - **베이스 이미지**: `python:3.11-slim` — 로컬 개발 환경과 같은 3.11. GPU 라이브러리는 `requirements.txt`의 `paddlepaddle-gpu`(cu129)가 pip으로 함께 끌어오므로 CUDA 베이스 이미지가 필요 없다.
 - **시스템 패키지**: `libgl1`, `libglib2.0-0`, `libgomp1`(opencv), `libsndfile1`(soundfile), `build-essential`.
-- **TTS는 별도 가상환경(`/home/user/venv-tts`)에 둔다.** `ENV TTS_VENV_PYTHON`이 그 파이썬을 가리키면 `src/pipeline.py`(31행)가 그것으로 워커를 띄우므로 코드 수정이 필요 없다. 아래 두 함정이 실측으로 확인됐다(2026-08-24, T4 Space).
+- **TTS는 별도 가상환경(`/home/user/venv-tts`)에 둔다.** `ENV TTS_VENV_PYTHON`이 그 파이썬을 가리키면 `src/pipeline.py`의 `_TTS_PYTHON`이 그것으로 워커를 띄우므로 코드 수정이 필요 없다. 아래 두 함정이 실측으로 확인됐다(2026-08-24, T4 Space).
   - **한 환경에 합칠 수 없다.** `paddlepaddle-gpu`가 `nvidia-*-cu12` 패키지를 정확한 버전으로 고정하는데(cublas 12.9.0.13 등) 최신 torch도 같은 패키지를 다른 버전으로 고정한다. 함께 설치하면 pip이 충돌을 피해 torch를 계속 낮추다 cu11 시절인 **2.0.1**까지 내려가고, 그 torch는 numpy 2.x와 호환되지 않아 TTS가 로딩 단계에서 죽는다. 워커는 paddle을 임포트하지 않으므로(`src/tts/worker.py`) 환경을 가르면 해결된다 — 맥·Windows의 `.venv-tts`와 같은 구조다.
   - **torch와 torchaudio는 버전을 못 박아야 한다** (2026-08-26 추가). 둘은 같은 버전 번호끼리만 맞물리는데, `qwen-tts`가 `torchaudio`를 끌어오므로 값을 적어두지 않으면 빌드하는 날의 최신을 각각 집어와 짝이 깨진다. 실제로 2026-08-26 빌드가 **torch 2.13.0 + torchaudio 2.11.0**을 설치했다. 같은 어긋남을 Windows에서 겪었을 때는 `qwen_tts` 임포트가 `OSError: [WinError 127]`로 죽어 TTS가 통째로 멈췄다. **캐시가 있으면 증상이 안 보이고 실시간 생성만 조용히 죽는 종류**라 더 위험하다 — 캐시 히트만 확인하고 "TTS 정상"이라고 판단하면 안 된다. 지금 값(`torch==2.6.0`, `torchaudio==2.6.0`)은 Windows GPU에서 음성 생성까지 확인한 조합이다.
   - **C 컴파일러가 있어야 한다.** torch가 GPU 커널 일부를 실행 시점에 Triton으로 즉석 컴파일하는데, slim 이미지에는 컴파일러가 없어 `RuntimeError: Failed to find C compiler`로 워커가 죽는다. 개발 PC(Windows)는 CPU 빌드 torch라 이 경로를 타지 않아 드러나지 않는다.

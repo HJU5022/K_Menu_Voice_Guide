@@ -22,12 +22,12 @@
 | 파일 | 내용 |
 |---|---|
 | `specs/_example.md` | Spec 작성 형식 예시 |
-| `specs/api-layer.md` | FastAPI 엔드포인트 계약 (`/api/analyze`, `/api/foods/{food_id}`) |
+| `specs/api-layer.md` | FastAPI 엔드포인트 계약 — `/api/analyze`, `/api/foods`, `/api/foods/{food_id}`, `/api/cart`… (장바구니·지원 음식 목록의 정본은 각각 `cart.md`·`supported-foods.md`) |
 | `specs/cart.md` | 장바구니 — 담기·수량 조절·주문 요약 |
 | `specs/db-cache.md` | 서버 시작 시 전체 데이터 메모리 캐싱 |
 | `specs/error-logging.md` | 예외를 삼키지 않고 stdout에 남기는 규칙 (실제 사고 사례 포함) |
 | `specs/fastapi-space-deploy.md` | API를 GPU Docker Space에 올리는 절차·제약 |
-| `specs/flutter-mobile-app.md` | Flutter 앱 — 화면 3개, 서버 주소 전환, iOS 권한 설정 |
+| `specs/flutter-mobile-app.md` | Flutter 앱 — 주 흐름 화면 3개(촬영·후보·상세)와 그 주위 보조 화면, 서버 주소 전환, iOS 권한 설정 |
 | `specs/ocr-candidate-results.md` | OCR 결과를 음식 후보 목록으로 돌려주는 계약 |
 | `specs/ocr-finetuning.md` | 커스텀 딕셔너리·학습 데이터·1~3안 전환 기준 |
 | `specs/ocr-preprocess-runtime.md` | 추론 경로에 OpenCV 전처리 연결 |

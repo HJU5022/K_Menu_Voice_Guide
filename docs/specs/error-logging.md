@@ -94,19 +94,19 @@ import logging
 logger = logging.getLogger(__name__)
 ```
 
-**세 지점의 처리**:
+**세 지점의 처리** (위치는 함수 이름으로 찾는다 — 줄 번호를 적어두면 코드가 자라면서 어긋난다):
 
 ```python
-# _kill_worker() — 85행
+# _kill_worker()
 except Exception:
     logger.warning("워커 종료 실패", exc_info=True)
 
-# _readline_with_timeout()의 _read() — 101행
+# _readline_with_timeout()의 _read()
 except Exception:
     logger.warning("워커 응답 읽기 실패", exc_info=True)
     answer.put("")
 
-# _synthesize_via_subprocess() — 131행 (핵심)
+# _synthesize_via_subprocess()  ← 핵심
 except Exception:
     logger.error("TTS 합성 실패 (style=%s, text=%r)", style, text[:80], exc_info=True)
     _kill_worker()

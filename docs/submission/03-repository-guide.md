@@ -46,7 +46,7 @@ proj1-c/
 ├── mobile/                 # Flutter 앱 (가산 항목) — 같은 API를 부르는 두 번째 클라이언트
 ├── deploy/api-space/       # GPU Docker Space 배포 스크립트
 ├── eval/                   # 모델 성능 측정 스크립트·결과·학습 로그·비교 오디오
-├── tests/                  # pytest 237개
+├── tests/                  # pytest 242개
 ├── docs/                   # 기획서 · Spec · 법무 문서 · (이 폴더) 제출물
 └── static/                 # .gitignore 대상 — TTS 캐시·생성 오디오 (저장소로 따라오지 않는다)
 ```
@@ -103,7 +103,7 @@ python -m src.tts.pregenerate
 python -m pytest tests -q
 ```
 
-**실행 결과 (2026-08-26): 237 passed, 5 warnings in 28.48s** — 이 문서를 쓰면서 실제로 돌린 값이다.
+**실행 결과 (2026-08-27): 242 passed, 5 warnings in 76.06s** — 이 문서를 고치면서 실제로 돌린 값이다. (08-26 시점에는 237개였고, 그 뒤 OCR 후보 보정·가격 줄 허용오차 수정에 따라온 테스트가 더해졌다.)
 
 | 파일 | 무엇을 지키는가 |
 |---|---|
@@ -139,9 +139,9 @@ python -m pytest tests -q
 
 | # | 항목 | 왜 문제인가 |
 |---|---|---|
-| 1 | `eval/mos_scores.csv`가 헤더만 있음 | 평가자 2명분 채점 결과가 반영되지 않았다. 가이드는 5명 이상을 요구한다 |
+| 1 | `eval/mos_scores.csv`가 헤더만 있음 | 사람 MOS는 **한 건도 없다(0/5명)**. 오래 "평가자 2/5명 진행 중"이라고 적어왔으나 그 2명분 채점 원본이 저장소 어디에도 없다(2026-08-27 확인) — **5명을 새로 받는다.** 평가 설계와 자료는 별도 브랜치에서 준비 중이라 아직 main에 없다 |
 | 2 | 9차 학습 로그·노트북 부재 | 배포 중인 체크포인트를 저장소만으로 재현할 수 없다 |
 | 3 | `eval/tts_pregen_log.csv`·`utmos_results.csv` 부재 | RTF·UTMOS 원본이 각자 PC와 Colab Drive에만 있다 |
-| 4 | 미추적 디렉토리 `output/`, `tmp/` | 이전 작업의 PDF·PNG 잔여물이 작업 트리에 남아 있다. `.gitignore`에 없어 `git status`를 계속 더럽힌다 |
+| 4 | ~~미추적 디렉토리 `output/`, `tmp/`~~ | **해소됨 (2026-08-27 확인)** — 두 디렉토리가 더 이상 작업 트리에 없다 |
 | 5 | `docs/specs/sample-menu-images.md`가 "착수 전" | 사진 없이 들어온 방문자가 아무것도 못 하는 문제가 그대로다. 이번 제출물의 [합성 메뉴판](assets/sample-menu-synthetic.jpg)을 그대로 쓸 수 있다 |
-| 6 | `static/tts_cache`의 내레이션 50개가 낡음 | 한글 표기 전환(08-25 22:12)보다 먼저 생성된 파일이다([05. 입출력 결과물](05-io-samples.md) 5절) |
+| 6 | `assets/audio/`의 첨부 오디오 4개가 낡음 | 서비스 캐시(`static/tts_cache`)는 2026-08-27에 한글 표기본으로 교체됐으나, 제출물에 첨부한 4개는 그 이전 파일이다 — 복사만 하면 된다([05. 입출력 결과물](05-io-samples.md) 5절) |

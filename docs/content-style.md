@@ -20,6 +20,39 @@
 | 미지원 | `This dish isn't in our guide yet.` | database error |
 | 음성 재시도 | `Try audio again` | TTS retry |
 
+## 상세 카드 6개 — 순서와 영어 제목
+
+웹과 앱이 **같은 순서·같은 제목**을 쓴다. 서버가 주는 `details`는 순서 없는 묶음이라 무엇을 어떤
+순서로 보여줄지는 화면이 정하는데, 같은 서비스인데 웹과 앱이 다르면 안 된다. 정본은 이 표이고,
+구현은 `frontend/client/src/pages/Home.tsx`의 `DETAIL_CARDS`와 앱의 상세 화면이 따른다.
+
+| # | `details` 키 | 화면 제목 |
+|---|---|---|
+| 1 | `DESCRIPTION` | Description |
+| 2 | `HOW_TO_EAT` | How to eat |
+| 3 | `INGREDIENT` | Ingredients |
+| 4 | `ALLERGY` | Allergies & dietary needs |
+| 5 | `PRONUNCIATION` | Pronunciation |
+| 6 | `SPICY` | Spice level |
+
+- 알레르기 항목만 경고 스타일로 그린다 — 안전 정보다. 나머지는 같은 모양으로 둔다.
+- 서버가 특정 카테고리를 비워 보내면 그 카드는 건너뛴다. 빈 카드가 있으면 정보가 누락된 것처럼 보인다.
+- `details`에는 음성 전용 `PRONUNCIATION_TTS`가 섞여 올 수 있다 — **이 표에 없는 키는 그리지 않는다.**
+
+## 예외 화면 문구
+
+원인이 다르면 문구도 달라야 한다. 같은 문구를 쓰면 사진만 고치면 되는 사용자가 포기한다.
+
+| 상황 (`status`) | 제목 | 다음 행동 안내 |
+|---|---|---|
+| `ocr_empty` | We couldn't read this photo | Try brighter lighting, hold the menu straight, and move closer to the text. |
+| `not_a_menu` | We couldn't find a menu here | Point the camera at a printed menu with prices, then take the photo again. |
+| `unsupported_food` | Not in our guide yet | Try a different menu item or ask the restaurant staff. |
+
+- 앞의 둘은 **다시 찍으면 해결된다**, 마지막 하나는 다시 찍어도 같다 — 그래서 갈라 쓴다.
+- 잘못된 파일 업로드(400·413)에는 "다시 찍으세요"를 쓰지 않는다. 12MB는 다시 찍어도 12MB다.
+- 문구의 실제 값은 `frontend/client/src/i18n.ts`에 있다. 새로 짓지 말고 여기서 가져다 쓴다.
+
 ## How
 
 - 제목은 짧게 쓴다. 가능한 한 2~5단어로 현재 화면의 목적만 말한다.

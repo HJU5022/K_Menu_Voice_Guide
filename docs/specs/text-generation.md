@@ -29,7 +29,7 @@
 5. `food_details`에서 같은 음식의 PRONUNCIATION·ALLERGY 문장 조회
 6. 3, 4, 5에서 조회한 문장 3개를 순서대로(narration_text → PRONUNCIATION → ALLERGY) 이어붙여 최종 나레이션 텍스트를 만든다 — **셋 다 이미 완성된 문장이라 새로 생성하지 않고 그대로 이어붙이기만 한다.**
 
-**카테고리 6개**
+**카테고리 6개 (화면용)**
 
 | # | 카테고리 | 설명 |
 |---|---|---|
@@ -39,6 +39,12 @@
 | 4 | HOW_TO_EAT | 먹는 법 |
 | 5 | SPICY | 맵기 설명(서술형) |
 | 6 | ALLERGY | 알레르기 유발 재료 안내 |
+
+**음성 전용 1개 (2026-08-25 추가)** — `food_details`에 같은 방식으로 들어 있고, 화면에는 그리지 않는다.
+
+| # | 카테고리 | 왜 따로 있나 |
+|---|---|---|
+| 7 | PRONUNCIATION_TTS | 화면용 `PRONUNCIATION`은 `Bibimbap is pronounced "bee-bim-bap."`처럼 이름을 말한 뒤 발음 표기를 다시 알려준다. 그런데 TTS 입력에서는 음식명이 한글로 치환되므로 `비빔밥 is pronounced "bee-bim-bap."`이 되어 **같은 이름을 한국어 발음으로 한 번, 로마자로 한 번 연달아 읽는다.** 음성에서는 한글로 읽어주는 이름 자체가 발음 안내이므로, 이름을 한 번만 말하는 문장(`Say it like this: 떡볶이.`)으로 갈아끼운다. 이 행이 없으면 화면용 문장을 그대로 쓴다 — 코드를 먼저 배포하고 DB 행을 나중에 넣어도 안내가 끊기지 않게 |
 
 **Edge Cases** (최소 5개 + 처리 방식)
 
@@ -63,7 +69,18 @@
 
 **나레이션 조합 로직**
 
-- `get_narration(food_id)`가 반환하는 `text`는 다음 3개 문장을 공백으로 이어붙인 것이다:
+`get_narration(food_id)`는 **키 4개**를 돌려준다 — `text`(화면용) · `tts_text`(음성용) ·
+`style` · `name_kr`(이름 단독 음성용). 화면용과 음성용을 나누는 이유는 두 가지다.
+
+| | `text` (화면) | `tts_text` (음성) |
+|---|---|---|
+| 음식명 표기 | 로마자 그대로 (`Tteokbokki`) — 여행자가 소리 내어 읽어야 한다 | **한글로 치환** (`떡볶이`) — 로마자를 주면 모델이 영어 음운으로 읽는다. 값은 `foods.name_kr`, 치환은 `_to_tts_text()`가 단어 경계로 한다 |
+| 발음 안내 문장 | `PRONUNCIATION` | **`PRONUNCIATION_TTS`** (없으면 `PRONUNCIATION`으로 폴백) |
+
+`name_kr`을 함께 싣는 이유는 이 함수가 이미 `foods` 행을 조회하고 있어서다 — 이름만 읽는 별도
+음성(`name_{id}.wav`)이 그 값을 쓴다. 전환 경위는 `docs/specs/tts-finetuning.md`.
+
+- `text`는 다음 3개 문장을 공백으로 이어붙인 것이다:
   1. `food_narration.narration_text` (해당 food_id·style)
   2. `food_details.PRONUNCIATION` (해당 food_id)
   3. `food_details.ALLERGY` (해당 food_id)
@@ -71,6 +88,11 @@
 - INGREDIENT·SPICY는 이미 `food_narration.narration_text` 안에 자연스럽게 녹아 있는 경우가 많아 별도로 이어붙이지 않는다 (지금 빠져있던 건 PRONUNCIATION·ALLERGY뿐이었음).
 
 ## AC (Given-When-Then)
+
+**AC-05 · 화면용과 음성용이 갈린다**
+- GIVEN: `food_id`가 유효하고 `PRONUNCIATION_TTS` 행이 있다
+- WHEN: `get_narration(food_id)`를 호출
+- THEN: `text`에는 로마자 음식명과 `PRONUNCIATION`이, `tts_text`에는 한글 음식명과 `PRONUNCIATION_TTS`가 들어간다. `PRONUNCIATION_TTS`가 없으면 `tts_text`도 `PRONUNCIATION`을 쓴다
 
 **AC-01 · 정상 조회 시 발음·알레르기 포함**
 - GIVEN: `food_id`가 유효하고 narration_text·PRONUNCIATION·ALLERGY가 모두 존재
