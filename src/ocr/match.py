@@ -454,6 +454,40 @@ def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
     return scan_menu_lines(boxes)[0]
 
 
+def _fill_missing_from_row(candidates: list[dict], line: str, row: list[TextBox]) -> None:
+    """줄 단위로 훑을 때만 쓰는 보정 — 이름을 글자로 못 찾아 비어 버린 자리를 그 줄에서 채운다.
+
+    find_source_box()와 match_prices_to_names()는 등록된 이름이 상자 글자에 **그대로**
+    들어 있어야 찾아낸다. 그런데 매칭 자체는 닮은 정도로도 성립한다(임계값 85) —
+    메뉴판의 "콩물국수"가 등록된 "콩국수"에 걸리는 식이다. 그러면 이름이 어느 상자에도
+    통짜로 없어서 위치도 가격도 잃고, 화면에는 **사진 상자도 가격도 없는 카드**만 남는다.
+
+    여기서는 이 줄 하나가 메뉴 하나라는 것을 이미 알고 있으므로 줄에서 직접 집어 채운다.
+    집는 방법은 _unsupported_menu_line()이 쓰는 것과 같다.
+
+    가격은 **줄에 값이 하나뿐이고 그 줄의 후보도 하나뿐일 때만** 채운다. 줄 나누기가
+    2단 메뉴판에서 좌우 칸을 한 줄로 묶는 일이 있어("낙지볶음 20171 코다리회무침"),
+    그런 줄에서 값을 나눠주면 남의 가격이 붙는다. 없는 것보다 틀린 것이 나쁘다는
+    기존 판단(가격은 추정하지 않는다)을 그대로 지킨다.
+    """
+    if not row:
+        return
+
+    # 이름 쪽 상자를 위치 표시에 쓴다 — 가격 상자를 가리키면 엉뚱한 곳에 상자가 그려진다.
+    name_box = next((box for box in row if not find_prices(box[4])), row[0])
+
+    row_prices = find_prices(line)
+    lone_price = row_prices[0][2] if len(row_prices) == 1 and len(candidates) == 1 else None
+
+    for candidate in candidates:
+        if candidate.get("source_box") is None:
+            candidate["source_text"] = name_box[4]
+            candidate["source_box"] = tuple(name_box[:4])
+        if candidate.get("price_krw") is None and lone_price is not None:
+            candidate["price_krw"] = lone_price
+            candidate["price_krw_display"] = format_price_krw(lone_price)
+
+
 def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
     """메뉴판을 줄 단위로 훑어 **안내 가능한 후보**와 **그러지 못한 메뉴 줄**을 함께 돌려준다.
 
@@ -498,6 +532,7 @@ def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
                 seen[candidate["food_id"]] = candidate
 
         if seen:
+            _fill_missing_from_row(list(seen.values()), line, row)
             candidates.extend(seen.values())
             continue
 
