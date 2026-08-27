@@ -5,14 +5,14 @@
 - **페르소나**: 한국 음식에 익숙하지 않은 영어권 개별 외국인 관광객
 - **상황**: OCR로 음식을 인식/선택한 뒤, 화면 텍스트와 음성 나레이션으로 그 음식 정보를 확인하려 한다.
 - **문제**:
-  1. 화면용 상세 텍스트(`food_details` 6개 카테고리)는 발음·알레르기 정보까지 다 있지만, 음성 나레이션(`food_narration.narration_text`)에는 설명·먹는법·맵기 정도만 담겨있고 **발음·알레르기 정보가 빠져있다.**
-  2. 외국인 관광객에게 발음·알레르기는 특히 중요한 정보라 텍스트에만 있고 음성으로 안 나가면 실질적으로 놓치기 쉽다.
-- **측정 지표**: 나레이션에 발음·알레르기 정보가 포함된 음식 비율 (목표는 Goal 참고)
+  1. 화면에 보이는 나레이션 문단과 음성이 읽는 문장이 서로 달랐다. 코드가 `food_details`의 문장을 덧붙이고 발음 안내만 `PRONUNCIATION_TTS`로 갈아끼웠기 때문이다. 사용자가 글을 눈으로 따라가며 음성을 들으면 문장이 어긋난다.
+  2. 안내 문장이 DB 세 칸에 흩어져 있어, 문구를 고치려면 어느 칸을 고쳐야 할지가 코드를 읽어야만 드러났다.
+- **측정 지표**: 화면 문단과 음성 문장이 음식명 표기 외에 일치하는 음식 비율 (목표는 Goal 참고)
 
 ## Goal
 
-- **해결 목표**: 음성 나레이션이 설명·먹는법(기존 `food_narration`)에 더해, 발음·알레르기 정보(`food_details`의 PRONUNCIATION·ALLERGY)까지 자동으로 포함하도록 한다.
-- **성공 기준**: 등록된 50개 음식 전부, `get_narration()` 결과 텍스트에 PRONUNCIATION·ALLERGY 문장이 빠짐없이 포함된다.
+- **해결 목표**: 안내 전문을 `food_narration.narration_text` 한 칸으로 모으고, 코드는 그 칸을 조회만 한다. 화면과 음성이 같은 문장을 쓰게 한다.
+- **성공 기준**: 등록된 50개 음식 전부, `get_narration()`의 `text`와 `tts_text`가 음식명 표기(로마자/한글) 외에는 동일하다.
 - **Out of Scope**:
   - DESCRIPTION·HOW_TO_EAT 자동 생성 — 음식마다 개성이 담긴 부분이라 계속 사람이 직접 씀
   - 다국어(중국어 등) 지원 — 별도 로드맵
@@ -25,9 +25,14 @@
 1. 선택된 음식 → `food_details`에서 6개 카테고리 조회 (화면용 상세 텍스트, 기존과 동일)
 2. 해당 음식의 `spice_level` 조회
 3. `spice_level` → `style`(GUIDE / CAUTION) 자동 결정 (기존과 동일)
-4. `food_narration`에서 결정된 style에 맞는 `narration_text`(설명·먹는법 문장) 조회
-5. `food_details`에서 같은 음식의 PRONUNCIATION·ALLERGY 문장 조회
-6. 3, 4, 5에서 조회한 문장 3개를 순서대로(narration_text → PRONUNCIATION → ALLERGY) 이어붙여 최종 나레이션 텍스트를 만든다 — **셋 다 이미 완성된 문장이라 새로 생성하지 않고 그대로 이어붙이기만 한다.**
+4. `food_narration`에서 결정된 style에 맞는 `narration_text` 조회 — 이 한 문단이 안내 전문이다
+5. 조회한 문장을 그대로 화면용 `text`로 쓴다 — **이어붙이거나 다시 쓰지 않는다**
+6. 같은 문장의 음식명만 한글로 치환해 음성용 `tts_text`를 만든다
+
+> 나레이션 문단에는 카드 6개 중 **발음법을 뺀 5개**(설명·먹는법·재료·알레르기·맵기)를 산문으로 정리해 넣는다.
+> 발음법을 빼는 이유는 음성이 음식명을 이미 한글로 읽어주기 때문이다 — 발음 안내까지 읽으면 같은
+> 이름을 두 번 말하게 된다. 발음법은 화면의 `Pronunciation` 카드로 계속 보여준다.
+> 문단과 카드가 내용상 겹치는 것은 의도된 것이다. 문단은 듣는 용, 카드는 찾아보는 용이다.
 
 **카테고리 6개 (화면용)**
 
@@ -40,7 +45,9 @@
 | 5 | SPICY | 맵기 설명(서술형) |
 | 6 | ALLERGY | 알레르기 유발 재료 안내 |
 
-**음성 전용 1개 (2026-08-25 추가)** — `food_details`에 같은 방식으로 들어 있고, 화면에는 그리지 않는다.
+**음성 전용 1개 (2026-08-25 추가, 2026-08-27부터 미사용)** — `food_details`에 같은 방식으로 들어 있고,
+화면에는 그리지 않는다. 안내 전문을 `narration_text` 한 칸으로 모으면서 **코드에서 더 이상 읽지 않는다.**
+발음법은 나레이션 문단에서 빠지고 화면 카드로만 남기 때문이다. DB 칸을 지울지는 별도 결정.
 
 | # | 카테고리 | 왜 따로 있나 |
 |---|---|---|
@@ -54,7 +61,7 @@
 | EC-02 | `spice_level`이 NULL이거나 숫자가 아님 | `get_narration()`이 `ValueError` 발생 |
 | EC-03 | 해당 style의 `narration_text`가 없음 | `get_narration()`이 `ValueError` 발생 |
 | EC-04 | 등록되지 않은 음식 (`food_id` 없음) | `get_narration()`이 `ValueError` 발생 |
-| EC-05 | PRONUNCIATION 또는 ALLERGY가 없음 | `get_narration()`이 `ValueError` 발생 (narration_text 없을 때와 동일하게 처리) |
+| EC-05 | `narration_text`가 공백만 있음 | `get_narration()`이 `ValueError` 발생 (없을 때와 동일하게 처리) |
 
 ## How
 
@@ -75,37 +82,35 @@
 | | `text` (화면) | `tts_text` (음성) |
 |---|---|---|
 | 음식명 표기 | 로마자 그대로 (`Tteokbokki`) — 여행자가 소리 내어 읽어야 한다 | **한글로 치환** (`떡볶이`) — 로마자를 주면 모델이 영어 음운으로 읽는다. 값은 `foods.name_kr`, 치환은 `_to_tts_text()`가 단어 경계로 한다 |
-| 발음 안내 문장 | `PRONUNCIATION` | **`PRONUNCIATION_TTS`** (없으면 `PRONUNCIATION`으로 폴백) |
+| 문장 구성 | `food_narration.narration_text` 그대로 | 같은 문장 (음식명만 치환) |
 
 `name_kr`을 함께 싣는 이유는 이 함수가 이미 `foods` 행을 조회하고 있어서다 — 이름만 읽는 별도
 음성(`name_{id}.wav`)이 그 값을 쓴다. 전환 경위는 `docs/specs/tts-finetuning.md`.
 
-- `text`는 다음 3개 문장을 공백으로 이어붙인 것이다:
-  1. `food_narration.narration_text` (해당 food_id·style)
-  2. `food_details.PRONUNCIATION` (해당 food_id)
-  3. `food_details.ALLERGY` (해당 food_id)
-- 세 값 모두 Supabase에 사람이 미리 작성해 둔 완성된 문장이며, 이 함수는 **새 문장을 생성하지 않고 조회 후 이어붙이기만 한다** (외부 LLM API도 쓰지 않음).
-- INGREDIENT·SPICY는 이미 `food_narration.narration_text` 안에 자연스럽게 녹아 있는 경우가 많아 별도로 이어붙이지 않는다 (지금 빠져있던 건 PRONUNCIATION·ALLERGY뿐이었음).
+- `text`는 `food_narration.narration_text`(해당 food_id·style) 한 값이다. 앞뒤 공백만 턴다.
+- Supabase에 사람이 미리 작성해 둔 완성된 문장이며, 이 함수는 **새 문장을 생성하지 않고 조회만 한다** (외부 LLM API도 쓰지 않음).
+- `food_details`는 화면 카드용으로 `detail.py`가 따로 조회한다. 나레이션은 그 값을 쓰지 않는다.
+- `PRONUNCIATION_TTS` 칸은 이 변경으로 코드에서 쓰이지 않게 됐다. DB 칸을 지울지는 별도 결정이다.
 
 ## AC (Given-When-Then)
 
-**AC-05 · 화면용과 음성용이 갈린다**
-- GIVEN: `food_id`가 유효하고 `PRONUNCIATION_TTS` 행이 있다
+**AC-05 · 화면용과 음성용은 음식명 표기만 다르다**
+- GIVEN: `food_id`가 유효하고 `name_kr`이 있다
 - WHEN: `get_narration(food_id)`를 호출
-- THEN: `text`에는 로마자 음식명과 `PRONUNCIATION`이, `tts_text`에는 한글 음식명과 `PRONUNCIATION_TTS`가 들어간다. `PRONUNCIATION_TTS`가 없으면 `tts_text`도 `PRONUNCIATION`을 쓴다
+- THEN: `text`는 로마자 음식명을, `tts_text`는 한글 음식명을 쓴다. 음식명을 되돌리면 두 문자열이 정확히 같다
 
-**AC-01 · 정상 조회 시 발음·알레르기 포함**
-- GIVEN: `food_id`가 유효하고 narration_text·PRONUNCIATION·ALLERGY가 모두 존재
+**AC-01 · 정상 조회 시 DB 문장을 그대로 돌려준다**
+- GIVEN: `food_id`가 유효하고 해당 style의 `narration_text`가 존재
 - WHEN: `get_narration(food_id)`를 호출
-- THEN: 반환된 `text`에 세 문장이 모두 순서대로(narration → 발음 → 알레르기) 포함된다
+- THEN: 반환된 `text`가 그 `narration_text`와 같다 (다른 카테고리를 덧붙이지 않는다)
 
 **AC-02 · spice_level에 따른 style 결정**
 - GIVEN: 음식의 `spice_level`이 1~5 사이 정수
 - WHEN: `get_narration(food_id)`를 호출
 - THEN: 1~3이면 GUIDE, 4~5면 CAUTION style의 narration_text가 사용된다
 
-**AC-03 · 필요한 문장 중 하나라도 없으면 예외**
-- GIVEN: narration_text·PRONUNCIATION·ALLERGY 중 하나가 없음
+**AC-03 · 안내 문장이 없으면 예외**
+- GIVEN: 해당 style의 `narration_text`가 없거나 공백만 있음
 - WHEN: `get_narration(food_id)`를 호출
 - THEN: `ValueError`가 발생한다 (방어코드로 조용히 넘어가지 않음)
 
@@ -115,6 +120,12 @@
 - THEN: `ValueError`가 발생한다
 
 ## 구현 변경 이력 (2026-08-18)
+
+> ⚠️ **정정 (2026-08-27)** — 아래 2026-08-18 기록은 그 시점의 결정이고, 지금은 유효하지 않다.
+> 당시 결론이었던 "`narration_text` + `PRONUNCIATION` + `ALLERGY` 세 문장 이어붙이기"는 화면 문단과
+> 음성 문장이 어긋나는 원인이 됐다(음성만 `PRONUNCIATION_TTS`로 갈아끼웠기 때문). 지금은 안내 전문을
+> `food_narration.narration_text` 한 칸에 담고 코드는 조회만 한다. 현재 규정은 위 What·How·AC를 따른다.
+> 아래 내용은 왜 그렇게 갔었는지를 남기려고 지우지 않았다.
 
 ### 계획 대비 달라진 점 — "템플릿 조합"이 아니라 "문장 이어붙이기"였음
 
