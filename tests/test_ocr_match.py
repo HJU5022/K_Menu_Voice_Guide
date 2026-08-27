@@ -869,6 +869,44 @@ class FuzzyNameRowFallbackTests(unittest.TestCase):
 
         self.assertEqual(prices["콩국수"], None)
 
+    def test_nearest_price_wins_when_a_row_holds_several(self):
+        """값이 여럿이어도 후보가 하나면 채운다 — 이름 상자에서 가까운 쪽을 고른다.
+
+        실측(메뉴판 09번): "산낙지섯가 코다리비빔막국수 8,000 3,000". 8,000은 바로 옆
+        메뉴 값이고 3,000은 오른쪽 다른 칸("칼국수사리")의 값인데 줄 나누기가 같은 줄로
+        묶었다. 예전에는 "값이 정확히 하나"일 때만 채워서 이 줄이 통째로 가격을 잃었다.
+        """
+        [candidate] = self.scan(
+            [
+                (107, 497, 419, 56, "산낙지섯가", 0.99),
+                (614, 506, 272, 42, "콩물국수", 0.99),
+                (894, 506, 106, 40, "8,000", 0.99),
+                (1261, 528, 118, 44, "3,000", 0.99),
+            ]
+        )
+
+        self.assertEqual(candidate["name_kr"], "콩국수")
+        self.assertEqual(candidate["price_krw"], 8000)
+
+    def test_several_prices_are_not_shared_when_a_row_holds_two_menus(self):
+        """후보가 둘이면 값이 여럿이어도 채우지 않는다 — 어느 값이 누구 것인지 모른다."""
+        candidates = self.scan([(10, 10, 600, 30, "콩물국수 8,000원 비빔밥 9,000원", 0.99)])
+        prices = {c["name_kr"]: c["price_krw"] for c in candidates}
+
+        self.assertEqual(prices["콩국수"], None)
+
+    def test_prices_only_row_is_left_alone(self):
+        """이름 상자가 없으면(줄이 전부 가격) 가까운 값을 고를 근거가 없다 — 채우지 않는다."""
+        candidates = self.scan(
+            [
+                (10, 10, 200, 30, "콩물국수 8,000", 0.99),
+                (220, 10, 100, 30, "3,000", 0.99),
+            ]
+        )
+        prices = {c["name_kr"]: c["price_krw"] for c in candidates}
+
+        self.assertEqual(prices["콩국수"], None)
+
 
 if __name__ == "__main__":
     unittest.main()

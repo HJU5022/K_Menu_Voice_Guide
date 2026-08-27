@@ -454,6 +454,29 @@ def match_food_candidates_by_line(boxes: list[TextBox]) -> list[dict]:
     return scan_menu_lines(boxes)[0]
 
 
+def _price_nearest_to_name(row: list[TextBox], name_box: TextBox | None) -> int | None:
+    """줄에 값이 여럿일 때, 이름 상자에서 가장 가까운 값 하나를 고른다. 근거가 없으면 None.
+
+    고르는 규칙을 새로 만들지 않고 match_prices_to_names()를 그대로 쓴다 — "같은 줄
+    오른쪽 > 같은 줄 왼쪽 > 아래 > 위" 순서, "가격 하나는 메뉴 하나에만", 간격 상한이
+    이미 그 안에 있다.
+
+    그 함수가 이런 후보에서 빈손으로 돌아오는 이유는 **등록된 이름이 상자 글자에 통짜로
+    없기 때문**이다(등록 "비빔국수" vs 상자 "코다리비빔막국수" — 닮은 정도로만 걸렸다).
+    그래서 여기서는 등록 이름 대신 **이름 상자의 글자 자체**를 넘겨 그 문제를 비켜간다.
+
+    기준으로 삼을 이름 상자가 없으면(줄이 전부 가격 상자) 고르지 않는다 — 어느 값이
+    이 메뉴 것인지 가릴 근거가 없다.
+    """
+    if name_box is None:
+        return None
+    name = _normalize(name_box[4])
+    if not name:
+        return None
+    normalized_row = [tuple(box[:4]) + (_normalize(box[4]),) for box in row]
+    return match_prices_to_names(normalized_row, [name]).get(name)
+
+
 def _fill_missing_from_row(candidates: list[dict], line: str, row: list[TextBox]) -> None:
     """줄 단위로 훑을 때만 쓰는 보정 — 이름을 글자로 못 찾아 비어 버린 자리를 그 줄에서 채운다.
 
@@ -465,27 +488,46 @@ def _fill_missing_from_row(candidates: list[dict], line: str, row: list[TextBox]
     여기서는 이 줄 하나가 메뉴 하나라는 것을 이미 알고 있으므로 줄에서 직접 집어 채운다.
     집는 방법은 _unsupported_menu_line()이 쓰는 것과 같다.
 
-    가격은 **줄에 값이 하나뿐이고 그 줄의 후보도 하나뿐일 때만** 채운다. 줄 나누기가
-    2단 메뉴판에서 좌우 칸을 한 줄로 묶는 일이 있어("낙지볶음 20171 코다리회무침"),
-    그런 줄에서 값을 나눠주면 남의 가격이 붙는다. 없는 것보다 틀린 것이 나쁘다는
-    기존 판단(가격은 추정하지 않는다)을 그대로 지킨다.
+    ## 가격을 채울지 말지
+
+    기준은 **값이 몇 개냐가 아니라 그 줄의 후보가 몇 개냐**다.
+
+    - 후보가 둘 이상인 줄에서는 채우지 않는다. 줄 나누기가 2단 메뉴판에서 좌우 칸을
+      한 줄로 묶는 일이 있어("낙지볶음 20171 코다리회무침"), 그런 줄에서 값을 나눠주면
+      남의 가격이 붙는다.
+    - 후보가 하나면, 줄에 값이 여럿이어도 채운다. 이 줄 = 이 메뉴 하나라는 것을 이미
+      알고 있으니, 어느 값인지만 고르면 된다 — 이름 상자에서 가장 가까운 값을 쓴다
+      (_price_nearest_to_name). 원래는 "값도 하나일 때"만 채웠는데, 그 조건이 너무 좁아
+      실제 실패를 대부분 못 막았다(실측: "산낙지섯가 코다리비빔막국수 8,000 3,000"의
+      비빔국수가 값을 못 받아 화면에 "가격 없음"이 떴다 — 지금은 가까운 8,000이 붙는다).
+    - 고를 근거가 애매하면(이름 상자를 못 구했다, 간격이 상한을 넘는다) 채우지 않는다.
+
+    없는 것보다 틀린 것이 나쁘다는 기존 판단(가격은 추정하지 않는다)은 그대로다 —
+    넓힌 것은 "어느 값인지 확실히 가릴 수 있는 경우"까지일 뿐이다.
     """
     if not row:
         return
 
-    # 이름 쪽 상자를 위치 표시에 쓴다 — 가격 상자를 가리키면 엉뚱한 곳에 상자가 그려진다.
-    name_box = next((box for box in row if not find_prices(box[4])), row[0])
+    # 이름 쪽 상자 — 가격이 없는 첫 상자다. 위치 표시에 쓰고(가격 상자를 가리키면 엉뚱한
+    # 곳에 상자가 그려진다), 가격을 고를 때의 기준점으로도 쓴다.
+    name_box = next((box for box in row if not find_prices(box[4])), None)
+    source_box = name_box if name_box is not None else row[0]
 
     row_prices = find_prices(line)
-    lone_price = row_prices[0][2] if len(row_prices) == 1 and len(candidates) == 1 else None
+    if len(candidates) != 1 or not row_prices:
+        row_price = None
+    elif len(row_prices) == 1:
+        row_price = row_prices[0][2]
+    else:
+        row_price = _price_nearest_to_name(row, name_box)
 
     for candidate in candidates:
         if candidate.get("source_box") is None:
-            candidate["source_text"] = name_box[4]
-            candidate["source_box"] = tuple(name_box[:4])
-        if candidate.get("price_krw") is None and lone_price is not None:
-            candidate["price_krw"] = lone_price
-            candidate["price_krw_display"] = format_price_krw(lone_price)
+            candidate["source_text"] = source_box[4]
+            candidate["source_box"] = tuple(source_box[:4])
+        if candidate.get("price_krw") is None and row_price is not None:
+            candidate["price_krw"] = row_price
+            candidate["price_krw_display"] = format_price_krw(row_price)
 
 
 def scan_menu_lines(boxes: list[TextBox]) -> tuple[list[dict], list[dict]]:
