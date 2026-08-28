@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from rapidfuzz.distance import Levenshtein
 
-from src.ocr import infer
+from src.ocr import infer, preprocess
 from src.ocr.match import match_food_candidates
 from src.ocr.price import find_prices
 
@@ -80,7 +80,7 @@ def recognize_paddle_base(image_path: str) -> str:
     detection은 파인튜닝 쪽과 같은 엔진·같은 박스를 쓴다. 다만 우리가 추가한
     세로쓰기 회전 보정은 여기에 적용되지 않으므로 비교표에 그 점을 적어야 한다.
     """
-    image = infer.preprocess_image(image_path)
+    image = preprocess.preprocess_image(image_path)
     results = infer._load_det_engine().predict(image)
     if not results:
         return ""
