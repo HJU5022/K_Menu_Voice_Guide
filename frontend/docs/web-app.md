@@ -15,8 +15,9 @@
 >   무엇으로 만들든 지켜야 하는 내용이라 React 화면에도 그대로 적용된다.
 > - **폐기된 구현의 기록이다**: How 안의 Streamlit API 서술 — `session_state` 계약,
 >   `st.markdown`·`st.image`·`st.iframe`·`st.camera_input`, `.streamlit/config.toml` 테마.
->   React 구현이 같은 규칙을 어떤 코드로 지키는지는 **아직 이 문서와 대조하지 않았다.**
->   실제 코드는 `frontend/client/src/pages/Home.tsx`와 `frontend/client/src/lib/api.ts`다.
+>   React 구현이 같은 규칙을 어떤 코드로 지키는지는 **2026-08-28에 대조했다 — 결과는 이 문서
+>   맨 끝의 "React 구현 대조" 절에 있다.** 실제 코드는 `frontend/client/src/pages/Home.tsx`와
+>   `frontend/client/src/lib/api.ts`, 화면 문구는 `frontend/client/src/i18n.ts`다.
 > - **이미 어긋난 것 둘**: ① 장바구니 ID를 웹은 이제 localStorage에 둔다(새로고침해도
 >   카트가 남는다) — `docs/specs/cart.md`에서 정정했다. ② "미지원 줄"을 다루는 규칙
 >   (EC-13, AC-25 끝문장)은 2026-08-25 결정으로 근거를 잃었다 — 서버가 그런 줄을 아예
@@ -366,3 +367,59 @@ session_state 계약
 - GIVEN: 선택 화면에 발음 버튼과 사진 창이 있다.
 - WHEN: 그려진 iframe의 내용을 본다.
 - THEN: 스크립트를 닫는 태그가 두 번 이상 나오지 않는다. 두 번 나오면 첫 번째에서 코드가 끊기고 그 뒤가 화면에 글자로 새어 나온다.
+
+---
+
+## React 구현 대조 (2026-08-28)
+
+이 문서 맨 위에서 "아직 대조하지 않았다"고 적어둔 것을 대조한 결과다. **사실만 적는다 —
+무엇을 고칠지는 이 문서의 범위가 아니다.** 기준 코드는 `frontend/client/src/`의
+`pages/Home.tsx` · `lib/api.ts` · `i18n.ts`다.
+
+### 그대로 지켜지고 있다
+
+| 규칙 | React 구현 |
+|---|---|
+| 후보를 `line_no` 오름차순으로 늘어놓는다 | `Home.tsx:434-439` (주석도 같은 이유를 적고 있다) |
+| 번호는 두 자리(`01`, `02` …) | `boxLabel()` — `Home.tsx:66` |
+| 진한 6색 팔레트를 돌려 쓴다 | `BOX_COLORS` — `Home.tsx:63`, 앱 팔레트와 값이 같다 |
+| 번호·색은 **목록 순서**로 매긴다 | `boxColor(index)`·`boxLabel(index)` — 사진 상자 `Home.tsx:484`, 카드 배지 `Home.tsx:820` |
+| 항목 식별은 순서를 포함한다(`food_id`는 유일하지 않다) | `` `${food_id}-${index}` `` — `Home.tsx:474`, `516` |
+| 사진 위 상자는 `source`의 0~1 비율을 쓴다 | `Home.tsx:477-480` — 비율에 100을 곱해 `%`로 얹는다 |
+| 영어 이름을 크게, 한글을 보조로 | `DishCard`의 `dish-name-en` / `dish-name-kr` |
+| `Menu: {name_text}`는 등록 이름과 다를 때만 | `Home.tsx:887` |
+| `modifiers` 배지(`spice`·`ingredient`) | `Home.tsx:814-815`, 표시는 `882` |
+| 알레르기 항목만 경고 스타일 | `Home.tsx:1139` — `ALLERGY`에만 `alert-card` |
+| 카트 줄의 신원은 `food_id\|menu_text` | `cartLineKey()` — `Home.tsx:208`, `950` |
+| 분석에 성공했을 때만 카트를 비운다 | `Home.tsx:149-152` — `status === "candidates_found"` |
+
+### 규칙은 살아있고 방법만 바뀌었다
+
+| 문서(Streamlit) | React |
+|---|---|
+| `session_state` 계약 | `useState` + 일부 `localStorage` |
+| 카트 ID를 세션에 둔다(새로고침하면 새 카트) | `localStorage`에 둔다 — **새로고침해도 카트가 남는다** (`api.ts:62-69`). 문서 머리말의 "이미 어긋난 것 ①"과 같은 항목 |
+| 이름 읽어주기: 브라우저 TTS로 `name_text`를 읽는다 | **서버가 만든 한국어 이름 음성**(`name_audio_path`)을 받아 재생한다 — `Home.tsx:759`. 앱과 같은 경로이고, 문서의 "읽어줄 값은 `name_text`" 규칙은 폐기됐다 |
+| Pillow로 상자를 그린 이미지를 `st.image`로 | 원본 사진 위에 상자를 CSS로 얹는다 |
+| `st.iframe`으로 사진 확대창 | `Lightbox` 컴포넌트 — `Home.tsx:711` |
+| `.streamlit/config.toml`의 `[theme.light]`·`[theme.dark]` | `index.css`의 CSS 변수 |
+
+### 아직 지켜지지 않는다 — 실제 차이 5가지
+
+1. **목록 위 한 줄 안내가 없다.** 앱 `_summaryLine`의 "찾은 줄 수 · 상자의 뜻 · 못 짚은 줄 수"에
+   해당하는 문구가 웹에는 없고, 고정 문구(`candidatesLead`, `i18n.ts:101`)만 나온다.
+2. **썸네일 옆에 출처가 없다.** `thumbnail_attribution`은 사진을 눌러 **확대했을 때만** 보인다
+   (`Home.tsx:717`). 목록 카드에는 사진만 있다. `docs/specs/api-layer.md` AC-05와
+   `docs/specs/flutter-mobile-app.md` AC-06은 "사진을 보여주는 자리에 함께 표시"를 요구한다.
+3. **번호 배지가 불투명하다.** 문서는 반투명(alpha 190)을 근거와 함께 정해뒀는데, React는
+   팔레트 색을 그대로 칠한다(`Home.tsx:484`). 줄이 촘촘한 메뉴판에서 윗줄 글자를 가릴 수 있다.
+4. **발음을 따옴표 안쪽만 뽑는 처리가 없다.** 요약 블록에 발음을 따로 넣지 않고
+   `PRONUNCIATION` 카드에 원문 문장을 그대로 보여준다.
+5. **항목 순서가 다르다.** 문서는 `Menu:` 줄 다음에 `modifiers`인데, React는 `modifiers`가 먼저다.
+
+### 문서에 없던 것 — React가 더 가진 것
+
+- **화면 문구 언어 전환**(English / 한국어) — `Home.tsx:360`, 문구는 `i18n.ts`. 다만 **음식 설명과
+  내레이션은 영어뿐이다.** 서버 DB에 영어만 들어 있어서이며, 전환되는 것은 버튼·제목·안내 같은
+  "화면이 스스로 적는 말"뿐이다(`i18n.ts` 머리 주석).
+- **목록에서 바로 이름 듣기** — 상세로 들어가지 않고 후보 카드에서 한국어 이름을 재생한다.
