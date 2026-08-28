@@ -1,0 +1,12 @@
+{
+  "label": "deployed-cache",
+  "n": 50,
+  "wer": 0.01829988193624557,
+  "wer_core": 0.012073411052507511,
+  "utmos_mean": 4.074162000000001,
+  "utmos_min": 2.9482,
+  "utmos_max": 4.3349,
+  "rtf_mean": null,
+  "audio_sec_total": 1047.1799999999998,
+  "name_hit_rate": 0.7
+}
