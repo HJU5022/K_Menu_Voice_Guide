@@ -5,7 +5,7 @@
 | 담당 | 박민영 |
 | 베이스 모델 | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` |
 | 배포 어댑터 | [huggingface.co/k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) |
-| 최종 갱신 | 2026-08-27 — TTS 캐시를 한글 표기본으로 교체 완료(7절). 그 전 2026-08-26에 배포 체크포인트 9차 · 음식명 표기 한글 전환 · `LORA_SCALE` 0.15를 반영했다 |
+| 최종 갱신 | 2026-08-28 — 9차 학습 로그를 `training_log.csv`에 복원(3절)하고, 현행 배포 설정의 UTMOS·WER 측정치를 6절에 실었다. 그 전 2026-08-27에 TTS 캐시를 한글 표기본으로 교체했고(7절), 2026-08-26에 배포 체크포인트 9차 · 음식명 표기 한글 전환 · `LORA_SCALE` 0.15를 반영했다 |
 
 ## 현재 배포 기준 (한눈에)
 
@@ -81,7 +81,7 @@
 | 6차 | `lr5e-6_r32_ep40` | 5e-6 | **32** | 40 | 8.8816 `ep21` | 9.1858 `ep39` | 1,384.1s |
 | 7차 | `lr5e-6_ep100` | 5e-6 | 16 | **100** | 8.8888 `ep32` | 10.3887 `ep99` | 3,412.4s |
 | 8차 | `final_respelled_lr5e-6_ep40` | 5e-6 | 16 | 40 | 8.8875 `ep31` | 8.9122 `ep39` | 1,414.9s |
-| **9차 (배포)** | `instruct_trained_lr5e-6_ep40` | 5e-6 | 16 | 40 | **8.8919** `ep31` | 미기록 | 미기록 |
+| **9차 (배포)** | `instruct_trained_lr5e-6_ep40` | 5e-6 | 16 | 40 | **8.8919** `ep31` | 8.9163 `ep39` | 1,399.2s |
 
 ### 근거
 
@@ -97,11 +97,14 @@
 
 **하이퍼파라미터 탐색 결론**: LR·rank를 5개 조합으로 실험한 결과 최저 Val Loss는 8.86~8.89 범위에 공통 수렴했고(차이 0.03 이내), 100에폭까지 연장해도 같은 지점에서 벽에 부딪혔다(7차). 이는 최적화(하이퍼파라미터) 문제가 아니라 **학습 데이터 규모(348개)의 근본적 한계**로 판단해, 추가 탐색 대신 데이터 품질 개선(표기 방식, 4절) 방향으로 전환했다.
 
-> **⚠️ 로그 보존 상태 — 9차는 저장소에 근거 파일이 없다.**
-> `eval/training_log.csv`에는 3~8차 6개 run만 들어 있다(1·2차는 로깅 이전, 9차는 미반영). 마찬가지로
-> `eval/qwen3_tts_lora_final.ipynb`도 **8차(`final_respelled_lr5e-6_ep40`) 기준 노트북**이라 배포
-> 체크포인트를 재현하지 못한다. 9차 수치(min 8.8919 @ ep31)의 현재 출처는
-> [`src/tts/infer.py`](../src/tts/infer.py) 헤더 주석뿐이다 — 에폭별 로그·노트북 확보가 남아 있다(7절).
+> **⚠️ 재현 상태 — 로그는 복원됐고, 노트북은 아직 없다.**
+> `eval/training_log.csv`에 9차 40에폭이 들어왔다(2026-08-28). 학습에 쓴 Colab 작업 디렉토리의
+> 원본 로그에서 복원한 것으로, 기존 3~8차 300행과 모든 열이 일치하는 상위집합이었다. 이로써
+> 9차 수치의 출처가 [`src/tts/infer.py`](../src/tts/infer.py) 헤더 주석에서 에폭별 원본 로그로
+> 바뀌었다(min 8.8919 `ep31`은 주석의 값과 일치). 1·2차는 로깅 이전이라 여전히 없다.
+> 다만 `eval/qwen3_tts_lora_final.ipynb`는 **8차(`final_respelled_lr5e-6_ep40`) 기준 노트북**이라
+> 배포 체크포인트를 재현하지 못한다 — instruct를 학습에 반영한 `dataset.py` / `sft_12hz_lora.py`
+> 수정본이 빠져 있다(7절).
 
 ---
 
@@ -222,9 +225,26 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 
 ## 6. 평가
 
-> ⚠️ **이 절 전체가 과거 설정 기준이다.** 아래 UTMOS 수치는 모두 **3차 체크포인트 · `LORA_SCALE` 0.3 ·
-> 영문 리스펠링 표기** 시절 측정치다. 현재 배포는 9차 체크포인트 · scale 0.15 · 한글 표기이므로 재측정이
-> 필요하다(7절). 수치를 인용할 때는 반드시 이 조건을 함께 적을 것.
+### 현재 배포 설정 측정 (2026-08-27/28) — 이 절의 정본
+
+배포 캐시에 실려 있는 나레이션 50개를 **그대로** 채점했다. 이 wav들은 배포 Space가 생성해 둔 것을
+받아온 파일이라(7절), 새로 만들지 않고도 **현재 배포 조건 그대로**를 잰다 — 9차 `checkpoint-epoch-31` ·
+`LORA_SCALE` 0.15 · 한글 표기.
+
+| 지표 | 값 |
+|---|:--:|
+| UTMOS 평균 | **4.0742** (중앙값 4.1522 · min 2.9482 · max 4.3349) |
+| UTMOS — GUIDE / CAUTION | 4.0742 (n=46) / 4.0736 (n=4) — 스타일 간 차이 없음 |
+| WER | **1.83%** |
+| WER — 음식명 낱말 제외 (`wer_core`) | **1.21%** |
+| 참조 음식명이 영어 ASR에 그대로 잡힌 비율 | 35/50 (0.70) |
+
+- **측정**: `python -m eval.measure_tts_quality --score-cache` · 원본 [`eval/tts_quality/deployed.csv`](./tts_quality/deployed.csv)·`.json` · 오디오 합계 1,047.2초
+- 맨 아래 항목은 품질 지표가 아니다. TTS 입력에서 음식명은 한글로 치환되어 **한국어 음운으로 읽히는 것이 의도한 동작**이라(4절), 영어 ASR이 그 낱말을 놓치는 것은 정상이다. 안내 문장 자체가 알아들리는지는 `wer_core`가 본다. 이름 발음의 정확성은 [`eval/verify_name_audio.py`](./verify_name_audio.py)가 한국어 ASR로 따로 본다.
+- **재현 확인 (2026-08-28)**: 같은 명령을 다시 돌려 **50행 CSV와 요약 JSON이 바이트 단위로 동일**한 것을 확인했다 — UTMOS·WER은 물론 파일별 ASR 전사까지 전부 같다. 채점 모델과 ASR이 고정된 wav에 대해 결정론적이라 값이 흔들리지 않는다.
+
+> ⚠️ **아래 6-1~6-4는 과거 설정 기준 기록이다.** 6-2의 UTMOS 수치는 모두 **3차 체크포인트 ·
+> `LORA_SCALE` 0.3 · 영문 리스펠링 표기** 시절 측정치다. 인용할 때는 반드시 그 조건을 함께 적을 것.
 
 ### 6-1. Val Loss
 
@@ -323,7 +343,7 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 
 ### 평가 (미완료)
 
-- [ ] **현행 설정 기준 UTMOS 재측정** — 9차 `epoch-31` · `LORA_SCALE` 0.15 · **한글 표기** 조건으로 76개 재채점. 6절 수치 전체가 과거 설정 기준이라 그대로는 인용할 수 없다 (GPU 필요)
+- [x] **현행 설정 기준 UTMOS 측정** (2026-08-27, 재현 확인 08-28) — 9차 `epoch-31` · `LORA_SCALE` 0.15 · **한글 표기** 조건의 배포 캐시 나레이션 **50개**를 채점했다. 결과는 6절 머리, 원본은 `eval/tts_quality/deployed.csv`. ⚠️ 단 6-2절의 76개 비교표를 현행 조건으로 다시 채운 것은 아니다 — 그 표의 뼈대인 리스펠링 전/후 비교는 표기 방식이 한글로 바뀌면서 현행과 무관해졌다(6-2절 한계 3)
 - [ ] **Perso.ai UTMOS 비교 (정식, 76문장)** — 6-4절은 n=1 1차 결과일 뿐. 문장 세트도 한글 표기로 갱신해야 한다
 - [ ] **MOS 정식 평가 (사람 평가자)** — 외부 평가자 5명, 블라인드 A/B(베이스 vs 파인튜닝, 순서 랜덤화), 발음 정확도·자연스러움 각 1~5점 척도(ITU-T P.800). 기획서 AC5 요구사항(발음 0.4점 이상 향상, 스타일 구분률 85% 이상). 자동 평가는 이를 대체하지 않는다
   - 진행 상황: `model_comparison.md` 기준 **평가자 2/5명**. 단 채점 원본 [`eval/mos_scores.csv`](./mos_scores.csv)는 아직 헤더만 있고 비어 있다 — **채점 결과를 CSV에 반영하는 것이 먼저다**
@@ -331,7 +351,7 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 
 ### 기록·재현성 (미완료)
 
-- [ ] **9차 학습 로그를 `eval/training_log.csv`에 추가** — 현재 3~8차 6개 run만 있다. 배포 체크포인트의 에폭별 Val Loss·학습 시간이 저장소에 없다
+- [x] **9차 학습 로그를 `eval/training_log.csv`에 추가** — 2026-08-28 완료. 40에폭 전체가 들어왔다 (min 8.8919 `ep31` / final 8.9163 `ep39` / 1,399.2초)
 - [ ] **9차 학습 노트북 확보** — `eval/qwen3_tts_lora_final.ipynb`는 8차(`final_respelled`) 기준이라 배포 체크포인트를 재현하지 못한다. instruct 학습을 반영한 `dataset.py` / `sft_12hz_lora.py` 수정본도 함께 남긴다
 
 ### 개선 후보 (선택)
@@ -351,9 +371,10 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 | **표기 치환** | [`src/text_gen/narration.py`](../src/text_gen/narration.py) | `_to_tts_text()` — **TTS 모듈이 아니다.** 이유는 4-3절 |
 | **사전 생성 (Plan B)** | [`src/tts/pregenerate.py`](../src/tts/pregenerate.py) | 배치 생성 + RTF 로그 |
 | **학습 노트북** | [`eval/qwen3_tts_lora_final.ipynb`](./qwen3_tts_lora_final.ipynb) | ⚠️ **8차 기준** — 배포(9차) 재현 불가 |
-| **학습 로그** | [`eval/training_log.csv`](./training_log.csv) | ⚠️ **3~8차 6개 run만** — 9차 미반영 |
+| **학습 로그** | [`eval/training_log.csv`](./training_log.csv) | **3~9차 7개 run** (1·2차는 로깅 이전) |
 | **Perso.ai 비교 오디오** | [`eval/perso_comparison/`](./perso_comparison/) | ours/perso × guide/caution 4개 |
-| **UTMOS 채점 원본** | `utmos_results.csv` | ⚠️ **저장소에 없다** — Colab Drive `work/utmos_results.csv` |
+| **UTMOS·WER 측정 (현행 배포)** | [`eval/tts_quality/deployed.csv`](./tts_quality/deployed.csv) | 배포 캐시 50개 채점 — 6절 머리의 근거. 스크립트는 [`eval/measure_tts_quality.py`](./measure_tts_quality.py) |
+| **UTMOS 채점 원본 (과거 76개)** | `utmos_results.csv` | ⚠️ **저장소에 없다** — Colab Drive `work/utmos_results.csv` |
 | **MOS 채점 원본** | [`eval/mos_scores.csv`](./mos_scores.csv) | ⚠️ 헤더만 있고 비어 있다 |
 
 > **초기에 만들었다가 통합한 것**: 별도 `inference.py`를 뒀다가, `src/tts/infer.py`의 스피커 config ·

@@ -1,0 +1,12 @@
+{
+  "label": "base",
+  "n": 10,
+  "wer": 0.027932960893854747,
+  "wer_core": 0.024279738922666473,
+  "utmos_mean": 4.0342,
+  "utmos_min": 3.0835,
+  "utmos_max": 4.28,
+  "rtf_mean": 29.6342,
+  "audio_sec_total": 199.78,
+  "name_hit_rate": 0.8
+}

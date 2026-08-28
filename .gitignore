@@ -42,3 +42,7 @@ data/*
 # models
 models/*
 !models/README.md
+
+# 평가용으로 즉석 생성한 오디오 (eval/measure_tts_quality.py --ablate)
+# 채점 결과 csv/json은 남기고, 원본 wav는 스크립트로 다시 만든다
+eval/tts_quality/*/

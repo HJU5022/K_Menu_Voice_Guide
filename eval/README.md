@@ -7,7 +7,7 @@
 | 파일 | 내용 |
 |---|---|
 | `TTS_MODULE.md` | TTS 파인튜닝 실험 기록 — 하이퍼파라미터 탐색 9차(배포는 9차 `epoch-31`), 음식명 표기 전환(리스펠링 → 한글), GUIDE/CAUTION 톤 구분(instruct), UTMOS 자동 평가 결과. 맨 앞의 "현재 배포 기준" 표부터 볼 것 |
-| `training_log.csv` | 위 실험의 에폭별 Val Loss 원본 로그 (`TTS_MODULE.md` 3절 표의 근거 데이터). ⚠️ **3~8차 6개 run만** 들어 있다 — 배포본인 9차(`instruct_trained_lr5e-6_ep40`)는 아직 미반영 |
+| `training_log.csv` | 위 실험의 에폭별 Val Loss 원본 로그 (`TTS_MODULE.md` 3절 표의 근거 데이터). 배포본인 9차(`instruct_trained_lr5e-6_ep40`)를 포함한 **3~9차 7개 run** (1·2차는 로깅 이전) |
 | `qwen3_tts_lora_final.ipynb` | 학습에 쓴 Colab 노트북 (환경설정 → 데이터빌드 → 학습 → 업로드). ⚠️ **8차(`final_respelled_lr5e-6_ep40`) 기준**이라 배포본인 9차를 재현하지 못한다 |
 | `mos_scores.csv` | TTS 발음·자연스러움 MOS 채점 원본 데이터 — ⚠️ 현재 **헤더만 있고 비어 있다**. `model_comparison.md`는 평가자 2/5명 진행이라 적고 있으므로, 그 채점 결과를 여기 반영하는 것이 먼저다 |
 | `model_comparison.md` | OCR(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교 · Plan B 판단 정리 |

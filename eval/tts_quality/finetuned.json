@@ -1,0 +1,12 @@
+{
+  "label": "finetuned",
+  "n": 10,
+  "wer": 0.14106145251396648,
+  "wer_core": 0.13758527360421943,
+  "utmos_mean": 3.68484,
+  "utmos_min": 2.297,
+  "utmos_max": 4.2268,
+  "rtf_mean": 20.186799999999998,
+  "audio_sec_total": 187.1,
+  "name_hit_rate": 0.7
+}
