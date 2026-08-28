@@ -27,10 +27,10 @@ library;
 
 import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
-import '../korean_speaker.dart';
 import 'animated_gradient_back_button.dart';
 import 'menu_photo_overlay.dart';
 import 'detail_screen.dart';
@@ -61,6 +61,9 @@ class CandidatesScreen extends StatefulWidget {
 }
 
 class _CandidatesScreenState extends State<CandidatesScreen> {
+  /// 후보 카드의 음식명 캐시 WAV를 한 번에 하나만 재생한다.
+  final AudioPlayer _namePlayer = AudioPlayer();
+
   /// 서버가 돌려준 카트 전체 상태. 응답을 통째로 갈아끼운다 — 부분 갱신을
   /// 앱에서 짜맞추지 않는 게 이 API의 설계다(`docs/specs/cart.md`).
   CartState? _cart;
@@ -83,9 +86,37 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
 
   @override
   void dispose() {
-    // 안 멈추면 다음 화면으로 넘어간 뒤에도 계속 말한다.
-    koreanSpeaker.stop();
+    _namePlayer.dispose();
     super.dispose();
+  }
+
+  /// 후보에는 이름 음성 URL을 싣지 않으므로, 누른 항목 하나만 상세 API로 조회한다.
+  /// 서버가 반환하는 name_audio_path는 파인튜닝 TTS의 사전 생성 캐시 WAV다.
+  Future<void> _playCachedName(Candidate candidate) async {
+    try {
+      final food = await fetchFood(candidate.foodId);
+      if (!food.hasNameAudio) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Voice guide is not ready yet.')),
+          );
+        }
+        return;
+      }
+      await _namePlayer.play(UrlSource(food.nameAudioUrl!));
+    } on ApiException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load the voice guide.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not play the voice guide.')),
+        );
+      }
+    }
   }
 
   Future<void> _runCartRequest(
@@ -182,6 +213,7 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final entry = entries[index];
+                final candidate = entry as Candidate;
                 void onChange(int delta) {
                   _runCartRequest(
                     () => changeCartItem(entry, quantityDelta: delta),
@@ -192,12 +224,13 @@ class _CandidatesScreenState extends State<CandidatesScreen> {
                 }
 
                 return _CandidateCard(
-                  candidate: entry as Candidate,
+                  candidate: candidate,
                   index: index,
                   quantity: _quantityOf(entry),
                   // 카드는 "눌렸다"만 알리고, 무엇을 할지는 이 화면이 정한다.
                   onTap: () => _openDetail(context, entry),
                   onChangeQuantity: onChange,
+                  onSpeak: () => _playCachedName(candidate),
                 );
               },
             ),
@@ -246,6 +279,7 @@ class _CandidateCard extends StatelessWidget {
     required this.quantity,
     required this.onTap,
     required this.onChangeQuantity,
+    required this.onSpeak,
   });
 
   final Candidate candidate;
@@ -261,6 +295,8 @@ class _CandidateCard extends StatelessWidget {
 
   /// +/− 를 눌렀을 때. +1 또는 -1을 넘긴다.
   final void Function(int delta) onChangeQuantity;
+
+  final Future<void> Function() onSpeak;
 
   @override
   Widget build(BuildContext context) {
@@ -377,8 +413,7 @@ class _CandidateCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // 읽어줄 때도 가격은 뺀다 — 종업원에게 들려줄 말에 숫자가 끼면 어수선하다.
-                  _SpeakButton(text: candidate.nameText ?? candidate.nameKr),
+                  _SpeakButton(onPressed: onSpeak),
                   _QuantityStepper(
                     quantity: quantity,
                     onChange: onChangeQuantity,
@@ -436,22 +471,18 @@ class _ViewGuideAffordance extends StatelessWidget {
   }
 }
 
-/// 메뉴판 글자를 한국어로 읽어주는 버튼.
-///
-/// 설명이 없는 메뉴에서 특히 값어치가 있다 — 두루치기가 무엇인지는 못 알려줘도
-/// "두루치기"라고 소리 내주면 종업원에게 말할 수 있다. 소리를 내는 건 우리
-/// TTS 모델이 아니라 기기 기본 음성이다([KoreanSpeaker] 설명 참고).
+/// 파인튜닝 TTS가 미리 만든 음식명 캐시 WAV를 재생하는 버튼.
 class _SpeakButton extends StatelessWidget {
-  const _SpeakButton({required this.text});
+  const _SpeakButton({required this.onPressed});
 
-  final String text;
+  final Future<void> Function() onPressed;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: () => koreanSpeaker.speak(text),
+      onPressed: onPressed,
       icon: const Icon(Icons.volume_up_outlined),
-      tooltip: 'Hear it in Korean',
+      tooltip: 'Hear the voice guide',
       visualDensity: VisualDensity.compact,
     );
   }

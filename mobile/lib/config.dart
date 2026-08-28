@@ -24,4 +24,12 @@
 ///
 /// 서버는 반드시 `--host 0.0.0.0`으로 띄워야 한다. 기본값(127.0.0.1)이면 맥
 /// 자신만 접속할 수 있어 실제 폰에서는 연결되지 않는다.
-const String apiBaseUrl = 'https://hju5022-k-menu.hf.space';
+/// `--dart-define=API_BASE_URL=...`를 주면 그 주소를 우선 쓴다.
+///
+/// 기본값은 배포 Space라서 평소 빌드·배포 동작은 바뀌지 않는다. USB 디버깅 중에는
+/// `http://127.0.0.1:8000`을 넣고 `adb reverse tcp:8000 tcp:8000`을 설정하면
+/// 실제 Android 기기도 맥의 로컬 서버(사전 생성 TTS 캐시 포함)를 사용할 수 있다.
+const String apiBaseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'https://hju5022-k-menu.hf.space',
+);

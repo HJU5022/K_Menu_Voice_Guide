@@ -33,7 +33,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
-import '../korean_speaker.dart';
 import 'animated_gradient_back_button.dart';
 import 'settings_button.dart';
 import 'spice_gauge.dart';
@@ -107,8 +106,6 @@ class _DetailScreenState extends State<DetailScreen> {
     // 화면을 떠날 때 재생기를 정리한다. 이걸 빠뜨리면 뒤로 갔는데도
     // 소리가 계속 나고, 재생기가 메모리에 남는다.
     _player.dispose();
-    // 이름 발음도 같이 멈춘다 — 재생기와 달리 화면이 사라져도 계속 말한다.
-    koreanSpeaker.stop();
     super.dispose();
   }
 
@@ -159,6 +156,18 @@ class _DetailScreenState extends State<DetailScreen> {
       await _player.pause();
     } else {
       await _startAudio(food.audioUrl!);
+    }
+  }
+
+  /// 음식명 스피커도 같은 파인튜닝 TTS 캐시를 쓴다.
+  Future<void> _playCachedName() async {
+    final food = _food;
+    if (food == null || !food.hasNameAudio) return;
+    try {
+      await _player.play(UrlSource(food.nameAudioUrl!));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _audioFailed = true);
     }
   }
 
@@ -232,7 +241,7 @@ class _DetailScreenState extends State<DetailScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        _NameHeader(food: food),
+        _NameHeader(food: food, onSpeakName: _playCachedName),
         const SizedBox(height: 16),
         _AudioBar(
           food: food,
@@ -266,9 +275,10 @@ class _DetailScreenState extends State<DetailScreen> {
 
 /// 화면 맨 위의 이름 영역.
 class _NameHeader extends StatelessWidget {
-  const _NameHeader({required this.food});
+  const _NameHeader({required this.food, required this.onSpeakName});
 
   final FoodDetail food;
+  final VoidCallback onSpeakName;
 
   @override
   Widget build(BuildContext context) {
@@ -289,9 +299,9 @@ class _NameHeader extends StatelessWidget {
               style: const TextStyle(fontSize: 16, color: Colors.black54),
             ),
             IconButton(
-              onPressed: () => koreanSpeaker.speak(food.nameKr),
+              onPressed: food.hasNameAudio ? onSpeakName : null,
               icon: const Icon(Icons.volume_up_outlined, size: 20),
-              tooltip: 'Hear it in Korean',
+              tooltip: 'Hear the voice guide',
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.only(left: 4),
               constraints: const BoxConstraints(),

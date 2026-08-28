@@ -37,6 +37,7 @@ import '../config.dart';
 import 'candidates_screen.dart';
 import 'detail_screen.dart';
 import 'first_run_guide.dart';
+import 'paper_background.dart';
 import 'settings_button.dart';
 import 'stitch_bar.dart';
 import 'supported_foods_screen.dart';
@@ -157,7 +158,9 @@ class _CameraScreenState extends State<CameraScreen> {
         }
         if (!mounted) return;
 
-        final only = result.candidates.length == 1 ? result.candidates.first : null;
+        final only = result.candidates.length == 1
+            ? result.candidates.first
+            : null;
 
         await Navigator.push(
           context,
@@ -191,8 +194,16 @@ class _CameraScreenState extends State<CameraScreen> {
     // Scaffold — 앱 화면의 기본 뼈대. 상단 바(appBar)와 본문(body) 자리를
     // 미리 잡아주고, 화면 크기·노치 같은 걸 알아서 처리해준다.
     return Scaffold(
+      // 본문의 종이 배경을 상태바·상단바 아래까지 한 번에 그린다. AppBar에 배경을
+      // 따로 칠하면 이음선이 생기므로, 투명한 상단바를 종이 위에 얹는다.
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('K-Menu'),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        actionsPadding: EdgeInsets.zero,
         actions: const [SettingsButton()],
         // Penpot 01 보드의 상단 아래 스티치. 화면 기능이나 상태와는 무관한 공통 장식이다.
         bottom: const PreferredSize(
@@ -202,53 +213,65 @@ class _CameraScreenState extends State<CameraScreen> {
       ),
 
       // Padding — 안쪽 여백. 글자가 화면 가장자리에 붙지 않게 한다.
-      body: Padding(
-        padding: const EdgeInsets.all(24), // 사방 24픽셀
-        // Column — 자식들을 세로로 차례차례 쌓는다. (가로로 쌓으려면 Row)
-        child: Column(
-          // 자식들의 가로 폭을 화면 끝까지 늘린다. 이게 없으면 버튼이
-          // 글자 크기만큼만 작게 나온다.
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Point your camera at a Korean menu',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            // SizedBox — 높이만 가진 빈 상자. 위젯 사이 간격을 벌릴 때 쓴다.
-            const SizedBox(height: 8),
-            const Text(
-              "We'll tell you what each dish is, how it tastes, "
-              'and how spicy it gets.',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
-            ),
-            const SizedBox(height: 24),
+      body: PaperBackground(
+        child: Padding(
+          // extendBodyBehindAppBar를 썼으므로, 본문만은 상태바·상단바 높이 아래에서
+          // 시작시킨다. 배경은 뒤로 이어지되 내용이 제목과 겹치지 않는다.
+          padding: EdgeInsets.fromLTRB(
+            24,
+            MediaQuery.paddingOf(context).top +
+                kToolbarHeight +
+                AppBarStitchBand.preferredHeight +
+                24,
+            24,
+            24,
+          ),
+          // Column — 자식들을 세로로 차례차례 쌓는다. (가로로 쌓으려면 Row)
+          child: Column(
+            // 자식들의 가로 폭을 화면 끝까지 늘린다. 이게 없으면 버튼이
+            // 글자 크기만큼만 작게 나온다.
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Point your camera at a Korean menu',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              // SizedBox — 높이만 가진 빈 상자. 위젯 사이 간격을 벌릴 때 쓴다.
+              const SizedBox(height: 8),
+              const Text(
+                "We'll tell you what each dish is, how it tastes, "
+                'and how spicy it gets.',
+                style: TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+              const SizedBox(height: 24),
 
-            // FilledButton — 꽉 찬 색의 주요 버튼. 이 화면의 주 행동이다.
-            FilledButton.icon(
-              // 로딩 중에는 onPressed를 null로 두면 버튼이 자동으로 비활성된다.
-              // 사용자가 연달아 눌러 요청이 겹치는 것을 막는다.
-              onPressed: _isLoading
-                  ? null
-                  : () => _pickAndAnalyze(ImageSource.camera),
-              icon: const Icon(Icons.photo_camera),
-              label: const Text('Take a photo'),
-            ),
-            const SizedBox(height: 8),
+              // FilledButton — 꽉 찬 색의 주요 버튼. 이 화면의 주 행동이다.
+              FilledButton.icon(
+                // 로딩 중에는 onPressed를 null로 두면 버튼이 자동으로 비활성된다.
+                // 사용자가 연달아 눌러 요청이 겹치는 것을 막는다.
+                onPressed: _isLoading
+                    ? null
+                    : () => _pickAndAnalyze(ImageSource.camera),
+                icon: const Icon(Icons.photo_camera),
+                label: const Text('Take a photo'),
+              ),
+              const SizedBox(height: 8),
 
-            // OutlinedButton — 테두리만 있는 보조 버튼. 대체 경로라 덜 강조한다.
-            OutlinedButton.icon(
-              onPressed: _isLoading
-                  ? null
-                  : () => _pickAndAnalyze(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library),
-              label: const Text('Choose from library'),
-            ),
-            const SizedBox(height: 32),
+              // OutlinedButton — 테두리만 있는 보조 버튼. 대체 경로라 덜 강조한다.
+              OutlinedButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => _pickAndAnalyze(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Choose from library'),
+              ),
+              const SizedBox(height: 32),
 
-            // Expanded — 남은 세로 공간을 전부 차지한다. 결과 목록이 길어져도
-            // 이 영역 안에서만 스크롤되고 위쪽 버튼들은 자리를 지킨다.
-            Expanded(child: _buildResultArea()),
-          ],
+              // Expanded — 남은 세로 공간을 전부 차지한다. 결과 목록이 길어져도
+              // 이 영역 안에서만 스크롤되고 위쪽 버튼들은 자리를 지킨다.
+              Expanded(child: _buildResultArea()),
+            ],
+          ),
         ),
       ),
     );
@@ -288,7 +311,8 @@ class _CameraScreenState extends State<CameraScreen> {
       return _MessagePanel(
         icon: Icons.wifi_off,
         title: "Can't reach the server",
-        body: '$_errorMessage\n\nMake sure the server is running '
+        body:
+            '$_errorMessage\n\nMake sure the server is running '
             'and your phone is on the same Wi-Fi.\n$apiBaseUrl',
       );
     }
@@ -307,7 +331,8 @@ class _CameraScreenState extends State<CameraScreen> {
       return const _MessagePanel(
         icon: Icons.image_not_supported_outlined,
         title: "We couldn't read this photo",
-        body: 'Try brighter lighting, hold the menu straight, '
+        body:
+            'Try brighter lighting, hold the menu straight, '
             'and move closer to the text.',
       );
     }
@@ -320,7 +345,8 @@ class _CameraScreenState extends State<CameraScreen> {
       return const _MessagePanel(
         icon: Icons.no_photography_outlined,
         title: "We couldn't find a menu here",
-        body: 'Point the camera at a printed menu with prices, '
+        body:
+            'Point the camera at a printed menu with prices, '
             'then take the photo again.',
       );
     }
@@ -335,7 +361,8 @@ class _CameraScreenState extends State<CameraScreen> {
       return _MessagePanel(
         icon: Icons.search_off,
         title: 'Not in our guide yet',
-        body: 'We read this photo, but none of the dishes on it are among '
+        body:
+            'We read this photo, but none of the dishes on it are among '
             'the 50 Korean dishes this guide covers.',
         actionLabel: 'See supported dishes',
         onAction: () => Navigator.push(
@@ -407,7 +434,9 @@ class _LastPhotoResult extends StatelessWidget {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: colorScheme.primary.withValues(alpha: haloOpacity),
+                              color: colorScheme.primary.withValues(
+                                alpha: haloOpacity,
+                              ),
                             ),
                             child: const SizedBox.expand(),
                           ),
