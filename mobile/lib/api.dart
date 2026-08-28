@@ -411,6 +411,8 @@ class FoodDetail {
     required this.style,
     required this.ttsStatus,
     required this.audioUrl,
+    required this.nameTtsStatus,
+    required this.nameAudioUrl,
   });
 
   factory FoodDetail.fromJson(Map<String, dynamic> json) {
@@ -419,6 +421,7 @@ class FoodDetail {
     // 앞에 붙여 완전한 URL로 만들어야 하는데, 그 조립을 화면마다 반복하지 않도록
     // 여기서 한 번만 한다.
     final relativePath = json['narration_audio_path'] as String?;
+    final nameRelativePath = json['name_audio_path'] as String?;
     return FoodDetail(
       foodId: json['food_id'] as int,
       nameKr: json['name_kr'] as String,
@@ -429,6 +432,9 @@ class FoodDetail {
       style: json['style'] as String,
       ttsStatus: json['tts_status'] as String,
       audioUrl: relativePath == null ? null : '$apiBaseUrl$relativePath',
+      nameTtsStatus: json['name_tts_status'] as String,
+      nameAudioUrl:
+          nameRelativePath == null ? null : '$apiBaseUrl$nameRelativePath',
     );
   }
 
@@ -454,11 +460,19 @@ class FoodDetail {
   /// 재생 가능한 완전한 URL. TTS가 실패했으면 null이다.
   final String? audioUrl;
 
+  /// 음식 이름만 읽은 파인튜닝 TTS 캐시 WAV의 완전한 URL.
+  final String? nameAudioUrl;
+
+  final String nameTtsStatus;
+
   /// 음성을 재생할 수 있는 상태인지.
   ///
   /// false여도 화면 전체를 실패로 처리하면 안 된다 — 상세 텍스트는 그대로
   /// 보여주고 음성 영역만 비활성으로 표시한다(EC-05).
   bool get hasAudio => ttsStatus == 'ok' && audioUrl != null;
+
+  /// 후보·상세 화면의 음식명 스피커가 쓸 수 있는지.
+  bool get hasNameAudio => nameTtsStatus == 'ok' && nameAudioUrl != null;
 }
 
 /// 메뉴판 사진을 보내 음식 후보를 받는다.
