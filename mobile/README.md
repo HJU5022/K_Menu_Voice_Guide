@@ -21,7 +21,7 @@ mobile/
 │       ├── order_summary_screen.dart   주문 확인 — 종업원에게 보여주는 화면
 │       ├── menu_photo_overlay.dart     찍은 사진 위에 후보 자리를 번호 상자로 표시
 │       ├── first_run_guide.dart        첫 실행 4단계 안내 (한 번만 뜬다)
-│       ├── settings_button.dart        상단바 설정 진입 버튼
+│       ├── settings_button.dart        촬영 화면 오른쪽 위 원형 설정 버튼
 │       ├── settings_screen.dart        설정 — 안내 항목을 한 줄씩 모아둔 자리
 │       ├── supported_foods_screen.dart   안내 가능한 음식 전체 목록
 │       ├── how_it_works_screen.dart      사용법·지원 범위·가격 출처
@@ -148,6 +148,5 @@ cd mobile && flutter run
 | `image_picker` | 카메라 촬영 / 사진첩 선택 |
 | `http` | API 호출 |
 | `audioplayers` | 서버가 만든 내레이션·이름 WAV 재생 |
-| `flutter_tts` | 기기 음성으로 한국어 메뉴 이름 읽기 (`korean_speaker.dart`) |
 | `shared_preferences` | 첫 실행 안내를 닫았는지 기기에 저장 |
 | `cupertino_icons` | iOS 스타일 아이콘 |
