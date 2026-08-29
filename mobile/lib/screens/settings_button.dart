@@ -20,32 +20,26 @@ class SettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFFFD8CD),
-      borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const SettingsScreen()),
-        ),
-        child: const Padding(
-          // 오른쪽·위쪽은 상단 바의 가장자리에 붙이고, 왼쪽·아래쪽만 둥글린다.
-          padding: EdgeInsets.fromLTRB(13, 0, 10, 2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'More',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF813A2A),
-                ),
-              ),
-              SizedBox(width: 2),
-              Icon(Icons.more_horiz, size: 18, color: Color(0xFF813A2A)),
-            ],
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Material(
+        color: const Color(0xFFFCFAF3),
+        shape: const CircleBorder(side: BorderSide(color: Color(0xFFE1DDD2))),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen()),
+          ),
+          child: const SizedBox(
+            width: 52,
+            height: 52,
+            child: Icon(
+              Icons.settings_outlined,
+              size: 29,
+              color: Color(0xFF124B48),
+            ),
           ),
         ),
       ),
