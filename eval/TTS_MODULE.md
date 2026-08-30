@@ -346,7 +346,7 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 - [x] **현행 설정 기준 UTMOS 측정** (2026-08-27, 재현 확인 08-28) — 9차 `epoch-31` · `LORA_SCALE` 0.15 · **한글 표기** 조건의 배포 캐시 나레이션 **50개**를 채점했다. 결과는 6절 머리, 원본은 `eval/tts_quality/deployed.csv`. ⚠️ 단 6-2절의 76개 비교표를 현행 조건으로 다시 채운 것은 아니다 — 그 표의 뼈대인 리스펠링 전/후 비교는 표기 방식이 한글로 바뀌면서 현행과 무관해졌다(6-2절 한계 3)
 - [ ] **Perso.ai UTMOS 비교 (정식, 76문장)** — 6-4절은 n=1 1차 결과일 뿐. 문장 세트도 한글 표기로 갱신해야 한다
 - [ ] **MOS 정식 평가 (사람 평가자)** — 외부 평가자 5명, 블라인드 A/B(베이스 vs 파인튜닝, 순서 랜덤화), 발음 정확도·자연스러움 각 1~5점 척도(ITU-T P.800). 기획서 AC5 요구사항(발음 0.4점 이상 향상, 스타일 구분률 85% 이상). 자동 평가는 이를 대체하지 않는다
-  - 진행 상황: `model_comparison.md` 기준 **평가자 2/5명**. 단 채점 원본 [`eval/mos_scores.csv`](./mos_scores.csv)는 아직 헤더만 있고 비어 있다 — **채점 결과를 CSV에 반영하는 것이 먼저다**
+  - 진행 상황: **0/5명.** 오래 "평가자 2/5명"이라고 적어왔으나 그 채점 원본이 남아 있지 않다. 내부 예비 채점은 접고 **5명을 새로 받는다.** 사람 평가로 현재 가진 것은 외부 3명 참고 측정([`eval/user_test/`](./user_test/))뿐이다
   - 절차: ① UTMOS 자동 채점 → ② 외부 평가자 직접 청취 검증
 
 ### 기록·재현성 (미완료)
@@ -375,7 +375,7 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 | **Perso.ai 비교 오디오** | [`eval/perso_comparison/`](./perso_comparison/) | ours/perso × guide/caution 4개 |
 | **UTMOS·WER 측정 (현행 배포)** | [`eval/tts_quality/deployed.csv`](./tts_quality/deployed.csv) | 배포 캐시 50개 채점 — 6절 머리의 근거. 스크립트는 [`eval/measure_tts_quality.py`](./measure_tts_quality.py) |
 | **UTMOS 채점 원본 (과거 76개)** | `utmos_results.csv` | ⚠️ **저장소에 없다** — Colab Drive `work/utmos_results.csv` |
-| **MOS 채점 원본** | [`eval/mos_scores.csv`](./mos_scores.csv) | ⚠️ 헤더만 있고 비어 있다 |
+| **사람 평가 원본** | [`eval/user_test/`](./user_test/) | 외부 3명 참고 측정(2026-08-29). ⚠️ 정식 MOS(5명 블라인드 A/B) 원본은 **없다 — 미실시** |
 
 > **초기에 만들었다가 통합한 것**: 별도 `inference.py`를 뒀다가, `src/tts/infer.py`의 스피커 config ·
 > embedding · LoRA scale 로직과 중복되는 데다 파이프라인에 연결되지도 않아 `infer.py`로 합쳤다.

@@ -9,7 +9,7 @@
 | `TTS_MODULE.md` | TTS 파인튜닝 실험 기록 — 하이퍼파라미터 탐색 9차(배포는 9차 `epoch-31`), 음식명 표기 전환(리스펠링 → 한글), GUIDE/CAUTION 톤 구분(instruct), UTMOS 자동 평가 결과. 맨 앞의 "현재 배포 기준" 표부터 볼 것 |
 | `training_log.csv` | 위 실험의 에폭별 Val Loss 원본 로그 (`TTS_MODULE.md` 3절 표의 근거 데이터). 배포본인 9차(`instruct_trained_lr5e-6_ep40`)를 포함한 **3~9차 7개 run** (1·2차는 로깅 이전) |
 | `qwen3_tts_lora_final.ipynb` | 학습에 쓴 Colab 노트북 (환경설정 → 데이터빌드 → 학습 → 업로드). ⚠️ **8차(`final_respelled_lr5e-6_ep40`) 기준**이라 배포본인 9차를 재현하지 못한다 |
-| `mos_scores.csv` | TTS 발음·자연스러움 MOS 채점 원본 데이터 — ⚠️ 현재 **헤더만 있고 비어 있다**. `model_comparison.md`는 평가자 2/5명 진행이라 적고 있으므로, 그 채점 결과를 여기 반영하는 것이 먼저다 |
+| `user_test/` | 사람 평가 원본 — 팀 밖 사용자 **3명**이 배포 실서비스를 써보고 채점한 결과(2026-08-29). ⚠️ 정식 MOS(5명 블라인드 A/B)가 아니라 **참고 측정**이다 |
 | `model_comparison.md` | OCR(기본·파인튜닝) · TTS 후보군 · Perso.ai 비교 · Plan B 판단 정리 |
 | `measure_ocr.py` | OCR 동일 조건 비교 측정 스크립트 — base/로컬 체크포인트/최종(HF)을 같은 코드로 측정 (매칭 정확도·라벨일치·라벨 CER) |
 | `measure_ocr_final.json` | 파인튜닝(배포본) 실측 결과 원본 (2026-08-28 재측정, 매칭 91.67% · 라벨일치 72.32% · CER 21.77%). 매칭 재현율은 2026-08-21 측정과 같고, 라벨 지표는 그 사이 매칭 로직이 좋아지면서 함께 올랐다 |
@@ -37,7 +37,9 @@ Colab에서 돌린 실험 노트북(한글 표기 스크리닝, 로마자 자기
 ## 기록 흐름
 
 ```
-음성 생성 → 채점자들이 듣고 점수 입력 → mos_scores.csv
-                                          ↓
-                              평균 내서 model_comparison.md에 정리
+음성 생성 → 사용자가 듣고 구글폼에 점수 입력 → user_test/responses.csv
+                                                  ↓
+                                    집계·해석은 user_test/결과보고서.md
+                                                  ↓
+                                      요약만 model_comparison.md에 정리
 ```
