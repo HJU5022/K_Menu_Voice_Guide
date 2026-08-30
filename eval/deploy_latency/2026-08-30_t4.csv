@@ -1,0 +1,27 @@
+구간,회차,http_code,소요초,비고
+부팅대기,1,200,124,restart 후 첫 200 응답까지(폴링 간격 포함)
+GET /api/foods,1,200,0.628266,웜
+GET /api/foods,2,200,0.627934,웜
+GET /api/foods,3,200,0.629984,웜
+GET /api/foods,4,200,0.649705,웜
+GET /api/foods,5,200,0.628832,웜
+GET /api/foods/1,1,200,0.650103,상세+캐시조회
+GET /api/foods/3,2,200,0.634523,상세+캐시조회
+GET /api/foods/7,3,200,0.641653,상세+캐시조회
+GET /api/foods/12,4,200,0.626569,상세+캐시조회
+GET /api/foods/23,5,200,0.723386,상세+캐시조회
+GET /api/foods/2,6,200,0.703350,상세+캐시조회
+GET /audio/tmpkyy8c3fr.wav,1,200,3.550700,나레이션 wav 다운로드
+GET /audio/tmpkyy8c3fr.wav,2,200,3.310979,나레이션 wav 다운로드
+POST /api/analyze(합성),1,200,12.513582,sample-menu-synthetic.jpg
+POST /api/analyze(합성),2,200,1.343963,sample-menu-synthetic.jpg
+POST /api/analyze(합성),3,200,1.266923,sample-menu-synthetic.jpg
+POST /api/analyze(실제),1,200,4.222768,05_KW_KF01_M0001_1321793_4-tf.jpg
+POST /api/analyze(실제),2,200,3.374713,05_KW_KF01_M0001_1321793_4-tf.jpg
+POST /api/analyze(실제),3,200,13.030895,05_KW_KF01_M0001_1321793_4-tf.jpg
+POST /api/analyze(실제),4,200,3.355247,05_KW_KF01_M0001_1321793_4-tf.jpg
+POST /api/analyze(실제),5,200,3.522868,05_KW_KF01_M0001_1321793_4-tf.jpg
+POST /api/analyze(실제),6,200,3.389606,05_KW_KF01_M0001_1321793_4-tf.jpg
+GET /audio/*.wav,1,200,3.327114,나레이션 wav 다운로드
+GET /audio/*.wav,2,200,3.329083,나레이션 wav 다운로드
+GET /audio/*.wav,3,200,4.028043,나레이션 wav 다운로드
