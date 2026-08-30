@@ -1,0 +1,885 @@
+{
+  "label": "base",
+  "rec": "paddle-base",
+  "summary": {
+    "01_normal": {
+      "images": 20,
+      "labels": 59,
+      "label_hit": 0.0,
+      "label_cer": 0.9758,
+      "matchable_images": 20,
+      "match_recall": 0.0,
+      "digit_tokens": 119,
+      "price_parse_rate": 0.6134
+    },
+    "02_multi_food": {
+      "images": 15,
+      "labels": 93,
+      "label_hit": 0.0,
+      "label_cer": 0.9884,
+      "matchable_images": 15,
+      "match_recall": 0.0,
+      "digit_tokens": 151,
+      "price_parse_rate": 0.6954
+    },
+    "03_low_quality": {
+      "images": 10,
+      "labels": 19,
+      "label_hit": 0.0,
+      "label_cer": 0.986,
+      "matchable_images": 1,
+      "match_recall": 0.0,
+      "digit_tokens": 45,
+      "price_parse_rate": 0.6444
+    },
+    "04_unregistered": {
+      "images": 5,
+      "labels": 6,
+      "label_hit": 0.0,
+      "label_cer": 0.9327,
+      "matchable_images": 0,
+      "match_recall": null,
+      "digit_tokens": 32,
+      "price_parse_rate": 0.2812
+    },
+    "__all__": {
+      "images": 50,
+      "labels": 177,
+      "label_hit": 0.0,
+      "label_cer": 0.982,
+      "matchable_images": 36,
+      "match_recall": 0.0,
+      "digit_tokens": 347,
+      "price_parse_rate": 0.6225
+    }
+  },
+  "rows": [
+    {
+      "file_name": "SL_BF01_M0002_228331_1.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 4,
+      "parsed_price_tokens": 4,
+      "ocr_text": "MI皆習堂 102号3,900号 23,000 Pork and vepetable wraptsallted oysters with hot pepper 泡菜包猪肉 腌辣牡蛎 年 早门 12,000 18,000 Mung-bean pancake Pork- Duruchigi, Korean style stir fry 綠豆煎饼 辣炒猪肉 智智：让从  .  "
+    },
+    {
+      "file_name": "SL_BF01_M0002_297523_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        0.875,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 8,
+      "parsed_price_tokens": 3,
+      "ocr_text": "6.500 .13.800 TTJ (..) 卫引23.000 ，间叫 5.000 2.0001 3.0003.0001 个40004000 4.00041"
+    },
+    {
+      "file_name": "BS_BF01_M0002_581151_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.76
+      ],
+      "correct_food": false,
+      "digit_tokens": 2,
+      "parsed_price_tokens": 2,
+      "ocr_text": "13,900 ASET (++++++) 14,900 BSET N +++++"
+    },
+    {
+      "file_name": "BS_BF01_M0002_579792_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 5,
+      "parsed_price_tokens": 2,
+      "ocr_text": "  115  20/ ) 9,900 卫フル本外 200g 5,900"
+    },
+    {
+      "file_name": "DG_KF01_M0001_594971_3.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 7,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 13,
+      "parsed_price_tokens": 7,
+      "ocr_text": "~ 8.5 ( ) 8.5 (歪7) 8.5 (+/) 8.5 () 8.5 (卫71+) 8.5 11.0 (+) 只   ,       :) 1. ：卒导号！ 2. ： ! 3. 卫： ! 4. ：!   (),(),() (),()"
+    },
+    {
+      "file_name": "DG_KF01_M0001_603946_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 9,
+      "parsed_price_tokens": 3,
+      "ocr_text": "PYRMYVTY (正5今号+礼ス出卫号础+征テ卫号计号 +号早+让人12H71ス子+) <20101人号>10115,000 山从置 让外号！ M行Y (让站今号+山卫号社 +号早+答帖) 101是16,000 <20101人是7> BEST 合叫共社器 ！!! 1HYMo 让址人! (止站今号+刘外山卫号础+号早+时) 101是21,000<20101是> ARRIAHTY (止号人12H7117+号号+271) 101是9,000"
+    },
+    {
+      "file_name": "DG_KF01_M0001_595317_9.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 12,
+      "parsed_price_tokens": 9,
+      "ocr_text": "PREMIUMGIFTSET 卫(600g*4)160,000/2.4kg (600g*4140,000/2.4kg (600g*2)85,000/1.2kg (600g*2)75,000/1.2kg 2 & 1 1 5m4170,000/2.4kg (600g*2) 150,0000/2.4kg (600*2) (600g*2)"
+    },
+    {
+      "file_name": "IN_IF02_M0001_676201_7.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 1,
+      "parsed_price_tokens": 1,
+      "ocr_text": "W9,000 吾命 豆浆面"
+    },
+    {
+      "file_name": "IN_IF02_M0001_718433_2.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        0.8888888888888888,
+        0.8
+      ],
+      "correct_food": false,
+      "digit_tokens": 7,
+      "parsed_price_tokens": 2,
+      "ocr_text": "今 号 !A 东此四方应 土此五行 四时运不穷 夫妇顺 K 2 B 卒利 3CH(330g) 29,900) 2CH(220g) aA 养不教父 A D 不金土此五行 此四方应 时运不 B时 9 顺 穷 28:900 卒利 (330)"
+    },
+    {
+      "file_name": "IN_IF02_M0001_9006586_4.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 4,
+      "parsed_price_tokens": 2,
+      "ocr_text": "食类 竹川弄 弄 000 米肠 H 10.000 000 麻辣烫 9.000 冷面 图片仅供参考，出品请以实物为准         ."
+    },
+    {
+      "file_name": "GJ_IF02_M0001_807366_5.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 1,
+      "parsed_price_tokens": 1,
+      "ocr_text": "Cold bean soup noodles 寻          •  Cold bean soup noodles w 8.0 ** * 沃"
+    },
+    {
+      "file_name": "GJ_IF03_M0001_9005970_2.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 5,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 5,
+      "parsed_price_tokens": 5,
+      "ocr_text": "Shrimp rice · 12.9W   Shrimp rice 12.9W Beef bulgogi rice 10.9W   Beef brisket rice 10.9W Pork neck rice 10.9W"
+    },
+    {
+      "file_name": "DJ_BF01_M0002_863343_1.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 3,
+      "label_hits": 0,
+      "label_cers": [
+        0.75,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 7,
+      "parsed_price_tokens": 3,
+      "ocr_text": "      .      Outdoor price display system 全 11 16,500 (11)   5.000 甩甩甩甩甩甩 ( )    2,000   3 (150g)() )()"
+    },
+    {
+      "file_name": "DJ_BF01_M0002_848552_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 3,
+      "label_hits": 0,
+      "label_cers": [
+        0.8333333333333334,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 5,
+      "parsed_price_tokens": 3,
+      "ocr_text": "MENU 兰 8 1 8000 200g13,000 7000 大"
+    },
+    {
+      "file_name": "DJ_FF01_M0002_851884_3.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 7,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        0.8333333333333334,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 9,
+      "parsed_price_tokens": 7,
+      "ocr_text": " , w6,000 0 卫3歪 w5,200 w5,500 w5,200 w5,200 w4,800 w4,800     "
+    },
+    {
+      "file_name": "US_IF03_M0001_883300_2.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 9,
+      "parsed_price_tokens": 7,
+      "ocr_text": "号：150.000 ：100.000 于：80.000 主：60.000 台上售 A:80.000 B:60.000 C:40.000 *2 . 明卒召，明卒(子丛)，皆(世子丛)，卫委外旱(子巫)。 ，()，(744)"
+    },
+    {
+      "file_name": "US_IF03_M0001_9002789_2.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 1,
+      "parsed_price_tokens": 1,
+      "ocr_text": "  20,000  , ,   "
+    },
+    {
+      "file_name": "GK_BF01_M0002_993066_1.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 2,
+      "parsed_price_tokens": 1,
+      "ocr_text": ". 1人10,000 1"
+    },
+    {
+      "file_name": "GK_FF01_M0002_1159493_1.jpg",
+      "category": "01_normal",
+      "match_count": 2,
+      "label_total": 7,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        0.8333333333333334,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 8,
+      "parsed_price_tokens": 7,
+      "ocr_text": "TAE A W5,200 卫3歪 w5,200 w5,500 卫 w5,200 W5,200 W5,200 w5,200        "
+    },
+    {
+      "file_name": "GK_IF01_M0001_1014598_5.jpg",
+      "category": "01_normal",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 7,
+      "parsed_price_tokens": 3,
+      "ocr_text": "時 Main Menu .   (1200g) (11)13,000 100g6111   (1 200g) (1)15,000    . 100g6667"
+    },
+    {
+      "file_name": "DG_KF01_M0001_594403_5.jpg",
+      "category": "02_multi_food",
+      "match_count": 7,
+      "label_total": 8,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 10,
+      "parsed_price_tokens": 8,
+      "ocr_text": "7 MENU  12,000 12,000     9,500 8,500 国 1   5,000   5,000   6,000 5,000    ."
+    },
+    {
+      "file_name": "DJ_KF01_M0001_832938_5.jpg",
+      "category": "02_multi_food",
+      "match_count": 7,
+      "label_total": 8,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 11,
+      "parsed_price_tokens": 8,
+      "ocr_text": "皆 7 MENU 044 12,000 12,000  9,500 8,500 7   5,000 5,000   5,000 6,000     ."
+    },
+    {
+      "file_name": "SL_BF01_M0002_416913_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 5,
+      "label_total": 8,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 13,
+      "parsed_price_tokens": 9,
+      "ocr_text": "8,000 (10)+ ,   卫 8,000 (150)  ， 1 5,000 5,000 5,000 召 5,000     1,000 卫卒(150g) 4,000 3000 ★ ，      "
+    },
+    {
+      "file_name": "BS_IF02_M0001_9001985_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 9,
+      "parsed_price_tokens": 7,
+      "ocr_text": "主食 炖排骨 大46.000 2 中36.000 小26.000 10.000 8.000 三牛肉水饺 排骨汤 9.000 10.000 猪肉水饺 5贝R12710吃 鲜"
+    },
+    {
+      "file_name": "GJ_KF01_M0001_770607_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 8,
+      "parsed_price_tokens": 8,
+      "ocr_text": "リエさト 甜号司尺  (20,000) BEST ~ 后的 41,000  ~ ROAS 40,000 35,000    M   大40,000 中 35,000 ~~~  ~ 芝明州琴里 大40,000 35,000"
+    },
+    {
+      "file_name": "DJ_IF02_M0002_833954_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 5,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 22,
+      "parsed_price_tokens": 5,
+      "ocr_text": "1112 早婴人笔 as 1819 0 824 25 26 Qu m OH 7,000 7 8 14 15 卫 21 22 23 9,000 28 29 30 31 8,000 卫10,000 卫 5,000"
+    },
+    {
+      "file_name": "US_BF01_M0002_895973_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 6,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        0.75,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 12,
+      "parsed_price_tokens": 9,
+      "ocr_text": "8,000 全 (1) 2022 Outdoor price display system 全 117,900 (11) 5,900 C ) 甩甩 C 3,000 () C 3,000  )) J 9,000 (150g/(100g6,000)(0) 9,900 卒(330g/(100g3,000)(018人)"
+    },
+    {
+      "file_name": "US_KF01_M0001_879100_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 4,
+      "label_total": 5,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 10,
+      "parsed_price_tokens": 6,
+      "ocr_text": "29,000     早 .   29,000 2  . 26,000  . 26,000 4 . 30,000 5 ()   慢 40,000 1   (),()  ( () (()()()/() ( ()()()(),()  "
+    },
+    {
+      "file_name": "DG_KF01_M0001_594403_6.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 3,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 5,
+      "parsed_price_tokens": 3,
+      "ocr_text": "37灯 NEW 10,000 HOT ,    召歌片 NEW 10,000 775 9,500 ! *."
+    },
+    {
+      "file_name": "GJ_KF01_M0001_777983_4.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 4,
+      "parsed_price_tokens": 4,
+      "ocr_text": "LUNCH MENU 12,000 Royal Spicy Beef Soup 12,000 Royal Seaweed Soup 14,000 Yuja Beef Tartare Bibimbap   ，， 12,000 Fish Soup   "
+    },
+    {
+      "file_name": "DJ_BF01_M0002_868071_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 5,
+      "label_hits": 0,
+      "label_cers": [
+        0.8333333333333334,
+        0.75,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 8,
+      "parsed_price_tokens": 5,
+      "ocr_text": "          .   .     Outdoor price display system 116,500 (11) C 5.500 甩甩甩甩 () (    3.000    3.000 甩甩 (150g)() 8.000 10045333 )(人)"
+    },
+    {
+      "file_name": "JR_IF01_M0001_1600395_2.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 5,
+      "parsed_price_tokens": 4,
+      "ocr_text": "主食异 冷面 6,000 拌冷面用电 6,000 手工水饺 7,000 韭菜盒子1)1,000 (374)0"
+    },
+    {
+      "file_name": "JR_IF03_M0002_1557915_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 14,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 14,
+      "parsed_price_tokens": 13,
+      "ocr_text": "70,000 CH Stir-fried Octopus 30,000 テナガダコ炒め 凉炒章鱼 55,000 IEE Chopped Live Octopus 30,000 活テナガダコのたたき 剁碎活章鱼 120,000 Stir-fried Pork 30,000 豚肉炒め 辣炒猪肉 100,000 Clam Soup 7H L 貝のスープ 蛤蚓汤 L Oysters Pan-fried in Batter 20,000 カキのチチミ Grilled Pork Belly 12,000 牡蛎煎饼 サムギョプサル 鲜五花肉 20,000 Grilled Gizzard Shad 30,000 コノシロ焼き 烤斑 Steamed Oysters 35,000 Sliced Raw Gizzard 30,000 カキの蒸し物 コノシロの刺身 蒸牡蛎 斑鲸生鱼片"
+    },
+    {
+      "file_name": "JJ_BF01_M0002_9003878_1.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 5,
+      "label_hits": 0,
+      "label_cers": [
+        0.8333333333333334,
+        0.75,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 7,
+      "parsed_price_tokens": 5,
+      "ocr_text": "  Jeyu 引人 Jeje Special Self-Goveming Province           . .    楼 Outdoor price display system 全 116,500 (11)   15.500 () 13.000  ) 13,000 ( ) 13,000 2"
+    },
+    {
+      "file_name": "JJ_IF03_M0001_1959133_3.jpg",
+      "category": "02_multi_food",
+      "match_count": 3,
+      "label_total": 10,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 13,
+      "parsed_price_tokens": 11,
+      "ocr_text": "15,000      15,000          15,000 叶   15,000 OICTO       15,000        35,000 鲁     圣异外 〈〉        35,000 观本口 701      20,000 华   柳 平        (5) 15,000/(10)30,000 号叫卫    () 20,000/) 40,000  "
+    },
+    {
+      "file_name": "SL_BF01_M0002_173995_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.8333333333333334
+      ],
+      "correct_food": false,
+      "digit_tokens": 6,
+      "parsed_price_tokens": 1,
+      "ocr_text": "TTOO REPLAITING 116,900 TG N2 12 百日 12:0~2    CH711 7IC/2"
+    },
+    {
+      "file_name": "DG_IF01_M0004_9002696_4.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 2,
+      "parsed_price_tokens": 1,
+      "ocr_text": "  7可 37,800         "
+    },
+    {
+      "file_name": "KW_IF03_M0001_1307103_4.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 7,
+      "parsed_price_tokens": 7,
+      "ocr_text": "   35.0    ()   , . (2.0),[ (1.5) 200(17.0),100(9.0)    35.0      , , (2.0),(1.5) 0170g(13.0),01本100g(7.0)"
+    },
+    {
+      "file_name": "JJ_IF03_M0001_9005367_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        0.9
+      ],
+      "correct_food": false,
+      "digit_tokens": 2,
+      "parsed_price_tokens": 2,
+      "ocr_text": "         45.000 辛型工站  +  50.000    "
+    },
+    {
+      "file_name": "JJ_IF02_M0001_1950810_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 3,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 10,
+      "parsed_price_tokens": 6,
+      "ocr_text": "羊五花肉(10) 15,000 午餐特选 15,000 (小) .·· 羊肉火锅 (大) 60,000 ,000 D 羊肉汤饭 羊排肉 #180 (+卫7) 50,000 羊肉套餐(羊排肉+羊肩肉) 叫 20,000 羊排肉 30,000 羊肩肉"
+    },
+    {
+      "file_name": "CC_IF03_M0002_1399433_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 3,
+      "parsed_price_tokens": 0,
+      "ocr_text": "站六卫丛 (102) (102) 60."
+    },
+    {
+      "file_name": "CC_IF02_M0001_1418372_2.jpg",
+      "category": "03_low_quality",
+      "match_count": 1,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 3,
+      "parsed_price_tokens": 3,
+      "ocr_text": "酱牛腱子肉 15.000 熏酱猪蹄 6.000 喜 8.000 出品以实物为准"
+    },
+    {
+      "file_name": "JJ_IF03_M0001_9005367_3.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 3,
+      "parsed_price_tokens": 2,
+      "ocr_text": "  [  ] ! 23.000 丕站   十 or 25.000 礼异：让17左，21至"
+    },
+    {
+      "file_name": "CC_IF02_M0004_1417393_1.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 2,
+      "parsed_price_tokens": 1,
+      "ocr_text": "☆00 回言 农家小炒肉 18000 tttaw 田 O 图"
+    },
+    {
+      "file_name": "DJ_KF01_M0001_834930_2.jpg",
+      "category": "03_low_quality",
+      "match_count": 0,
+      "label_total": 4,
+      "label_hits": 0,
+      "label_cers": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 7,
+      "parsed_price_tokens": 6,
+      "ocr_text": "1号 w9,000 明 w 9,500     w9,000     W11,500   引芒 w12,000 明 W13,000"
+    },
+    {
+      "file_name": "SL_BF01_M0002_18469_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 9,
+      "parsed_price_tokens": 1,
+      "ocr_text": "王 站牌印 2 7 RE 4 1 1 A 1 A O 0 1 6,500包"
+    },
+    {
+      "file_name": "SL_BF01_M0002_264738_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 4,
+      "parsed_price_tokens": 1,
+      "ocr_text": "4 4 公 6500       22     SELF MAIN MENU or         个      ：   告 银     H       "
+    },
+    {
+      "file_name": "SL_BF01_M0002_354225_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        0.8333333333333334
+      ],
+      "correct_food": false,
+      "digit_tokens": 5,
+      "parsed_price_tokens": 3,
+      "ocr_text": "卧三列 24人 kloud 六 ORICINAL CRAVITT ユレ 1:12.900 叫督针理 1:12.900 ( ) 2 :8,900"
+    },
+    {
+      "file_name": "SL_BF01_M0002_355845_1.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 2,
+      "label_hits": 0,
+      "label_cers": [
+        0.8461538461538461,
+        0.9166666666666666
+      ],
+      "correct_food": false,
+      "digit_tokens": 10,
+      "parsed_price_tokens": 3,
+      "ocr_text": "15SSG020O2SSSSS0OOO2S 7 火锅人人 早 19,900 2 10人00 11,900 ,900 5,900 2F THSs 5GGGO2222SG5SG22220"
+    },
+    {
+      "file_name": "SL_FF01_M0001_262052_4.jpg",
+      "category": "04_unregistered",
+      "match_count": 0,
+      "label_total": 1,
+      "label_hits": 0,
+      "label_cers": [
+        1.0
+      ],
+      "correct_food": false,
+      "digit_tokens": 4,
+      "parsed_price_tokens": 1,
+      "ocr_text": "NEW NEW NEW NEW() +1) BEST 0OS 12,000 0  "
+    }
+  ]
+}
