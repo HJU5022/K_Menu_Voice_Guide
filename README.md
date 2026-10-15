@@ -7,7 +7,7 @@
 |---|---|---|
 | 웹 | <https://hju5022-k-menu-react.static.hf.space> | 화면이 뜨면 정상 |
 | API | <https://hju5022-k-menu.hf.space/api/foods> | 음식 50개가 JSON으로 나오면 정상 |
-| 저장소 | <https://github.com/aihuman-7th/proj1-c> | `main`이 최종본 |
+| 팀 저장소 | <https://github.com/aihuman-7th/proj1-c> | 팀 기간(2026.08) 기록 |
 
 ```bash
 curl -s -o /dev/null -w "web %{http_code}\n" https://hju5022-k-menu-react.static.hf.space
@@ -448,10 +448,10 @@ git에 따라오지 않지만 실행하면 생기는 폴더가 셋 있다.
 
 | 이름 | GitHub | 역할 |
 |---|---|---|
-| 하정운(조장) | [@HJU5022](https://github.com/HJU5022) | PM · OCR 파인튜닝 · 파이프라인 통합 · DB · 배포 |
-| 박민영 | [@pastar20250101-creator](https://github.com/pastar20250101-creator) | TTS 파인튜닝 · 하이퍼파라미터 실험 · UX/UI |
-| 배재훈 | [@Bae-JaeHun](https://github.com/Bae-JaeHun) | 데이터 구축 (프로젝트 참여 종료) |
-| 차백호 | [@cosohotmas](https://github.com/cosohotmas) | TTS 추론 |
+| 하정운(조장) | [@HJU5022](https://github.com/HJU5022) | PM · OCR 파인튜닝 · TTS 파인튜닝(공동) · 파이프라인 통합 · Flutter 앱 · DB · 배포 |
+| 박민영 | [@pastar20250101-creator](https://github.com/pastar20250101-creator) | TTS 파인튜닝(공동) · 하이퍼파라미터 실험 · UX/UI |
+| 배재훈 | [@Bae-JaeHun](https://github.com/Bae-JaeHun) | 데이터 구축 (중도 하차) |
+| 차백호 | [@cosohotmas](https://github.com/cosohotmas) | TTS 추론 (개인 사정으로 인한 작업 불가) |
 
 ---
 
