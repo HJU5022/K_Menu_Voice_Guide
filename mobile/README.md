@@ -72,7 +72,7 @@ detail_screen      ──▶ GET /api/foods/{id}     ──▶ details 6개 + �
 
 ### 1. 서버를 먼저 띄운다 (로컬 서버로 돌릴 때만)
 
-기본값은 배포된 서버(`https://hju5022-k-menu.hf.space`)라, 평소에는 이 단계가 필요 없습니다. 맥에서 고친 서버 코드를 앱으로 확인하고 싶을 때만 띄웁니다. 저장소 루트에서:
+기본값은 배포된 서버(`https://hajeongun-k-menu.hf.space`)라, 평소에는 이 단계가 필요 없습니다(단 2026-10-20 기준 이 Space는 HF PRO 구독 전이라 아직 없어서, 그동안은 로컬 서버가 필요합니다). 맥에서 고친 서버 코드를 앱으로 확인하고 싶을 때만 띄웁니다. 저장소 루트에서:
 
 ```bash
 uvicorn K_Menu_Talk:app --host 0.0.0.0 --port 8000
@@ -86,7 +86,7 @@ uvicorn K_Menu_Talk:app --host 0.0.0.0 --port 8000
 
 | 어디서 돌리나 | 값 |
 |---|---|
-| **배포 서버** | `https://hju5022-k-menu.hf.space` ← 현재 기본값 |
+| **배포 서버** | `https://hajeongun-k-menu.hf.space` ← 현재 기본값 |
 | iOS 시뮬레이터 / Android 에뮬레이터 (로컬) | `http://localhost:8000` |
 | 실제 아이폰 (로컬) | `http://<맥 로컬 IP>:8000` |
 

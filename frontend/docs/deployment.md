@@ -10,7 +10,7 @@
 
 ## What
 
-배포처는 **Hugging Face의 무료 static Space**로 정해졌다(`HJU5022/K_Menu_react`). 계산은 전부
+배포처는 **Hugging Face의 무료 static Space**로 정해졌다(`hajeongun/K_Menu_react`). 계산은 전부
 GPU API Space가 하고 여기에는 빌드 결과물만 올린다 — 화면 쪽에도 계산을 두면 GPU 비용이 두 배가
 되기 때문이다. static SDK는 컨테이너 빌드 단계가 없어 배포가 몇 초에 끝난다.
 
@@ -28,10 +28,10 @@ frontend/space/deploy.sh
 ```
 
 ```bash
-frontend/space/deploy.sh HJU5022/K_Menu_react https://다른-api-주소
+frontend/space/deploy.sh hajeongun/K_Menu_react https://다른-api-주소
 ```
 
-인자는 `[Space ID] [API 주소]`이고 기본값은 `HJU5022/K_Menu_react` · `https://hju5022-k-menu.hf.space`다.
+인자는 `[Space ID] [API 주소]`이고 기본값은 `hajeongun/K_Menu_react` · `https://hajeongun-k-menu.hf.space`다.
 
 > 2026-08-27 이전에는 기본값이 `HJU5022/K_Menu_Web`이었는데 **그 이름의 Space는 없다.**
 > 인자 없이 실행하면 존재하지 않는 곳으로 올리려다 실패했다. 실제 서비스 중인 웹은
@@ -55,7 +55,7 @@ cd frontend && pnpm install && pnpm run build
 - 배경 이미지는 Git LFS로 올린다. HF가 일반 git으로 올라오는 바이너리를 거부하기 때문이며,
   `deploy.sh`가 `.gitattributes`를 먼저 써서 처리한다.
 - 확인 주소는 일반 Space와 도메인이 다르다 — 가운데에 `.static`이 들어간다
-  (`https://hju5022-k-menu-react.static.hf.space`).
+  (`https://hajeongun-k-menu-react.static.hf.space`).
 
 **재배포 없이 다른 서버를 보게 하는 장치**: 주소창에 `?api=https://...`를 붙이면 그 주소를 대신
 쓰고 브라우저에 기억한다(`?api=`만 붙이면 원래 주소로 복귀). 시연 중 API Space가 죽었을 때 개인

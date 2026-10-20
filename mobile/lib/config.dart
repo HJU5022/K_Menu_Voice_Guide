@@ -8,7 +8,7 @@
 ///   시뮬레이터  http://localhost:8000
 ///   실제 기기    http://<맥 로컬 IP>:8000         폰이 맥과 같은 Wi-Fi일 때
 ///   시연        https://<...>.trycloudflare.com  cloudflared 터널
-///   배포        https://hju5022-k-menu.hf.space  ← 커밋 기본값
+///   배포        https://hajeongun-k-menu.hf.space  ← 커밋 기본값
 ///
 /// **시뮬레이터는 맥 안에서 돌기 때문에 localhost로 서버에 닿는다.** 맥의 IP가
 /// 바뀌어도 영향을 받지 않아 로컬 서버를 띄운 개발 중에는 이 값이 가장 안정적이다.
@@ -31,5 +31,5 @@
 /// 실제 Android 기기도 맥의 로컬 서버(사전 생성 TTS 캐시 포함)를 사용할 수 있다.
 const String apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'https://hju5022-k-menu.hf.space',
+  defaultValue: 'https://hajeongun-k-menu.hf.space',
 );
