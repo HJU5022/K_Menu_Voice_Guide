@@ -14,6 +14,7 @@ DB에 직접 접근하는 코드는 전부 여기에만 둡니다. 다른 폴더
 | `migrations/0001_init_schema.sql` | 4개 테이블 생성 + anon SELECT 전용 RLS (새 Supabase 프로젝트용) |
 | `migrations/0002_seed_data.sql` | 2026-10-20 옛 DB에서 내보낸 4개 테이블 데이터(id 보존). 0001 다음에 한 번만 실행 |
 | `migrations/download_thumbnails.sh` | 옛 Storage 버킷 `food-thumbnails`의 대표 사진 50장을 내려받는다 |
+| `migrations/0003_thumbnail_url_new_project.sql` | `foods.thumbnail_url`의 프로젝트 주소를 새 프로젝트로 바꾼다. 0002 다음에 한 번만 실행 |
 
 일회성 데이터 주입 SQL(음식 행 추가, 상세 문장 채우기 등)은 저장소에 두지 않습니다. 단 `migrations/`는 예외입니다 — 계정을 옮기며 옛 DB를 지우게 되어 저장소가 새 DB를 처음부터 만드는 유일한 정본이 되기 때문입니다. 한 번 실행하면 값은 DB가 정본이 되고, 파일이 남아 있으면 "아직 실행해야 하는 것"으로 오해되기 때문입니다. 실행해야 할 SQL이 남아 있으면 파일이 아니라 아래 문서에 직접 적습니다.
 
