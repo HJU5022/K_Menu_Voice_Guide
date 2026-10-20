@@ -37,7 +37,9 @@ from src.ocr.vendor.ppocr.utils.save_load import load_model
 from src.ocr.preprocess import SourceMapping, preprocess_image_with_mapping
 from src.ocr.price import TextBox
 
-OCR_MODEL_REPO_ID = "k-bite-team/K_Bite_OCR"
+# [왜] 팀 저장소(k-bite-team/K_Bite_OCR)에 기대지 않도록 2026-10-20 개인 계정에 그대로 복사했다.
+# 파일 4개의 sha256이 원본과 같다.
+OCR_MODEL_REPO_ID = "hajeongun/K_Bite_OCR"
 
 # 학습 때 쓴 아키텍처 그대로 — docs/specs/ocr-finetuning.md 참고
 _ARCHITECTURE_CONFIG = {
