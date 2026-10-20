@@ -1,7 +1,7 @@
 """TTS 추론 — Qwen3-TTS 1.7B Base + LoRA 어댑터로 실제 음성을 생성한다.
 
 베이스 모델: Qwen/Qwen3-TTS-12Hz-1.7B-Base
-LoRA 어댑터: k-bite-team/k-menu-qwen3-tts-lora
+LoRA 어댑터: hajeongun/k-menu-qwen3-tts-lora (2026-10-20 k-bite-team에서 그대로 복사)
   - 최종 체크포인트: checkpoint-epoch-31 (`instruct_trained_lr5e-6_ep40` 런,
     lr=5e-6, rank=16, alpha=32, 40 epoch, batch=4, val_loss=8.8919로 전체 에폭 중 최저)
   - 2026-08-20: 이전 체크포인트(epoch-39, `final_respelled_lr5e-6_ep40`)는 리스펠링만
@@ -69,7 +69,9 @@ import numpy as np
 VALID_STYLES = frozenset({"GUIDE", "CAUTION"})
 
 TTS_BASE_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-TTS_ADAPTER_REPO_ID = "k-bite-team/k-menu-qwen3-tts-lora"
+# [왜] 팀 저장소(k-bite-team/k-menu-qwen3-tts-lora)에 기대지 않도록 개인 계정에 그대로 복사했다.
+# 파일 7개의 sha256이 원본과 같다.
+TTS_ADAPTER_REPO_ID = "hajeongun/k-menu-qwen3-tts-lora"
 TTS_SPEAKER_NAME = "speaker"  # 학습·추론 노트북에서 커스텀 이름을 안 줘서 계속 기본값 사용됨
 LORA_SCALE = 0.15  # GUIDE/CAUTION 톤 구분용. 어댑터를 세게 걸수록 학습된 단일 화자 톤이
 # instruct를 눌러 두 스타일이 비슷하게 들려서 0.3 -> 0.15로 낮춘다 (기존 0.2/0.3/0.35/0.5
