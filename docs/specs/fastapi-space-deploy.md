@@ -28,7 +28,7 @@
 
 1. Space(Docker SDK, T4 small)에 저장소를 푸시하면 Dockerfile로 이미지가 빌드된다.
 2. 컨테이너가 뜨고 uvicorn이 7860 포트에서 `K_Menu_Talk:app`을 서빙한다.
-3. 첫 부팅 때 모델을 허브에서 내려받는다 — OCR 기본 2종(PaddleX), 파인튜닝 OCR(`k-bite-team/K_Bite_OCR`), TTS(`Qwen/Qwen3-TTS-12Hz-1.7B-Base` + `k-bite-team/k-menu-qwen3-tts-lora`).
+3. 첫 부팅 때 모델을 허브에서 내려받는다 — OCR 기본 2종(PaddleX), 파인튜닝 OCR(`hajeongun/K_Bite_OCR`), TTS(`Qwen/Qwen3-TTS-12Hz-1.7B-Base` + `hajeongun/k-menu-qwen3-tts-lora`).
 4. 웹·앱이 `/api/analyze` → `/api/foods/{id}`를 호출해 결과와 음성 URL(`/audio/...`)을 받는다.
 
 **Edge Cases**

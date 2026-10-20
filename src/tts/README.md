@@ -56,7 +56,7 @@ python -m src.tts.pregenerate --force    # 전부 다시 생성
 
 ## `infer.py` 실제 모델 연결 (2026-08-18)
 
-`infer.py`가 실제 모델(Qwen3-TTS 1.7B Base + LoRA 어댑터 `k-bite-team/k-menu-qwen3-tts-lora`)을 호출하도록 연결됨. TTS 파트의 실제 학습 노트북에서 확인한 추론 코드(`generate_custom_voice` + 스피커 등록 방식)를 그대로 옮겨서 짰음 — 처음엔 다른 방식(`generate_voice_clone`)으로 추측해서 짰다가 노트북 확보 후 전면 재작성함. 자세한 경위는 `infer.py` 파일 상단 docstring과 `docs/specs/tts-finetuning.md`의 "구현 변경 이력" 참고.
+`infer.py`가 실제 모델(Qwen3-TTS 1.7B Base + LoRA 어댑터 `hajeongun/k-menu-qwen3-tts-lora`)을 호출하도록 연결됨. TTS 파트의 실제 학습 노트북에서 확인한 추론 코드(`generate_custom_voice` + 스피커 등록 방식)를 그대로 옮겨서 짰음 — 처음엔 다른 방식(`generate_voice_clone`)으로 추측해서 짰다가 노트북 확보 후 전면 재작성함. 자세한 경위는 `infer.py` 파일 상단 docstring과 `docs/specs/tts-finetuning.md`의 "구현 변경 이력" 참고.
 
 **GPU 검증 완료 (2026-08-20)**: 원격 데스크톱(RTX 3080 Ti)에서 실제로 실행해 WAV 생성까지 확인됨. 당시에는 요청마다 별도 프로세스를 새로 띄워 모델을 처음부터 로딩해 **요청당 90~160초**가 걸렸다(GPU 성능 문제가 아니라 구조 문제라 장비 업그레이드로는 해결되지 않는다).
 
