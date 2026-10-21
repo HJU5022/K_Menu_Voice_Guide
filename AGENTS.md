@@ -11,7 +11,7 @@ AI 코딩 에이전트(Claude Code, Codex, Cursor 등)가 이 저장소에서 �
 - **언어**: Python
 - **OCR**: PaddleOCR, OpenCV
 - **음식명 유사도 매칭**: RapidFuzz
-- **TTS**: Qwen3-TTS-12Hz-1.7B-Base + PEFT(LoRA) 파인튜닝 (어댑터: `k-bite-team/k-menu-qwen3-tts-lora`)
+- **TTS**: Qwen3-TTS-12Hz-1.7B-Base + PEFT(LoRA) 파인튜닝 (어댑터: `hajeongun/k-menu-qwen3-tts-lora`)
 - **데이터베이스**: Supabase
 - **서버**: FastAPI (`K_Menu_Talk.py`가 `/api/analyze`, `/api/foods/{id}`, `/api/cart` 노출)
 - **웹 화면**: React + TypeScript (`frontend/`) — `K_Menu_Talk.py`를 HTTP로 호출하는 화면 전용 클라이언트다. 계산을 직접 하지 않고, API 주소는 `VITE_API_BASE_URL` 하나로만 받는다(`frontend/client/src/lib/api.ts`). 2026-08-23에 Streamlit으로 갈아탔다가 2026-08-25에 React로 되돌렸고, 2026-08-26에 Streamlit 진입점(`app.py`)을 저장소에서 제거했다

@@ -6,9 +6,9 @@
 # **GitHub의 브랜치(기본 main)를 그대로 꺼내서** 올리므로, 배포본 = 그 브랜치가 된다.
 #
 # 쓰는 법:
-#   deploy/api-space/deploy.sh                       main을 HJU5022/K_Menu에 배포
+#   deploy/api-space/deploy.sh                       main을 hajeongun/K_Menu에 배포
 #   deploy/api-space/deploy.sh feat/무언가            다른 브랜치를 배포
-#   deploy/api-space/deploy.sh main HJU5022/다른Space
+#   deploy/api-space/deploy.sh main hajeongun/다른Space
 #
 # **대상 Space를 통째로 덮어쓴다(--force).**
 #
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REF="${1:-main}"
-SPACE_ID="${2:-HJU5022/K_Menu}"
+SPACE_ID="${2:-hajeongun/K_Menu}"
 SPACE_URL="https://huggingface.co/spaces/$SPACE_ID"
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 웹 화면을 Hugging Face Space에 배포한다(기본 대상: HJU5022/K_Menu_react).
+# 웹 화면을 Hugging Face Space에 배포한다(기본 대상: hajeongun/K_Menu_react).
 #
 # 이 Space에는 **빌드 결과물만** 올라간다. 소스는 GitHub에 있고, 여기에 올리는 것은
 # `pnpm run build`가 만든 index.html·JS·CSS와 Space 설정 README 하나뿐이다.
@@ -11,11 +11,11 @@
 #
 # 쓰는 법:
 #   frontend/space/deploy.sh                                     기본 Space에 배포
-#   frontend/space/deploy.sh HJU5022/실험용Space                  다른 Space에 배포
-#   frontend/space/deploy.sh HJU5022/K_Menu_react https://다른-api-주소
+#   frontend/space/deploy.sh hajeongun/실험용Space                  다른 Space에 배포
+#   frontend/space/deploy.sh hajeongun/K_Menu_react https://다른-api-주소
 #
 # 기본값이 K_Menu_react인 이유: 실제로 서비스되고 있는 웹이 이 Space다
-# (https://hju5022-k-menu-react.static.hf.space). 예전에는 K_Menu_Web이 기본값이었는데
+# (https://hajeongun-k-menu-react.static.hf.space). 예전에는 K_Menu_Web이 기본값이었는데
 # 그 이름의 Space가 없어서, 인자 없이 실행하면 존재하지 않는 곳으로 밀어 넣으려다 실패했다.
 #
 # **이 스크립트는 대상 Space를 통째로 덮어쓴다(--force).** 기존 Streamlit 화면이 올라가
@@ -27,8 +27,8 @@
 
 set -euo pipefail
 
-SPACE_ID="${1:-HJU5022/K_Menu_react}"
-API_BASE_URL="${2:-https://hju5022-k-menu.hf.space}"
+SPACE_ID="${1:-hajeongun/K_Menu_react}"
+API_BASE_URL="${2:-https://hajeongun-k-menu.hf.space}"
 SPACE_URL="https://huggingface.co/spaces/$SPACE_ID"
 
 FRONTEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

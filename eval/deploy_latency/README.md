@@ -43,6 +43,7 @@
 
 ```bash
 API=https://hju5022-k-menu.hf.space
+# 2026-10-20 개인 계정 이전 후 새 주소는 https://hajeongun-k-menu.hf.space (HF PRO 구독 전이라 미가동). 위 값은 이전 전 주소다.
 curl -s -o /dev/null -w "%{http_code} %{time_total}\n" "$API/api/foods"
 curl -s -o /dev/null -w "%{http_code} %{time_total}\n" "$API/api/foods/3"
 curl -s -o /dev/null -w "%{http_code} %{time_total}\n" -F "image=@<메뉴판.jpg>" "$API/api/analyze"

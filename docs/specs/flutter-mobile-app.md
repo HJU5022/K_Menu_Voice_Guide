@@ -157,7 +157,7 @@ GET / POST / DELETE  /api/cart…                 // 장바구니, X-Cart-Id 헤
 | 시뮬레이터 | `http://localhost:8000` | 시뮬레이터는 맥 안에서 돌아 맥의 IP 변동에 영향받지 않는다 |
 | 실제 기기 | `http://<맥 로컬 IP>:8000` | 폰이 맥과 같은 Wi-Fi. `ipconfig getifaddr en0`으로 확인 |
 | 시연 | `https://<...>.trycloudflare.com` | cloudflared 터널 |
-| **배포** | `https://hju5022-k-menu.hf.space` | **현재 기본값.** 맥이 꺼져 있어도, 폰이 다른 망에 있어도 닿는다 |
+| **배포** | `https://hajeongun-k-menu.hf.space` | **현재 기본값.** 맥이 꺼져 있어도, 폰이 다른 망에 있어도 닿는다 |
 
 **로컬 서버로 되돌릴 때는 LAN IP로 바꿔야 한다** — 폰에게 `localhost`는 폰 자신이라 서버를 찾지 못한다. 이 값은 Wi-Fi를 옮기거나 공유기가 주소를 다시 할당하면 바뀌고, Wi-Fi가 끊기면 아예 없어진다. 앱이 "Can't reach the server"를 띄우면 여기부터 확인한다(실제로 개발 중 한 번 발생했고, 화면이 주소를 함께 보여준 덕에 즉시 원인을 특정했다).
 
