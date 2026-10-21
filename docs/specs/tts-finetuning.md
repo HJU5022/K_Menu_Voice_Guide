@@ -151,7 +151,7 @@
 팀원(박민영님)이 이미 Qwen3-TTS 1.7B Base + LoRA 어댑터로 파인튜닝을 완료해둔 상태라, 그걸 기반으로
 `infer.py`에 실제 모델 로딩·WAV 생성을 연결했다.
 
-- 모델: base `Qwen/Qwen3-TTS-12Hz-1.7B-Base` + LoRA 어댑터 `k-bite-team/k-menu-qwen3-tts-lora`
+- 모델: base `Qwen/Qwen3-TTS-12Hz-1.7B-Base` + LoRA 어댑터 `k-bite-team/k-menu-qwen3-tts-lora` (2026-10-20 개인 계정 `hajeongun/k-menu-qwen3-tts-lora`로 그대로 복사)
 - `synthesize()`의 반환 **키**(`audio_path`, `latency_ms`, `status`)는 그대로 두고 **값**만 바뀌었다
   — 정상 동작 시 `status`는 `"ok"`, `audio_path`는 실제 WAV 경로다.
 - 배포 체크포인트와 학습 차수별 하이퍼파라미터는 이후에도 여러 번 바뀌었다. 현재 값의 정본은

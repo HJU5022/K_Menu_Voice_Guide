@@ -5,13 +5,13 @@
 
 | | 주소 | 지금 살아있는지 |
 |---|---|---|
-| 웹 | <https://hju5022-k-menu-react.static.hf.space> | 화면이 뜨면 정상 |
-| API | <https://hju5022-k-menu.hf.space/api/foods> | 음식 50개가 JSON으로 나오면 정상 |
+| 웹 | <https://hajeongun-k-menu-react.static.hf.space> | 화면이 뜨면 정상 |
+| API | <https://hajeongun-k-menu.hf.space/api/foods> | 음식 50개가 JSON으로 나오면 정상. **예정 주소이며 2026-10-20 기준 미가동** — HF에서 Docker Space 호스팅에 PRO 구독이 필요해 아직 만들지 못함 |
 | 팀 저장소 | <https://github.com/aihuman-7th/proj1-c> | 팀 기간(2026.08) 기록 |
 
 ```bash
-curl -s -o /dev/null -w "web %{http_code}\n" https://hju5022-k-menu-react.static.hf.space
-curl -s -o /dev/null -w "api %{http_code}\n" https://hju5022-k-menu.hf.space/api/foods
+curl -s -o /dev/null -w "web %{http_code}\n" https://hajeongun-k-menu-react.static.hf.space
+curl -s -o /dev/null -w "api %{http_code}\n" https://hajeongun-k-menu.hf.space/api/foods
 ```
 
 둘 다 `200`(웹은 `302`도 정상)이면 서비스 전체가 살아 있다. API가 `503`과 함께
@@ -154,9 +154,9 @@ flowchart LR
 
 | 층 | 무엇을 썼나 |
 |---|---|
-| OCR | PaddleOCR `korean_PP-OCRv5_mobile_rec`를 **파인튜닝** → [`k-bite-team/K_Bite_OCR`](https://huggingface.co/k-bite-team/K_Bite_OCR) · 전처리는 OpenCV |
+| OCR | PaddleOCR `korean_PP-OCRv5_mobile_rec`를 **파인튜닝** → [`hajeongun/K_Bite_OCR`](https://huggingface.co/hajeongun/K_Bite_OCR) · 전처리는 OpenCV |
 | 음식명 매칭 | RapidFuzz 문자열 유사도 (등록 음식 50개 대상) |
-| TTS | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` + **LoRA(PEFT) 파인튜닝** → [`k-bite-team/k-menu-qwen3-tts-lora`](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) |
+| TTS | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` + **LoRA(PEFT) 파인튜닝** → [`hajeongun/k-menu-qwen3-tts-lora`](https://huggingface.co/hajeongun/k-menu-qwen3-tts-lora) |
 | 설명 텍스트 | 팀이 작성해 Supabase에 넣은 문장을 조회·조합 — **런타임에 외부 LLM을 쓰지 않는다** |
 | 서버 | FastAPI (`K_Menu_Talk.py`, 엔드포인트 6개) |
 | 클라이언트 | React + TypeScript + Vite (`frontend/`) · Flutter (`mobile/`) |
@@ -386,12 +386,12 @@ python -m pytest
 
 | | Space | 무엇이 올라가나 |
 |---|---|---|
-| API | `HJU5022/K_Menu` (Docker, T4 GPU) | 저장소 전체 |
-| 웹 | `HJU5022/K_Menu_react` (Static, 무료) | `pnpm run build` 결과물만 |
+| API | `hajeongun/K_Menu` (Docker, T4 GPU) — 예정, 2026-10-20 기준 미생성(HF PRO 구독 필요) | 저장소 전체 |
+| 웹 | `hajeongun/K_Menu_react` (Static, 무료) | `pnpm run build` 결과물만 |
 
 ```bash
 deploy/api-space/deploy.sh                                  # main을 API Space에
-frontend/space/deploy.sh HJU5022/K_Menu_react               # 웹 빌드 결과물을 Static Space에
+frontend/space/deploy.sh hajeongun/K_Menu_react              # 웹 빌드 결과물을 Static Space에
 ```
 
 두 스크립트 모두 **대상 Space를 통째로 덮어쓴다(`--force`).** 소스는 GitHub에 있고 Space에는
@@ -462,10 +462,10 @@ git에 따라오지 않지만 실행하면 생기는 폴더가 셋 있다.
 | 무엇 | 라이선스 |
 |---|---|
 | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` (TTS 베이스) | Apache-2.0 |
-| `k-bite-team/k-menu-qwen3-tts-lora` (우리 LoRA 어댑터) | Apache-2.0 |
+| `hajeongun/k-menu-qwen3-tts-lora` (우리 LoRA 어댑터) | Apache-2.0 |
 | PaddleOCR `korean_PP-OCRv5_mobile_rec` (OCR 베이스) | Apache-2.0 |
 | `src/ocr/vendor/ppocr/` (PaddleOCR 저장소 코드 일부를 그대로 사용) | Apache-2.0 |
-| `k-bite-team/K_Bite_OCR` (우리 OCR 체크포인트) | 별도 라이선스 미표기 — 베이스 모델의 Apache-2.0을 따른다 |
+| `hajeongun/K_Bite_OCR` (우리 OCR 체크포인트) | 별도 라이선스 미표기 — 베이스 모델의 Apache-2.0을 따른다 |
 
 ### 음성 데이터
 

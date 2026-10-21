@@ -4,7 +4,7 @@
 |---|---|
 | 담당 | 박민영 |
 | 베이스 모델 | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` |
-| 배포 어댑터 | [huggingface.co/k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) |
+| 배포 어댑터 | [huggingface.co/k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) (2026-10-20 개인 계정 `hajeongun/k-menu-qwen3-tts-lora`로 그대로 복사) |
 | 최종 갱신 | 2026-08-28 — 9차 학습 로그를 `training_log.csv`에 복원(3절)하고, 현행 배포 설정의 UTMOS·WER 측정치를 6절에 실었다. 그 전 2026-08-27에 TTS 캐시를 한글 표기본으로 교체했고(7절), 2026-08-26에 배포 체크포인트 9차 · 음식명 표기 한글 전환 · `LORA_SCALE` 0.15를 반영했다 |
 
 ## 현재 배포 기준 (한눈에)
@@ -366,7 +366,7 @@ scale을 낮춰도 화자 음색은 유지된다 — 음색은 `speaker_embeddin
 
 | 산출물 | 위치 | 비고 |
 |---|---|---|
-| **모델 (LoRA 어댑터)** | [k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) | `README.md` 포함. 배포는 `checkpoint-epoch-31` |
+| **모델 (LoRA 어댑터)** | [k-bite-team/k-menu-qwen3-tts-lora](https://huggingface.co/k-bite-team/k-menu-qwen3-tts-lora) (2026-10-20 개인 계정 `hajeongun/k-menu-qwen3-tts-lora`로 그대로 복사) | `README.md` 포함. 배포는 `checkpoint-epoch-31` |
 | **추론 코드** | [`src/tts/infer.py`](../src/tts/infer.py) | `synthesize(text, style)` — `pipeline.py`가 호출. `INSTRUCT_MAP` · `LORA_SCALE` · `_trim_silence()`가 여기 있다 |
 | **표기 치환** | [`src/text_gen/narration.py`](../src/text_gen/narration.py) | `_to_tts_text()` — **TTS 모듈이 아니다.** 이유는 4-3절 |
 | **사전 생성 (Plan B)** | [`src/tts/pregenerate.py`](../src/tts/pregenerate.py) | 배치 생성 + RTF 로그 |
