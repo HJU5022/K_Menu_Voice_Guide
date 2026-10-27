@@ -82,6 +82,9 @@ const en = {
   takePhoto: "Take a photo",
   uploadPhoto: "Upload a menu photo",
   cameraHelper: "Read the Korean original before ordering. We help you understand the choice.",
+  // 데모 모드(lib/api.ts) — 서버가 꺼져 있어도 예시 메뉴판 한 장으로 끝까지 써 볼 수 있다.
+  tryDemo: "Try a sample menu",
+  demoNotice: "Demo · sample menu",
 
   // 읽는 중
   processingEyebrow: "READING YOUR MENU",
@@ -225,6 +228,8 @@ const ko: typeof en = {
   takePhoto: "사진 찍기",
   uploadPhoto: "메뉴판 사진 올리기",
   cameraHelper: "주문 전에 한국어 원문을 함께 확인하세요. 고르는 것을 돕는 안내입니다.",
+  tryDemo: "예시 메뉴판으로 체험",
+  demoNotice: "데모 · 예시 메뉴판",
 
   processingEyebrow: "메뉴판을 읽는 중",
   processingTitle: "알 만한 음식을 찾고 있습니다.",

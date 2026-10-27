@@ -1,0 +1,839 @@
+{
+ "generated_at": "2026-10-27",
+ "menu_image": "demo/menu.jpg",
+ "analyze": {
+  "status": "candidates_found",
+  "ocr_text": "한상 식당 MENU 식사 비빔밥 9,000 돼지김치찌개 9,000 된장찌개 8,000 순두부찌개 9,000 물냉면 9,000 삼계탕 16,000 요리 불고기 15,000 매운떡볶이 7,000 해물파전 14,000 잡채 12,000 낙지볶음 18,000 김밥 4,000",
+  "candidates": [
+   {
+    "food_id": 1,
+    "name_kr": "비빔밥",
+    "name_en": "Bibimbap",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 2,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/Bibimbap.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 9000,
+    "price_krw_display": "₩9,000",
+    "menu_text": "비빔밥 9,000",
+    "name_text": "비빔밥",
+    "line_no": 3,
+    "source": {
+     "text": "비빔밥",
+     "left": 0.11883333333333333,
+     "top": 0.235625,
+     "width": 0.13895833333333335,
+     "height": 0.04187500000000002
+    }
+   },
+   {
+    "food_id": 4,
+    "name_kr": "김치찌개",
+    "name_en": "Kimchi Jjigae",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": [
+      {
+       "keyword": "돼지",
+       "keyword_en": "Pork"
+      }
+     ]
+    },
+    "spice_level": 3,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/KimchiJjigae.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 9000,
+    "price_krw_display": "₩9,000",
+    "menu_text": "돼지김치찌개 9,000",
+    "name_text": "돼지김치찌개",
+    "line_no": 4,
+    "source": {
+     "text": "돼지김치찌개",
+     "left": 0.11883333333333333,
+     "top": 0.286875,
+     "width": 0.26066666666666666,
+     "height": 0.03875000000000001
+    }
+   },
+   {
+    "food_id": 5,
+    "name_kr": "된장찌개",
+    "name_en": "Doenjang Jjigae",
+    "score": 99,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/DoenjangJjigae.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 8000,
+    "price_krw_display": "₩8,000",
+    "menu_text": "된장찌개 8,000",
+    "name_text": "된장찌개",
+    "line_no": 5,
+    "source": {
+     "text": "된장찌개",
+     "left": 0.11979166666666667,
+     "top": 0.33687500000000004,
+     "width": 0.17825000000000002,
+     "height": 0.03874999999999995
+    }
+   },
+   {
+    "food_id": 12,
+    "name_kr": "순두부찌개",
+    "name_en": "Sundubu Jjigae",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 3,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/SundubuJjigae.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 9000,
+    "price_krw_display": "₩9,000",
+    "menu_text": "순두부찌개 9,000",
+    "name_text": "순두부찌개",
+    "line_no": 6,
+    "source": {
+     "text": "순두부찌개",
+     "left": 0.11979166666666667,
+     "top": 0.3875,
+     "width": 0.2194583333333333,
+     "height": 0.03749999999999998
+    }
+   },
+   {
+    "food_id": 8,
+    "name_kr": "물냉면",
+    "name_en": "Mul Naengmyeon",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/MulNaengmyeon.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 9000,
+    "price_krw_display": "₩9,000",
+    "menu_text": "물냉면 9,000",
+    "name_text": "물냉면",
+    "line_no": 7,
+    "source": {
+     "text": "물냉면",
+     "left": 0.11883333333333333,
+     "top": 0.435,
+     "width": 0.13799999999999996,
+     "height": 0.04187500000000005
+    }
+   },
+   {
+    "food_id": 13,
+    "name_kr": "삼계탕",
+    "name_en": "Samgyetang",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/Samgyetang.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 16000,
+    "price_krw_display": "₩16,000",
+    "menu_text": "삼계탕 16,000",
+    "name_text": "삼계탕",
+    "line_no": 8,
+    "source": {
+     "text": "삼계탕",
+     "left": 0.11883333333333333,
+     "top": 0.48625,
+     "width": 0.13895833333333335,
+     "height": 0.03937499999999999
+    }
+   },
+   {
+    "food_id": 2,
+    "name_kr": "불고기",
+    "name_en": "Bulgogi",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/Bulgogi.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 15000,
+    "price_krw_display": "₩15,000",
+    "menu_text": "불고기 15,000",
+    "name_text": "불고기",
+    "line_no": 10,
+    "source": {
+     "text": "불고기",
+     "left": 0.11883333333333333,
+     "top": 0.6118750000000001,
+     "width": 0.13704166666666667,
+     "height": 0.039999999999999925
+    }
+   },
+   {
+    "food_id": 3,
+    "name_kr": "떡볶이",
+    "name_en": "Tteokbokki",
+    "score": 91,
+    "modifiers": {
+     "spice": [
+      {
+       "keyword": "매운",
+       "keyword_en": "Hot",
+       "tier": 2
+      }
+     ],
+     "ingredient": []
+    },
+    "spice_level": 4,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/Tteokbokki.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 7000,
+    "price_krw_display": "₩7,000",
+    "menu_text": "매운떡볶이 7,000",
+    "name_text": "매운떡볶이",
+    "line_no": 11,
+    "source": {
+     "text": "매운떡볶이",
+     "left": 0.11883333333333333,
+     "top": 0.6625,
+     "width": 0.23383333333333334,
+     "height": 0.04000000000000015
+    }
+   },
+   {
+    "food_id": 27,
+    "name_kr": "해물파전",
+    "name_en": "Haemul Pajeon",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/HaemulPajeon.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 14000,
+    "price_krw_display": "₩14,000",
+    "menu_text": "해물파전 14,000",
+    "name_text": "해물파전",
+    "line_no": 12,
+    "source": {
+     "text": "해물파전",
+     "left": 0.11883333333333333,
+     "top": 0.713125,
+     "width": 0.17729166666666668,
+     "height": 0.038124999999999964
+    }
+   },
+   {
+    "food_id": 10,
+    "name_kr": "잡채",
+    "name_en": "Japchae",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/Japchae.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 12000,
+    "price_krw_display": "₩12,000",
+    "menu_text": "잡채 12,000",
+    "name_text": "잡채",
+    "line_no": 13,
+    "source": {
+     "text": "잡채",
+     "left": 0.11691666666666668,
+     "top": 0.7618750000000001,
+     "width": 0.09774999999999999,
+     "height": 0.039999999999999925
+    }
+   },
+   {
+    "food_id": 23,
+    "name_kr": "낙지볶음",
+    "name_en": "Nakji Bokkeum",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 4,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/NakjiBokkeum.jpg",
+    "thumbnail_attribution": "Source: Wikimedia Commons, CC BY-SA 2.0, Korea.net / KOCIS",
+    "price_krw": 18000,
+    "price_krw_display": "₩18,000",
+    "menu_text": "낙지볶음 18,000",
+    "name_text": "낙지볶음",
+    "line_no": 14,
+    "source": {
+     "text": "낙지볶음",
+     "left": 0.12075000000000001,
+     "top": 0.81375,
+     "width": 0.17729166666666668,
+     "height": 0.038125000000000075
+    }
+   },
+   {
+    "food_id": 11,
+    "name_kr": "김밥",
+    "name_en": "Gimbap",
+    "score": 100,
+    "modifiers": {
+     "spice": [],
+     "ingredient": []
+    },
+    "spice_level": 1,
+    "thumbnail_url": "https://jpdhmguwlvruugobafdy.supabase.co/storage/v1/object/public/food-thumbnails/selected_photos/Gimbap.jpg",
+    "thumbnail_attribution": "Source: AI Hub Tourism Menu Board Dataset (NIA)",
+    "price_krw": 4000,
+    "price_krw_display": "₩4,000",
+    "menu_text": "김밥 4,000",
+    "name_text": "김밥",
+    "line_no": 15,
+    "source": {
+     "text": "김밥",
+     "left": 0.11979166666666667,
+     "top": 0.8625,
+     "width": 0.094875,
+     "height": 0.040000000000000036
+    }
+   }
+  ]
+ },
+ "foods": {
+  "1": {
+   "food_id": 1,
+   "name_kr": "비빔밥",
+   "name_en": "Bibimbap",
+   "spice_level": 2,
+   "details": {
+    "ALLERGY": "Contains egg and soy. A vegetarian version without meat is often available on request.",
+    "HOW_TO_EAT": "Mix everything together thoroughly with your spoon before eating, so every bite gets a bit of rice, vegetables, and sauce.",
+    "INGREDIENT": "Rice, an assortment of vegetables (spinach, bean sprouts, carrots, zucchini, mushrooms), beef, a fried or raw egg, and gochujang (chili paste).",
+    "DESCRIPTION": "A bowl of warm rice topped with an assortment of seasoned vegetables, meat, and a fried egg, served with chili paste on the side.",
+    "SPICY": "Mildly spicy. The heat comes from a spoonful of gochujang (chili paste) mixed in — you can ask for less or none if you prefer it mild.",
+    "PRONUNCIATION": "Bibimbap is pronounced \"bee-bim-bap.\" The name literally means \"mixed rice.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Bibimbap. The name means \"mixed rice.\""
+   },
+   "narration_text": "Bibimbap is a bowl of warm rice piled with seasoned vegetables, beef, and a fried egg. The Korean chili paste makes it mildly spicy, but you can ask for less. Give it a good mix with your spoon before you dig in. It has egg and soy, and most places do a meat-free version if you ask. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_1.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_1.m4a",
+   "name_tts_status": "ok"
+  },
+  "4": {
+   "food_id": 4,
+   "name_kr": "김치찌개",
+   "name_en": "Kimchi Jjigae",
+   "spice_level": 3,
+   "details": {
+    "ALLERGY": "Contains soy (tofu) and sometimes fish or seafood in the broth. Pork version is not halal or kosher.",
+    "HOW_TO_EAT": "Served bubbling hot in a shared pot — ladle it into your own bowl and eat with a side of rice.",
+    "INGREDIENT": "Kimchi, pork or tuna, tofu, onion, garlic, and gochugaru (chili flakes).",
+    "DESCRIPTION": "A bubbling stew made with aged kimchi, pork, and tofu in a tangy, spicy broth.",
+    "SPICY": "Moderately spicy, from fermented kimchi and chili powder simmered together.",
+    "PRONUNCIATION": "Kimchi Jjigae is pronounced \"gim-chi jji-gae.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Kimchi Jjigae."
+   },
+   "narration_text": "Kimchi Jjigae is a bubbling stew of aged kimchi, pork, and tofu in a tangy broth. The kimchi and chili flakes give it a solid kick. It comes in a shared pot, so ladle some into your own bowl and eat it with rice. It has soy in it, the broth sometimes has fish or seafood, and the pork version isn't halal or kosher. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_4.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_4.m4a",
+   "name_tts_status": "ok"
+  },
+  "5": {
+   "food_id": 5,
+   "name_kr": "된장찌개",
+   "name_en": "Doenjang Jjigae",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains soy. Naturally vegetarian if made without meat or seafood stock.",
+    "HOW_TO_EAT": "Eat it hot, spooning both the broth and solid ingredients over rice.",
+    "INGREDIENT": "Doenjang (fermented soybean paste), tofu, zucchini, potato, onion, and mushrooms.",
+    "DESCRIPTION": "A hearty stew made with fermented soybean paste, tofu, and vegetables — a staple comfort food in Korean homes.",
+    "SPICY": "Not spicy. It has a deep, savory, slightly funky flavor from fermented soybean paste.",
+    "PRONUNCIATION": "Doenjang Jjigae is pronounced \"dwen-jang jji-gae.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Doenjang Jjigae."
+   },
+   "narration_text": "Doenjang Jjigae is a hearty stew of fermented soybean paste with tofu, zucchini, potato, and mushrooms. It isn't spicy at all — deep and savory, a little funky from the fermentation. Eat it hot, spooning both the broth and the vegetables over rice. It has soy in it, and it's vegetarian if the stock has no meat or seafood. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_5.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_5.m4a",
+   "name_tts_status": "ok"
+  },
+  "12": {
+   "food_id": 12,
+   "name_kr": "순두부찌개",
+   "name_en": "Sundubu Jjigae",
+   "spice_level": 3,
+   "details": {
+    "ALLERGY": "Contains soy, egg, and often shellfish or pork.",
+    "HOW_TO_EAT": "Stir the raw egg into the hot stew as soon as it arrives so it cooks gently in the broth, then eat with rice.",
+    "INGREDIENT": "Soft tofu, gochugaru (chili flakes), seafood or pork, egg, onion, and garlic.",
+    "DESCRIPTION": "A bubbling, spicy stew made with soft, uncurdled tofu, served with a raw egg cracked in at the table.",
+    "SPICY": "Moderately spicy — the broth is bright red from chili oil and gochugaru.",
+    "PRONUNCIATION": "Sundubu Jjigae is pronounced \"sun-du-bu jji-gae.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Sundubu Jjigae."
+   },
+   "narration_text": "Sundubu Jjigae is a bubbling stew of soft tofu in a bright red broth, with a raw egg cracked in on top. It's properly spicy from the chili flakes and chili oil. Stir the egg in as soon as it arrives so it cooks in the broth, then eat with rice. It has soy and egg, and often shellfish or pork. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_12.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_12.m4a",
+   "name_tts_status": "ok"
+  },
+  "8": {
+   "food_id": 8,
+   "name_kr": "물냉면",
+   "name_en": "Mul Naengmyeon",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains egg and gluten (buckwheat noodles often have wheat flour mixed in).",
+    "HOW_TO_EAT": "Use scissors (usually provided) to cut the long noodles, then add a bit of mustard and vinegar to taste before eating.",
+    "INGREDIENT": "Buckwheat noodles, chilled beef broth, sliced beef, cucumber, pear, boiled egg, and mustard.",
+    "DESCRIPTION": "Chewy buckwheat noodles served in an icy, tangy beef broth, a favorite in summer.",
+    "SPICY": "Not spicy. A refreshing, tangy cold broth made from beef stock and radish water kimchi.",
+    "PRONUNCIATION": "Mul Naengmyeon is pronounced \"mul naeng-myeon,\" meaning \"cold noodles in broth.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Mul Naengmyeon. The name means \"cold noodles in broth.\""
+   },
+   "narration_text": "Mul Naengmyeon is chewy buckwheat noodles in an icy, tangy beef broth with cucumber, pear, and a boiled egg. It's not spicy — just cold and refreshing, which is why it's a summer favorite. Cut the noodles with the scissors they bring you, then add mustard and vinegar to taste. It has egg, and the noodles usually have wheat flour in them. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_8.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_8.m4a",
+   "name_tts_status": "ok"
+  },
+  "13": {
+   "food_id": 13,
+   "name_kr": "삼계탕",
+   "name_en": "Samgyetang",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains gluten (glutinous rice). Generally free of other major allergens.",
+    "HOW_TO_EAT": "Season the broth with salt and pepper to taste, then pull the tender chicken apart with your spoon and chopsticks.",
+    "INGREDIENT": "Whole chicken, glutinous rice, ginseng, garlic, jujube (dried date), and chestnuts.",
+    "DESCRIPTION": "A whole young chicken stuffed with rice, garlic, and ginseng, slow-boiled into a nourishing soup.",
+    "SPICY": "Not spicy. A clear, mild broth.",
+    "PRONUNCIATION": "Samgyetang is pronounced \"sam-gye-tang.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Samgyetang."
+   },
+   "narration_text": "Samgyetang is a whole young chicken stuffed with rice, garlic, and ginseng, then slow-boiled into a nourishing soup. It isn't spicy — the broth is clear and mild. Season the broth with salt and pepper, then pull the chicken apart with your spoon. It has gluten from the glutinous rice, but is otherwise free of common allergens. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_13.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_13.m4a",
+   "name_tts_status": "ok"
+  },
+  "2": {
+   "food_id": 2,
+   "name_kr": "불고기",
+   "name_en": "Bulgogi",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains soy and sesame. Gluten may be present depending on the soy sauce used.",
+    "HOW_TO_EAT": "Eat it straight with rice, or wrap a piece in lettuce with a bit of rice and garlic for a fuller bite.",
+    "INGREDIENT": "Beef, soy sauce, sugar, garlic, sesame oil, and pear or onion juice for tenderizing.",
+    "DESCRIPTION": "Thin slices of beef marinated in a sweet soy-based sauce and grilled or pan-fried until tender.",
+    "SPICY": "Not spicy at all. It's a sweet and savory dish seasoned with soy sauce, sugar, and pear juice.",
+    "PRONUNCIATION": "Bulgogi is pronounced \"bul-go-gi,\" meaning \"fire meat.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Bulgogi. The name means \"fire meat.\""
+   },
+   "narration_text": "Bulgogi is thin slices of beef marinated in sweet soy sauce with garlic and sesame oil, then grilled until tender. There's no heat to it at all — it's sweet and savory. Eat it straight with rice, or wrap a piece in lettuce with garlic. It has soy and sesame in it, and the soy sauce may bring gluten. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_2.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_2.m4a",
+   "name_tts_status": "ok"
+  },
+  "3": {
+   "food_id": 3,
+   "name_kr": "떡볶이",
+   "name_en": "Tteokbokki",
+   "spice_level": 4,
+   "details": {
+    "ALLERGY": "Contains gluten (rice cake and fish cake) and soy. Not suitable for those avoiding spicy food.",
+    "HOW_TO_EAT": "Eat straight from the pan while hot, using a fork or toothpick for the rice cakes and fish cakes.",
+    "INGREDIENT": "Rice cakes (tteok), fish cakes, gochujang, gochugaru (chili flakes), sugar, and scallions.",
+    "DESCRIPTION": "Chewy rice cakes simmered in a thick, spicy-sweet chili paste sauce, a favorite Korean street food.",
+    "SPICY": "Quite spicy — made with a generous amount of gochujang (chili paste). If you're sensitive to heat, ask for a milder version.",
+    "PRONUNCIATION": "Tteokbokki is pronounced \"ddeok-bo-kki.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Tteokbokki."
+   },
+   "narration_text": "Tteokbokki is chewy rice cakes and fish cakes simmered in a thick, sweet chili sauce — a street food favorite. Be warned — it's properly spicy, so ask for a milder version if you're not used to heat. Eat it straight from the pan while it's hot, using a fork or a toothpick. It has gluten and soy in it. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "CAUTION",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_3.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_3.m4a",
+   "name_tts_status": "ok"
+  },
+  "27": {
+   "food_id": 27,
+   "name_kr": "해물파전",
+   "name_en": "Haemul Pajeon",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains gluten, egg, and shellfish/seafood.",
+    "HOW_TO_EAT": "Tear or cut into pieces and dip in a soy-vinegar sauce.",
+    "INGREDIENT": "Wheat flour batter, scallions, squid, shrimp, and mussels.",
+    "DESCRIPTION": "A crispy pan-fried pancake packed with scallions and seafood, popular on rainy days with makgeolli rice wine.",
+    "SPICY": "Not spicy. A savory pancake, though it's often dipped in a soy-vinegar sauce.",
+    "PRONUNCIATION": "Haemul Pajeon is pronounced \"hae-mul pa-jeon.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Haemul Pajeon."
+   },
+   "narration_text": "Haemul Pajeon is a crispy pancake packed with scallions, squid, shrimp, and mussels — what Koreans reach for on a rainy day, usually with rice wine. It isn't spicy. Tear or cut it into pieces and dip them in the soy-vinegar sauce that comes with it. It has gluten, egg, and shellfish in it. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_27.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_27.m4a",
+   "name_tts_status": "ok"
+  },
+  "10": {
+   "food_id": 10,
+   "name_kr": "잡채",
+   "name_en": "Japchae",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains soy and sesame. Vegetarian version without beef is common.",
+    "HOW_TO_EAT": "Served at room temperature or slightly warm, eaten with chopsticks as a side dish or light main.",
+    "INGREDIENT": "Sweet potato glass noodles, beef, spinach, carrots, onion, mushrooms, soy sauce, and sesame oil.",
+    "DESCRIPTION": "Stir-fried glass noodles tossed with vegetables and thin strips of beef, glossy and slightly sweet.",
+    "SPICY": "Not spicy. A sweet and savory dish seasoned with soy sauce and sesame oil.",
+    "PRONUNCIATION": "Japchae is pronounced \"jap-chae.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Japchae."
+   },
+   "narration_text": "Japchae is glass noodles stir-fried with beef, spinach, carrots, and mushrooms, glossy and a little sweet. There's no heat to it — just soy sauce and sesame oil. It's served warm or at room temperature, eaten with chopsticks as a side or a light main. It has soy and sesame, and a version without beef is common. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_10.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_10.m4a",
+   "name_tts_status": "ok"
+  },
+  "23": {
+   "food_id": 23,
+   "name_kr": "낙지볶음",
+   "name_en": "Nakji Bokkeum",
+   "spice_level": 4,
+   "details": {
+    "ALLERGY": "Contains shellfish/mollusk (octopus) and soy. Not suitable for those avoiding seafood or spicy food.",
+    "HOW_TO_EAT": "Eat with rice to balance the heat, and keep water or a cold drink nearby.",
+    "INGREDIENT": "Octopus, gochujang, gochugaru, garlic, onion, and scallion.",
+    "DESCRIPTION": "Fresh octopus stir-fried in a fiery chili paste sauce with vegetables, known for its intense heat and chewy texture.",
+    "SPICY": "Very spicy — stir-fried in a strong gochujang and gochugaru sauce.",
+    "PRONUNCIATION": "Nakji Bokkeum is pronounced \"nak-ji bo-kkeum.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Nakji Bokkeum."
+   },
+   "narration_text": "Nakji Bokkeum is fresh octopus stir-fried with vegetables in a fierce chili sauce, chewy and seriously hot. This one is very spicy — go carefully if you're not used to it. Eat it with rice to take the edge off, and keep a cold drink nearby. It has octopus and soy in it, so it's out if you avoid seafood. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "CAUTION",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_23.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_23.m4a",
+   "name_tts_status": "ok"
+  },
+  "11": {
+   "food_id": 11,
+   "name_kr": "김밥",
+   "name_en": "Gimbap",
+   "spice_level": 1,
+   "details": {
+    "ALLERGY": "Contains egg, gluten, and sometimes seafood (tuna) or pork (ham). Vegetarian versions are common.",
+    "HOW_TO_EAT": "Eat the slices with your hands or chopsticks — no dipping sauce needed, though some come with a side of soy sauce.",
+    "INGREDIENT": "Rice, seaweed sheets, and fillings such as egg, spinach, pickled radish, carrot, and ham or tuna.",
+    "DESCRIPTION": "Rice and various fillings rolled in dried seaweed sheets and sliced into bite-sized pieces, a popular portable meal.",
+    "SPICY": "Not spicy. A mild, savory snack.",
+    "PRONUNCIATION": "Gimbap is pronounced \"gim-bap,\" meaning \"seaweed rice.\"",
+    "PRONUNCIATION_TTS": "Say it like this: Gimbap. The name means \"seaweed rice.\""
+   },
+   "narration_text": "Gimbap is rice and fillings rolled in dried seaweed and sliced into bite-sized pieces. There's no heat to it — it's mild and savory. Pick the slices up with your hands or chopsticks; you don't need a dipping sauce. It has egg and gluten, sometimes tuna or ham, and vegetarian versions are easy to find. This is general info, not medical advice — check with the restaurant about allergies.",
+   "style": "GUIDE",
+   "tts_status": "ok",
+   "narration_audio_path": "demo/audio/food_11.m4a",
+   "tts_latency_ms": 0.0,
+   "name_audio_path": "demo/audio/name_11.m4a",
+   "name_tts_status": "ok"
+  }
+ },
+ "supported": [
+  {
+   "food_id": 24,
+   "name_kr": "아귀찜",
+   "name_en": "Agujjim"
+  },
+  {
+   "food_id": 40,
+   "name_kr": "비빔국수",
+   "name_en": "Bibim Guksu"
+  },
+  {
+   "food_id": 9,
+   "name_kr": "비빔냉면",
+   "name_en": "Bibim Naengmyeon"
+  },
+  {
+   "food_id": 1,
+   "name_kr": "비빔밥",
+   "name_en": "Bibimbap"
+  },
+  {
+   "food_id": 22,
+   "name_kr": "보쌈",
+   "name_en": "Bossam"
+  },
+  {
+   "food_id": 2,
+   "name_kr": "불고기",
+   "name_en": "Bulgogi"
+  },
+  {
+   "food_id": 48,
+   "name_kr": "청국장",
+   "name_en": "Cheonggukjang"
+  },
+  {
+   "food_id": 33,
+   "name_kr": "닭갈비",
+   "name_en": "Dakgalbi"
+  },
+  {
+   "food_id": 5,
+   "name_kr": "된장찌개",
+   "name_en": "Doenjang Jjigae"
+  },
+  {
+   "food_id": 50,
+   "name_kr": "동태찌개",
+   "name_en": "Dongtae Jjigae"
+  },
+  {
+   "food_id": 44,
+   "name_kr": "두부김치",
+   "name_en": "Dubu Kimchi"
+  },
+  {
+   "food_id": 28,
+   "name_kr": "갈비",
+   "name_en": "Galbi"
+  },
+  {
+   "food_id": 26,
+   "name_kr": "갈비찜",
+   "name_en": "Galbijjim"
+  },
+  {
+   "food_id": 7,
+   "name_kr": "갈비탕",
+   "name_en": "Galbitang"
+  },
+  {
+   "food_id": 49,
+   "name_kr": "갈치조림",
+   "name_en": "Galchi Jorim"
+  },
+  {
+   "food_id": 46,
+   "name_kr": "감자전",
+   "name_en": "Gamjajeon"
+  },
+  {
+   "food_id": 17,
+   "name_kr": "감자탕",
+   "name_en": "Gamjatang"
+  },
+  {
+   "food_id": 31,
+   "name_kr": "간장게장",
+   "name_en": "Ganjang Gejang"
+  },
+  {
+   "food_id": 11,
+   "name_kr": "김밥",
+   "name_en": "Gimbap"
+  },
+  {
+   "food_id": 15,
+   "name_kr": "곱창전골",
+   "name_en": "Gopchang Jeongol"
+  },
+  {
+   "food_id": 45,
+   "name_kr": "계란찜",
+   "name_en": "Gyeranjjim"
+  },
+  {
+   "food_id": 27,
+   "name_kr": "해물파전",
+   "name_en": "Haemul Pajeon"
+  },
+  {
+   "food_id": 19,
+   "name_kr": "잔치국수",
+   "name_en": "Janchi Guksu"
+  },
+  {
+   "food_id": 10,
+   "name_kr": "잡채",
+   "name_en": "Japchae"
+  },
+  {
+   "food_id": 14,
+   "name_kr": "제육볶음",
+   "name_en": "Jeyuk Bokkeum"
+  },
+  {
+   "food_id": 34,
+   "name_kr": "찜닭",
+   "name_en": "Jjimdak"
+  },
+  {
+   "food_id": 21,
+   "name_kr": "족발",
+   "name_en": "Jokbal"
+  },
+  {
+   "food_id": 18,
+   "name_kr": "칼국수",
+   "name_en": "Kalguksu"
+  },
+  {
+   "food_id": 35,
+   "name_kr": "김치볶음밥",
+   "name_en": "Kimchi Bokkeumbap"
+  },
+  {
+   "food_id": 4,
+   "name_kr": "김치찌개",
+   "name_en": "Kimchi Jjigae"
+  },
+  {
+   "food_id": 29,
+   "name_kr": "콩국수",
+   "name_en": "Kongguksu"
+  },
+  {
+   "food_id": 38,
+   "name_kr": "콩나물국밥",
+   "name_en": "Kongnamul Gukbap"
+  },
+  {
+   "food_id": 25,
+   "name_kr": "매운탕",
+   "name_en": "Maeuntang"
+  },
+  {
+   "food_id": 39,
+   "name_kr": "만두",
+   "name_en": "Mandu"
+  },
+  {
+   "food_id": 8,
+   "name_kr": "물냉면",
+   "name_en": "Mul Naengmyeon"
+  },
+  {
+   "food_id": 43,
+   "name_kr": "물회",
+   "name_en": "Mulhoe"
+  },
+  {
+   "food_id": 23,
+   "name_kr": "낙지볶음",
+   "name_en": "Nakji Bokkeum"
+  },
+  {
+   "food_id": 36,
+   "name_kr": "오징어볶음",
+   "name_en": "Ojingeo Bokkeum"
+  },
+  {
+   "food_id": 6,
+   "name_kr": "삼겹살",
+   "name_en": "Samgyeopsal"
+  },
+  {
+   "food_id": 13,
+   "name_kr": "삼계탕",
+   "name_en": "Samgyetang"
+  },
+  {
+   "food_id": 42,
+   "name_kr": "수제비",
+   "name_en": "Sujebi"
+  },
+  {
+   "food_id": 20,
+   "name_kr": "순대",
+   "name_en": "Sundae"
+  },
+  {
+   "food_id": 37,
+   "name_kr": "순댓국",
+   "name_en": "Sundaetguk"
+  },
+  {
+   "food_id": 12,
+   "name_kr": "순두부찌개",
+   "name_en": "Sundubu Jjigae"
+  },
+  {
+   "food_id": 3,
+   "name_kr": "떡볶이",
+   "name_en": "Tteokbokki"
+  },
+  {
+   "food_id": 47,
+   "name_kr": "떡갈비",
+   "name_en": "Tteokgalbi"
+  },
+  {
+   "food_id": 41,
+   "name_kr": "떡국",
+   "name_en": "Tteokguk"
+  },
+  {
+   "food_id": 32,
+   "name_kr": "양념게장",
+   "name_en": "Yangnyeom Gejang"
+  },
+  {
+   "food_id": 16,
+   "name_kr": "육개장",
+   "name_en": "Yukgaejang"
+  },
+  {
+   "food_id": 30,
+   "name_kr": "육회",
+   "name_en": "Yukhoe"
+  }
+ ]
+}

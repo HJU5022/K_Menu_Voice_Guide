@@ -4,7 +4,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Camera, Check, ChevronDown, CircleHelp, Flame,
-  House, Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Volume2, X,
+  House, Image as ImageIcon, Minus, Plus, Settings, ShieldCheck, Utensils, Volume2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LangContext, useT } from "@/lang";
@@ -12,7 +12,7 @@ import { STRINGS, type Lang, type Strings } from "@/i18n";
 import Landing from "./Landing";
 import {
   analyzeMenu, cartLineKey, changeCartItem, clearCart, getCart, getFoodDetail, listSupportedFoods, resolveAudioUrl,
-  EMPTY_CART, apiBaseUrl, isUsingCustomApi, BadUploadError,
+  startDemo, stopDemo, EMPTY_CART, apiBaseUrl, isUsingCustomApi, BadUploadError,
   type ApiCandidate, type CartItemRef, type CartLine, type CartResponse, type FoodDetail, type SupportedFood,
 } from "@/lib/api";
 
@@ -33,6 +33,8 @@ type HeaderProps = {
   setLang: (v: string) => void;
   onSettings: () => void;
   onHome: () => void;
+  // 예시 메뉴판(데모)을 보는 중인지. 미리 계산한 결과를 실제 분석으로 착각하지 않게 표시한다.
+  demo?: boolean;
 };
 type Modal = "settings" | "privacy" | "terms" | null;
 
@@ -109,6 +111,7 @@ export default function Home() {
 
   const [cart, setCart] = useState<CartResponse>(EMPTY_CART);
   const [cartError, setCartError] = useState("");
+  const [demo, setDemo] = useState(false);
 
   const [errorHeading, setErrorHeading] = useState(STRINGS.en.errServiceTitle);
   const [errorHint, setErrorHint] = useState(STRINGS.en.errServiceHint);
@@ -141,6 +144,12 @@ export default function Home() {
 
   async function handlePhoto(file: File) {
     if (photoUrl) URL.revokeObjectURL(photoUrl);
+    // 자기 사진을 올리면 데모에서 나온다. 미리 계산한 결과는 예시 메뉴판 한 장에 대한 것뿐이다.
+    if (demo) {
+      stopDemo();
+      setDemo(false);
+      setCart(EMPTY_CART);
+    }
     setPhotoUrl(URL.createObjectURL(file));
     setScreen("processing");
 
@@ -166,6 +175,24 @@ export default function Home() {
       } else {
         goToError(t.errServiceTitle, t.errServiceHint, "camera");
       }
+    }
+  }
+
+  // 예시 메뉴판으로 체험한다. 서버가 꺼져 있어도 후보·상세·음성·장바구니까지 끝까지 동작한다
+  // (lib/api.ts의 데모 설명). 사진을 올린 것과 같은 화면 흐름을 그대로 탄다.
+  async function handleDemo() {
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    setScreen("processing");
+    try {
+      const sample = await startDemo();
+      setPhotoUrl(sample.photoUrl);
+      setCandidates(sample.result.candidates);
+      setDemo(true);
+      setCart(await getCart());
+      setCartError("");
+      setScreen("candidates");
+    } catch {
+      goToError(t.errServiceTitle, t.errServiceHint, "camera");
     }
   }
 
@@ -212,6 +239,7 @@ export default function Home() {
     setLang,
     onSettings: () => setModal("settings"),
     onHome: () => setScreen("landing"),
+    demo,
   };
 
   // 설정·개인정보 창은 어느 화면에서 열든 같은 것이어야 한다. 예전에는 첫 화면의
@@ -293,6 +321,8 @@ export default function Home() {
                 파일 선택으로 넘어간다(아래 CameraCapture 설명 참고). */}
             <Button className="primary-button" onClick={() => { setCameraNotice(null); setCamera(true); }}><Camera size={18} /> {t.takePhoto}</Button>
             <Button variant="outline" className="secondary-button" onClick={() => uploadInputRef.current?.click()}><ImageIcon size={18} /> {t.uploadPhoto}</Button>
+            {/* 메뉴판이 없거나 분석 서버가 꺼져 있어도 흐름 전체를 볼 수 있는 길(lib/api.ts의 데모). */}
+            <Button variant="outline" className="secondary-button" onClick={handleDemo}><Utensils size={18} /> {t.tryDemo}</Button>
           </div>
           {cameraNotice && (
             <p className="camera-notice" role="status">
@@ -340,7 +370,7 @@ export default function Home() {
   );
 }
 
-function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
+function Header({ lang, setLang, onSettings, onHome, demo }: HeaderProps) {
   const t = useT();
   // 로고는 어느 사이트에서나 "첫 화면으로"를 뜻한다. 눌러도 아무 일이 없으면 고장으로
   // 읽히므로 button으로 만든다(div는 키보드로 누를 수 없다).
@@ -358,7 +388,7 @@ function Header({ lang, setLang, onSettings, onHome }: HeaderProps) {
         <ChevronDown size={14} />
       </span>
       <select value={lang} onChange={(e) => setLang(e.target.value)}>{LANGUAGES.map((l) => <option key={l.code} value={l.code} disabled={!l.ready}>{l.ready ? l.label : `${l.label} (coming soon)`}</option>)}</select>
-    </label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}</header>;
+    </label><button className="icon-button" aria-label={t.settings} onClick={onSettings}><Settings size={18} /></button></div>{isUsingCustomApi && <CustomApiNotice />}{demo && <p className="demo-notice">{t.demoNotice}</p>}</header>;
 }
 
 /** 지금 몇 번째 화면인지 알리는 쪽 번호.

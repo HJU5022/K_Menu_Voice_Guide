@@ -79,6 +79,26 @@ button:active { transform:scale(.97); }
   cursor: pointer;
 }
 
+/* 예시 메뉴판(데모)을 보는 중일 때 뜨는 표시. 위 알림과 같은 이유로 고정하되, 둘이 동시에
+   떠도 겹치지 않게 왼쪽 아래에 둔다. 누를 것이 아니라 알리는 것이라 단추가 아니다. */
+.demo-notice {
+  position: fixed;
+  z-index: 50;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--teal);
+  color: #fdf6ec;
+}
+/* 촬영 화면의 버튼이 셋(찍기·올리기·예시 메뉴판)이라, 패널이 좁아지는 중간 폭에서는 넘치지 않고
+   다음 줄로 내려가게 한다. 560px 이하는 원래대로 한 줄에 하나씩 쌓인다. */
+.camera-actions { flex-wrap: wrap; }
+
 
 /* 카드 이름 — 영어를 크게, 한국어를 보조로. 읽는 사람이 영어권 여행자다.
    예전에는 한국어가 크고 영어가 작았는데, 이름을 못 읽는 사람에게 큰 글자가 소용이 없었다.
