@@ -188,6 +188,105 @@ export function cartLineKey(foodId: number | null | undefined, menuText: string 
 }
 
 // ---------------------------------------------------------------------------
+// 데모 모드 — 서버(GPU Space)가 꺼져 있어도 처음부터 끝까지 써 볼 수 있게 한다.
+//
+// 우리가 직접 만든 예시 메뉴판 한 장을 실제 파이프라인으로 미리 분석해 둔 결과를, 사이트에
+// 같이 올라가는 정적 파일(client/public/demo/)에서 읽는다. 만드는 법은
+// deploy/web-demo/build_demo.py에 있다.
+//
+// 데모 중에는 상세·장바구니도 서버를 부르지 않는다. 꺼진 서버를 한 번이라도 부르면 90초
+// 시간 초과를 다 기다린 뒤에야 오류가 뜨기 때문이다. 장바구니 규칙은 서버(src/cart/store.py)와
+// 같게 아래 demoCartState()·changeDemoCart()에 옮겨 두었다.
+//
+// [주의] 미리 계산한 결과는 그 메뉴판 한 장에 대한 것뿐이다. 사용자가 올린 사진은 데모에서
+// 나와(stopDemo) 여전히 서버로 간다.
+// ---------------------------------------------------------------------------
+
+export type DemoData = {
+  generated_at: string;
+  menu_image: string;
+  analyze: AnalyzeResponse;
+  foods: Record<string, FoodDetail>;
+  supported: SupportedFood[];
+};
+
+// 정적 파일은 사이트 기준 경로다. Vite의 BASE_URL을 붙여, 하위 경로에 배포돼도 맞는 곳을 연다.
+const siteUrl = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+
+let demoActive = false;
+let demoData: Promise<DemoData> | null = null;
+let demoCart: Omit<CartLine, "price_krw_display" | "line_total_krw" | "line_total_display">[] = [];
+
+function loadDemo(): Promise<DemoData> {
+  if (!demoData) {
+    const loading = fetch(siteUrl("demo/demo.json")).then((res) => {
+      if (!res.ok) throw new Error(`demo data ${res.status}`);
+      return res.json() as Promise<DemoData>;
+    });
+    // 실패한 약속을 들고 있으면 다시 눌러도 계속 실패한다. 실패하면 다음에 새로 받게 비운다.
+    loading.catch(() => { demoData = null; });
+    demoData = loading;
+  }
+  return demoData;
+}
+
+/** 예시 메뉴판으로 들어간다. 메뉴판 사진 주소와 미리 계산한 분석 결과를 돌려준다. */
+export async function startDemo(): Promise<{ photoUrl: string; result: AnalyzeResponse }> {
+  const data = await loadDemo();
+  demoActive = true;
+  demoCart = [];
+  return { photoUrl: siteUrl(data.menu_image), result: data.analyze };
+}
+
+/** 데모에서 나온다. 이후 요청은 다시 서버로 간다. */
+export function stopDemo() {
+  demoActive = false;
+}
+
+const formatKrw = (value: number) => `₩${value.toLocaleString("en-US")}`;
+
+/** 서버의 _build_state()와 같은 모양으로 장바구니 전체 상태를 만든다. */
+function demoCartState(): CartResponse {
+  let total = 0;
+  let count = 0;
+  let unpriced = false;
+  const items = demoCart.map((line) => {
+    count += line.quantity;
+    const lineTotal = line.price_krw === null ? null : line.price_krw * line.quantity;
+    if (lineTotal === null) unpriced = true;
+    else total += lineTotal;
+    return {
+      ...line,
+      price_krw_display: line.price_krw === null ? null : formatKrw(line.price_krw),
+      line_total_krw: lineTotal,
+      line_total_display: lineTotal === null ? null : formatKrw(lineTotal),
+    };
+  });
+  return { cart_id: "demo", items, item_count: count, total_krw: total, total_krw_display: formatKrw(total), has_unpriced_items: unpriced };
+}
+
+/** 서버의 change_quantity()와 같은 규칙: 같은 메뉴판 줄은 합치고, 0 이하가 되면 지운다. */
+async function changeDemoCart(item: CartItemRef, quantityDelta: number): Promise<CartResponse> {
+  const key = cartLineKey(item.food_id, item.menu_text);
+  const existing = demoCart.find((line) => cartLineKey(line.food_id, line.menu_text) === key);
+  if (existing) {
+    existing.quantity += quantityDelta;
+  } else {
+    // 서버는 menu_text에서 가격을 떼어 name_text를 만든다. 데모에서는 같은 줄의 후보가 이미
+    // 그 값을 들고 있으므로 다시 계산하지 않고 가져온다.
+    const { analyze } = await loadDemo();
+    const source = analyze.candidates.find((c) => cartLineKey(c.food_id, c.menu_text) === key);
+    demoCart.push({
+      food_id: item.food_id, name_kr: item.name_kr, name_en: item.name_en,
+      menu_text: item.menu_text ?? null, name_text: source?.name_text ?? item.menu_text ?? null,
+      price_krw: item.price_krw, quantity: quantityDelta,
+    });
+  }
+  demoCart = demoCart.filter((line) => line.quantity > 0);
+  return demoCartState();
+}
+
+// ---------------------------------------------------------------------------
 // Requests
 // ---------------------------------------------------------------------------
 
@@ -207,16 +306,32 @@ export async function analyzeMenu(image: File): Promise<AnalyzeResponse> {
 }
 
 export async function listSupportedFoods(): Promise<SupportedFood[]> {
-  const { data } = await client.get<SupportedFood[]>("/api/foods");
-  return data;
+  if (demoActive) return (await loadDemo()).supported;
+  try {
+    const { data } = await client.get<SupportedFood[]>("/api/foods");
+    return data;
+  } catch (error) {
+    // 지원 음식 목록은 서버가 꺼져 있어도 바뀌지 않는 값이라, 데모 파일에 담아 둔 것을 보여 준다.
+    try {
+      return (await loadDemo()).supported;
+    } catch {
+      throw error;
+    }
+  }
 }
 
 export async function getFoodDetail(foodId: number): Promise<FoodDetail> {
+  if (demoActive) {
+    const detail = (await loadDemo()).foods[String(foodId)];
+    if (!detail) throw new Error(`demo has no food_id ${foodId}`);
+    return detail;
+  }
   const { data } = await client.get<FoodDetail>(`/api/foods/${foodId}`);
   return data;
 }
 
 export async function getCart(): Promise<CartResponse> {
+  if (demoActive) return demoCartState();
   const { data } = await client.get<CartResponse>("/api/cart", { headers: cartHeaders() });
   return data;
 }
@@ -225,6 +340,7 @@ export async function getCart(): Promise<CartResponse> {
 // line at zero) and always answers with the whole cart, so the caller never reconciles
 // partial state itself — it just replaces its cart state with this response.
 export async function changeCartItem(item: CartItemRef, quantityDelta: number): Promise<CartResponse> {
+  if (demoActive) return changeDemoCart(item, quantityDelta);
   const { data } = await client.post<CartResponse>(
     "/api/cart/items",
     { food_id: item.food_id, name_kr: item.name_kr, name_en: item.name_en, menu_text: item.menu_text ?? null, price_krw: item.price_krw, quantity_delta: quantityDelta },
@@ -234,13 +350,19 @@ export async function changeCartItem(item: CartItemRef, quantityDelta: number): 
 }
 
 export async function clearCart(): Promise<CartResponse> {
+  if (demoActive) {
+    demoCart = [];
+    return demoCartState();
+  }
   const { data } = await client.delete<CartResponse>("/api/cart", { headers: cartHeaders() });
   return data;
 }
 
 // narration_audio_path comes back as a relative path ("/audio/xxx.wav"); the API base
 // has to be prepended before the browser can play it.
+// 데모 음성("demo/audio/...")은 서버가 아니라 이 사이트에 있으므로 사이트 기준으로 연다.
 export function resolveAudioUrl(path: string | null): string | null {
   if (!path) return null;
+  if (path.startsWith("demo/")) return siteUrl(path);
   return `${API_BASE_URL}${path}`;
 }

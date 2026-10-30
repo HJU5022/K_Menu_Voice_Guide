@@ -57,7 +57,8 @@ cd "$STAGING_DIR"
 git init -q
 
 # Hugging Face는 일반 git으로 올라오는 바이너리 파일을 거부한다("Your push was rejected
-# because it contains binary files"). 배경 이미지 두 장이 여기 걸리므로 Git LFS로 올린다.
+# because it contains binary files"). 배경 이미지 두 장과 데모 모드의 메뉴판·음성(demo/)이
+# 여기 걸리므로 Git LFS로 올린다.
 # .gitattributes는 **git add보다 먼저** 있어야 한다 — 파일을 담는 시점에 이 규칙을 보고
 # LFS로 보낼지 정하기 때문이다.
 git lfs install --local >/dev/null
@@ -67,6 +68,7 @@ cat > .gitattributes <<'ATTRS'
 *.png  filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
 *.gif  filter=lfs diff=lfs merge=lfs -text
+*.m4a  filter=lfs diff=lfs merge=lfs -text
 ATTRS
 
 git add -A
